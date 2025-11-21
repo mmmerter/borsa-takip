@@ -41,7 +41,7 @@ with c_toggle:
     st.write("") 
     GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True)
 
-# --- NAVİGASYON MENÜSÜ (GRİ/BEYAZ/SİYAH TEMA & KALIN PUNTO) ---
+# --- NAVİGASYON MENÜSÜ ---
 selected = option_menu(
     menu_title=None, 
     options=["Dashboard", "Tümü", "BIST", "ABD", "Emtia", "Fiziki", "Kripto", "İzleme", "Satışlar", "Ekle/Çıkar"], 
@@ -50,19 +50,19 @@ selected = option_menu(
     default_index=0, 
     orientation="horizontal",
     styles={
-        "container": {"padding": "0!important", "background-color": "#161616"}, # Koyu Zemin
-        "icon": {"color": "red", "font-size": "18px"}, # İkonlar Beyaz
+        "container": {"padding": "0!important", "background-color": "#161616"}, 
+        "icon": {"color": "red", "font-size": "18px"}, 
         "nav-link": {
             "font-size": "14px", 
             "text-align": "center", 
             "margin":"0px", 
             "--hover-color": "#333333",
-            "font-weight": "bold",  # KALIN PUNTO (BOLD)
-            "color": "#bfbfbf"      # Seçili olmayan yazı rengi (Açık Gri)
+            "font-weight": "bold", 
+            "color": "#bfbfbf"
         },
         "nav-link-selected": {
-            "background-color": "#ffffff", # Seçili Arka Plan: BEYAZ
-            "color": "#000000",            # Seçili Yazı: SİYAH
+            "background-color": "#ffffff", 
+            "color": "#000000",            
         }, 
     }
 )
@@ -304,15 +304,20 @@ if selected == "Dashboard":
         c2.metric("Genel Kâr/Zarar", f"{sym}{total_pl:,.0f}", delta=f"{total_pl:,.0f}")
         st.divider()
         col_pie, col_bar = st.columns([1, 1])
+        
+        # --- DASHBOARD: MAKRO GÖRÜNÜM ---
         with col_pie:
             st.subheader("Dağılım")
+            # PASTA: Pazar dağılımı (BIST, ABD vs.)
             fig_pie = px.pie(portfoy_only, values='Değer', names='Pazar', hole=0.4)
             st.plotly_chart(fig_pie, use_container_width=True)
         with col_bar:
-            st.subheader("En Büyük Varlıklar")
-            top_assets = portfoy_only.sort_values(by="Değer", ascending=False).head(10)
-            fig_bar = px.bar(top_assets, x='Kod', y='Değer', color='Top. P/L')
+            st.subheader("Pazar Büyüklükleri")
+            # BAR CHART (REVİZE EDİLDİ): Artık Hisse değil, PAZAR toplamlarını gösteriyor.
+            df_pazar_group = portfoy_only.groupby("Pazar")["Değer"].sum().reset_index().sort_values(by="Değer", ascending=False)
+            fig_bar = px.bar(df_pazar_group, x='Pazar', y='Değer', color='Pazar')
             st.plotly_chart(fig_bar, use_container_width=True)
+            
         st.divider()
         st.subheader("📈 Tarihsel Zenginleşme (TL)")
         hist_data = get_historical_chart(portfoy_df, USD_TRY)
@@ -320,8 +325,26 @@ if selected == "Dashboard":
     else: st.info("Portföy boş.")
 
 elif selected == "Tümü":
-    st.subheader("Tüm Portföy Listesi")
-    st.dataframe(portfoy_only, use_container_width=True, hide_index=True)
+    if not portfoy_only.empty:
+        # --- TÜMÜ: MİKRO (HİSSE BAZLI) GÖRÜNÜM ---
+        col_pie_det, col_bar_det = st.columns([1, 1])
+        with col_pie_det:
+            st.subheader("Varlık Bazlı Dağılım")
+            # PASTA: Hangi Hisse Kaçlık Yer Kaplıyor (Google, Akbank...)
+            fig_pie_det = px.pie(portfoy_only, values='Değer', names='Kod', hole=0.4)
+            st.plotly_chart(fig_pie_det, use_container_width=True)
+        with col_bar_det:
+            st.subheader("Varlık Bazlı Değerler")
+            # BAR: Hangi Hisse Ne Kadar Değerli
+            top_assets = portfoy_only.sort_values(by="Değer", ascending=False)
+            fig_bar_det = px.bar(top_assets, x='Kod', y='Değer', color='Pazar')
+            st.plotly_chart(fig_bar_det, use_container_width=True)
+            
+        st.divider()
+        st.subheader("Tüm Portföy Listesi")
+        st.dataframe(portfoy_only, use_container_width=True, hide_index=True)
+    else:
+        st.info("Veri yok.")
 
 elif selected == "BIST": render_pazar_tab(portfoy_only, "BIST", sym)
 elif selected == "ABD": render_pazar_tab(portfoy_only, "ABD", sym)
@@ -413,4 +436,3 @@ elif selected == "Ekle/Çıkar":
                         st.rerun()
                     else: st.error("Lütfen geçerli adet ve fiyat giriniz.")
         else: st.info("Satılacak varlık yok.")
-
