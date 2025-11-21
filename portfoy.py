@@ -17,41 +17,53 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main .block-container {
-        padding-top: 2rem;
-        padding-left: 1rem;
-        padding-right: 1rem;
+        padding-top: 1rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
     }
     h1 {
-        font-size: 1.8rem !important;
+        font-size: 1.5rem !important;
         text-align: center;
         color: #4CAF50;
+        margin-bottom: 0px;
     }
     div[data-testid="stMetric"] {
-        background-color: #f0f2f6;
+        background-color: #f8f9fa;
+        border: 1px solid #e0e0e0;
         border-radius: 10px;
         padding: 10px;
         text-align: center;
     }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 5px;
         flex-wrap: wrap; 
+        justify-content: center;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
+        height: 40px;
         white-space: pre-wrap;
-        background-color: #f0f2f6;
-        border-radius: 5px;
-        padding: 5px 10px;
-        font-size: 14px;
+        background-color: #ffffff;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        padding: 5px 15px;
+        font-size: 12px;
+        font-weight: 600;
     }
     .stTabs [aria-selected="true"] {
         background-color: #4CAF50 !important;
         color: white !important;
+        border-color: #4CAF50 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("Merter’in Bulut Tabanlı Portföy Takip Motoru")
+
+# --- SABİT KOLON İSİMLERİ (HATA ÖNLEYİCİ) ---
+# Bu liste sayesinde DataFrame asla kolonsuz kalmayacak.
+ANALYSIS_COLS = ["Kod", "Pazar", "Tip", "Adet", "Maliyet", "Fiyat", "Önceki", "PB", 
+                 "Değer", "Top. P/L", "Top. %", "Gün. P/L", "Gün. %", 
+                 "TL Değer", "TL Maliyet", "TL Gün P/L", "Notlar"]
 
 # --- DEVASA VARLIK LİSTESİ ---
 MARKET_DATA = {
@@ -69,24 +81,23 @@ MARKET_DATA = {
         "TURSG", "ULKER", "VAKBN", "VESBE", "ZOREN", "ADEL", "ADESE", "AGROT", "AKCNS", "AKSGY",
         "ALGYO", "ALKIM", "ANACM", "ANELE", "ANGEN", "ANHYT", "ANSGR", "ARASE", "ARDYZ", "ARENA",
         "ARSAN", "ATAGY", "ATAKP", "AVGYO", "AVHOL", "AVOD", "AYEN", "AYES", "AYGAZ", "AZTEK",
-        "BJKAS", "BOBET", "BOSSA", "BRISA", "BRKO", "BRKSN", "BRKVY", "BRLSM", "BRMEN", "BRSAN",
-        "BRYAT", "BSOKE", "BTCIM", "CEOEM", "CONSE", "COSMO", "DARDL", "EBEBK", "EKSUN", "ELITE", 
-        "EMKEL", "ERBOS", "ESEN", "ESCOM", "FORTE", "GEDIK", "GOKNR", "GOLTS", "GOODY", "GOZDE", 
-        "GRSEL", "HEDEF", "HKTM", "HLGYO", "HUNER", "IHLAS", "IHLGM", "INFO", "INVES", "IPEKE", 
-        "ISFIN", "ISGSY", "ISKPL", "JANTS", "KAREL", "KARSN", "KARTN", "KATMR", "KAYSE", "KFEIN", 
-        "KGYO", "KLKIM", "KLMSN", "KNFRT", "KONYA", "KOPOL", "KRGYO", "KRONT", "KRPLS", "KSTUR", 
-        "KUTPO", "LIDER", "LOGO", "LUKSK", "MAKIM", "MANAS", "MARBL", "MEDTR", "MERCN", "METRO", 
-        "MOBTL", "MPARK", "MRGYO", "NATEN", "NETAS", "NUGYO", "NUHCM", "OFSYM", "ONCSM", "ORCAY", 
-        "ORGE", "OSMEN", "OSTIM", "OTTO", "OZKGY", "OZRDN", "OZSUB", "PAGYO", "PAMEL", "PAPIL", 
-        "PARSN", "PCILT", "PEKGY", "PENGD", "PETUN", "PINSU", "PKART", "PNLSN", "PNSUT", "POLHO", 
-        "POLTK", "PRDGS", "PRKAB", "PRKME", "RNPOL", "RYGYO", "RYSAS", "SANEL", "SANKO", "SARKY", 
-        "SAYAS", "SEKFK", "SEKUR", "SELGD", "SELVA", "SEYKM", "SILVR", "SKTAS", "SMART", "SNGYO", 
-        "SNKRN", "SNPAM", "SODSN", "SOKE", "SONME", "SRVGY", "SUMAS", "SUNTK", "SUWEN", "TABGD", 
-        "TARKM", "TBORG", "TDGYO", "TEKTU", "TERA", "TETMT", "TEZOL", "TGSAS", "TLMAN", "TMPOL", 
-        "TNZTP", "TRCAS", "TRGYO", "TRILC", "TSGYO", "TUCLK", "TUKAS", "TURGG", "UFUK", "ULAS", 
-        "ULUFA", "ULUSE", "ULUUN", "UMPAS", "UNLU", "USAK", "UZERB", "VAKFN", "VAKKO", "VANGD", 
-        "VBTYZ", "VERTU", "VERUS", "VKFYO", "VKGYO", "VKING", "YAPRK", "YATAS", "YAYLA", "YESIL", 
-        "YGGYO", "YGYO", "YKSLN", "YONGA", "YUNSA", "YYAPI", "ZEDUR"
+        "BJKAS", "BOBET", "BOSSA", "BRISA", "BSOKE", "BTCIM", "CEOEM", "CONSE", "COSMO", "DARDL",
+        "EBEBK", "EKSUN", "ELITE", "EMKEL", "ERBOS", "ESEN", "ESCOM", "FORTE", "GEDIK", "GOKNR",
+        "GOLTS", "GOODY", "GOZDE", "GRSEL", "HEDEF", "HKTM", "HLGYO", "HUNER", "IHLAS", "IHLGM",
+        "INFO", "INVES", "IPEKE", "ISFIN", "ISGSY", "ISKPL", "JANTS", "KAREL", "KARSN", "KARTN",
+        "KATMR", "KAYSE", "KFEIN", "KGYO", "KLKIM", "KLMSN", "KNFRT", "KONYA", "KOPOL", "KRGYO",
+        "KRONT", "KRPLS", "KSTUR", "KUTPO", "LIDER", "LOGO", "LUKSK", "MAKIM", "MANAS", "MARBL",
+        "MEDTR", "MERCN", "METRO", "MOBTL", "MPARK", "MRGYO", "NATEN", "NETAS", "NUGYO", "NUHCM",
+        "OFSYM", "ONCSM", "ORCAY", "ORGE", "OSMEN", "OSTIM", "OTTO", "OZKGY", "OZRDN", "OZSUB",
+        "PAGYO", "PAMEL", "PAPIL", "PARSN", "PCILT", "PEKGY", "PENGD", "PETUN", "PINSU", "PKART",
+        "PNLSN", "PNSUT", "POLHO", "POLTK", "PRDGS", "PRKAB", "PRKME", "RNPOL", "RYGYO", "RYSAS",
+        "SANEL", "SANKO", "SARKY", "SAYAS", "SEKFK", "SEKUR", "SELGD", "SELVA", "SEYKM", "SILVR",
+        "SKTAS", "SMART", "SNGYO", "SNKRN", "SNPAM", "SODSN", "SOKE", "SONME", "SRVGY", "SUMAS",
+        "SUNTK", "SUWEN", "TABGD", "TARKM", "TBORG", "TDGYO", "TEKTU", "TERA", "TETMT", "TEZOL",
+        "TGSAS", "TLMAN", "TMPOL", "TNZTP", "TRCAS", "TRGYO", "TRILC", "TSGYO", "TUCLK", "TUKAS",
+        "TURGG", "UFUK", "ULAS", "ULUFA", "ULUSE", "ULUUN", "UMPAS", "UNLU", "USAK", "UZERB",
+        "VAKFN", "VAKKO", "VANGD", "VBTYZ", "VERTU", "VERUS", "VKFYO", "VKGYO", "VKING", "YAPRK",
+        "YATAS", "YAYLA", "YESIL", "YGGYO", "YGYO", "YKSLN", "YONGA", "YUNSA", "YYAPI", "ZEDUR"
     ],
     "ABD (S&P + NASDAQ)": [
         "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "BRK-B", "LLY", "V", "TSM", "UNH", 
@@ -142,13 +153,22 @@ def get_data_from_sheet():
         client = gspread.authorize(creds)
         sheet = client.open(SHEET_NAME).sheet1
         data = sheet.get_all_records()
-        if not data: return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+        
+        # VERİ YOKSA BİLE BOŞ DATAFRAME DÖNDÜR (KOLONLARLA)
+        if not data: 
+            return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+        
         df = pd.DataFrame(data)
-        if "Tip" not in df.columns: df["Tip"] = "Portfoy"
-        if "Notlar" not in df.columns: df["Notlar"] = ""
+        
+        # EKSİK KOLON KONTROLÜ (HAYAT KURTARAN KISIM)
+        expected_cols = ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
+        for col in expected_cols:
+            if col not in df.columns:
+                df[col] = "" # Eksik kolonu boş olarak ekle
+                
         return df
     except Exception as e:
-        st.error(f"Hata: {e}")
+        st.error(f"Veri çekme hatası: {e}")
         return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
 
 def save_data_to_sheet(df):
@@ -161,6 +181,7 @@ def save_data_to_sheet(df):
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
 portfoy_df = get_data_from_sheet()
+# Sayısal dönüşümler
 if not portfoy_df.empty:
     portfoy_df["Adet"] = pd.to_numeric(portfoy_df["Adet"], errors='coerce').fillna(0)
     portfoy_df["Maliyet"] = pd.to_numeric(portfoy_df["Maliyet"], errors='coerce').fillna(0)
@@ -221,8 +242,19 @@ def fetch_market_data(kod, pazar, usd_try):
 # --- ANALİZ ---
 def run_analysis(df, usd_try_rate):
     results = []
+    
+    # Eğer DataFrame boşsa hemen boş dön (ama kolonlarla!)
+    if df.empty:
+        return pd.DataFrame(columns=ANALYSIS_COLS)
+        
     for i, row in df.iterrows():
-        kod, pazar, adet, maliyet = row["Kod"], row["Pazar"], row["Adet"], row["Maliyet"]
+        kod = row.get("Kod", "")
+        pazar = row.get("Pazar", "")
+        adet = row.get("Adet", 0)
+        maliyet = row.get("Maliyet", 0)
+        
+        if not kod: continue # Kod yoksa atla
+
         curr_price, prev_close, currency = fetch_market_data(kod, pazar, usd_try_rate)
         
         if curr_price == 0 and "FIZIKI" not in pazar:
@@ -256,34 +288,35 @@ def run_analysis(df, usd_try_rate):
             "Değer": val_now, "Top. P/L": total_pnl, "Top. %": total_pnl_pct,
             "Gün. P/L": daily_pnl, "Gün. %": daily_pnl_pct,
             "TL Değer": val_tl, "TL Maliyet": cost_tl, "TL Gün P/L": daily_pnl_tl,
-            "Notlar": row["Notlar"]
+            "Notlar": row.get("Notlar", "")
         })
+        
+    if not results:
+        return pd.DataFrame(columns=ANALYSIS_COLS)
+        
     return pd.DataFrame(results)
 
-# --- 🔴 KRİTİK HATA DÜZELTMESİ BURADA ---
-# Veri olsa da olmasa da bu kolonlara sahip boş DataFrame'ler oluşturulmalı.
-col_names = ["Kod", "Pazar", "Tip", "Adet", "Maliyet", "Fiyat", "Önceki", "PB", 
-             "Değer", "Top. P/L", "Top. %", "Gün. P/L", "Gün. %", 
-             "TL Değer", "TL Maliyet", "TL Gün P/L", "Notlar"]
-
+# --- VERİ HAZIRLIĞI (HATA KORUMALI) ---
 if not portfoy_df.empty:
     master_df = run_analysis(portfoy_df, USD_TRY)
+else:
+    master_df = pd.DataFrame(columns=ANALYSIS_COLS)
+
+# Filtreleme yaparken kolonların varlığından emin ol
+if "Tip" in master_df.columns:
     portfoy_only = master_df[master_df["Tip"] == "Portfoy"]
     takip_only = master_df[master_df["Tip"] == "Takip"]
 else:
-    # Boş olsa bile kolonları tanımlı oluşturuyoruz ki 'KeyError' almayalım
-    master_df = pd.DataFrame(columns=col_names)
-    portfoy_only = pd.DataFrame(columns=col_names)
-    takip_only = pd.DataFrame(columns=col_names)
+    portfoy_only = pd.DataFrame(columns=ANALYSIS_COLS)
+    takip_only = pd.DataFrame(columns=ANALYSIS_COLS)
 
-# --- SEKMELER ---
+# --- ARAYÜZ ---
 tabs = st.tabs([
     "📊 Özet", "📈 BIST", "🇺🇸 ABD", "₿ Kripto", 
     "🛢️ Emtia", "🏠 Fiziki", "👀 İzleme", "⚙️ Ekle/Çıkar"
 ])
 
 def render_category_tab(df_sub, currency_sym):
-    # Burada df_sub boş gelse bile columns olduğu için filtreleme hata vermez
     if df_sub.empty:
         st.info("Bu kategoride varlık bulunamadı.")
         return
@@ -310,7 +343,7 @@ def render_category_tab(df_sub, currency_sym):
             col_d.write(f"**Kâr:** {row['Top. P/L']:,.0f} ({row['Top. %']:+.1f}%)")
             if row['Notlar']: st.caption(f"Not: {row['Notlar']}")
 
-with tabs[0]:
+with tabs[0]: # ÖZET
     if not portfoy_only.empty:
         total_assets_tl = portfoy_only["TL Değer"].sum()
         total_pl_tl = portfoy_only["TL Değer"].sum() - portfoy_only["TL Maliyet"].sum()
@@ -322,18 +355,24 @@ with tabs[0]:
         st.metric("Günlük Değişim (TL)", f"₺{daily_pl_tl:,.0f}", delta=f"{daily_pl_tl:,.0f}")
         st.divider()
         st.subheader("Varlık Dağılımı")
-        chart_data = portfoy_only.groupby("Pazar")["TL Değer"].sum()
-        st.bar_chart(chart_data, color="#4CAF50", use_container_width=True)
+        if "Pazar" in portfoy_only.columns:
+            chart_data = portfoy_only.groupby("Pazar")["TL Değer"].sum()
+            st.bar_chart(chart_data, color="#4CAF50", use_container_width=True)
     else:
         st.info("Henüz portföy oluşturulmadı. 'Ekle/Çıkar' sekmesine gidin.")
 
-# --- DİĞER TABLAR (ARTIK HATA VERMEYECEK) ---
-# Filtrelemeler artık güvenli çünkü 'portfoy_only' boş olsa bile 'Pazar' sütunu var.
-with tabs[1]: render_category_tab(portfoy_only[portfoy_only["Pazar"].str.contains("BIST", na=False)], "₺")
-with tabs[2]: render_category_tab(portfoy_only[portfoy_only["Pazar"].str.contains("ABD", na=False)], "$")
-with tabs[3]: render_category_tab(portfoy_only[portfoy_only["Pazar"].str.contains("KRIPTO", na=False)], "$")
-with tabs[4]: render_category_tab(portfoy_only[portfoy_only["Pazar"].str.contains("EMTIA", na=False)], "")
-with tabs[5]: render_category_tab(portfoy_only[portfoy_only["Pazar"].str.contains("FIZIKI", na=False)], "")
+# --- FİLTRELEMELER (GÜVENLİ) ---
+# Pazar kolonu kesin var ama boş olabilir, fillna ile garantiye alıyoruz
+def safe_filter(df, keyword):
+    if df.empty or "Pazar" not in df.columns:
+        return pd.DataFrame(columns=ANALYSIS_COLS)
+    return df[df["Pazar"].fillna("").str.contains(keyword)]
+
+with tabs[1]: render_category_tab(safe_filter(portfoy_only, "BIST"), "₺")
+with tabs[2]: render_category_tab(safe_filter(portfoy_only, "ABD"), "$")
+with tabs[3]: render_category_tab(safe_filter(portfoy_only, "KRIPTO"), "$")
+with tabs[4]: render_category_tab(safe_filter(portfoy_only, "EMTIA"), "")
+with tabs[5]: render_category_tab(safe_filter(portfoy_only, "FIZIKI"), "")
 
 with tabs[6]:
     if not takip_only.empty:
