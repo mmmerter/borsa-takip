@@ -7,7 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, timedelta
-from streamlit_option_menu import option_menu  # YENİ KÜTÜPHANE
+from streamlit_option_menu import option_menu
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
@@ -41,20 +41,23 @@ with c_toggle:
     st.write("") 
     GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True)
 
-# --- NAVİGASYON MENÜSÜ (YENİ VE HAVALI KISIM) ---
-# Burası sekmelerin yerine geçecek.
+# --- NAVİGASYON MENÜSÜ (YENİ SIRALAMA) ---
 selected = option_menu(
-    menu_title=None,  # Başlık yok
+    menu_title=None, 
+    # İSTENEN SIRA: Emtia ve Fiziki, Kripto'nun önüne alındı
     options=["Dashboard", "Tümü", "BIST", "ABD", "Emtia", "Fiziki", "Kripto", "İzleme", "Ekle/Çıkar"], 
-    icons=["speedometer2", "list-task", "graph-up-arrow", "currency-dollar", "currency-bitcoin", "fuel-pump", "house", "eye", "gear"], 
+    
+    # İKONLAR (Sıralamaya uygun)
+    icons=["speedometer2", "list-task", "graph-up-arrow", "currency-dollar", "fuel-pump", "house", "currency-bitcoin", "eye", "gear"], 
+    
     menu_icon="cast", 
     default_index=0, 
     orientation="horizontal",
     styles={
         "container": {"padding": "0!important", "background-color": "#0E1117"},
-        "icon": {"color": "orange", "font-size": "18px"}, 
+        "icon": {"color": "#1DA1F2", "font-size": "18px"}, # Twitter Mavisi
         "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px", "--hover-color": "#262730"},
-        "nav-link-selected": {"background-color": "#FF4B4B"},
+        "nav-link-selected": {"background-color": "#1DA1F2"}, 
     }
 )
 
@@ -260,7 +263,7 @@ def render_pazar_tab(df, filter_text, currency_symbol):
 
 sym = "₺" if GORUNUM_PB == "TRY" else "$"
 
-# --- NAVİGASYON (TABS YERİNE BURASI ÇALIŞACAK) ---
+# --- NAVİGASYON (YENİ SIRA) ---
 if selected == "Dashboard":
     if not portfoy_only.empty:
         total_val = portfoy_only["Değer"].sum()
@@ -291,9 +294,9 @@ elif selected == "Tümü":
 
 elif selected == "BIST": render_pazar_tab(portfoy_only, "BIST", sym)
 elif selected == "ABD": render_pazar_tab(portfoy_only, "ABD", sym)
-elif selected == "Kripto": render_pazar_tab(portfoy_only, "KRIPTO", sym)
 elif selected == "Emtia": render_pazar_tab(portfoy_only, "EMTIA", sym)
 elif selected == "Fiziki": render_pazar_tab(portfoy_only, "FIZIKI", sym)
+elif selected == "Kripto": render_pazar_tab(portfoy_only, "KRIPTO", sym)
 elif selected == "İzleme":
     st.subheader("İzleme Listesi")
     st.dataframe(takip_only, use_container_width=True, hide_index=True)
@@ -337,4 +340,3 @@ elif selected == "Ekle/Çıkar":
                 save_data_to_sheet(portfoy_df)
                 st.success("Silindi.")
                 st.rerun()
-
