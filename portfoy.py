@@ -16,29 +16,46 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS: TASARIM İYİLEŞTİRMELERİ ---
+# --- CSS: DARK MODE UYUMLU TASARIM ---
 st.markdown("""
 <style>
     .block-container {padding-top: 1rem;}
+    
+    /* METRİK KUTULARI (Koyu Gri Arka Plan, Beyaz Yazı) */
     div[data-testid="stMetric"] {
-        background-color: #f0f2f6;
+        background-color: #262730; /* Koyu Gri */
+        border: 1px solid #464b5f; /* Hafif çerçeve */
         border-radius: 10px;
-        padding: 10px;
-        border: 1px solid #dcdcdc;
+        padding: 15px;
+        color: #ffffff; /* Beyaz Yazı */
     }
+    /* Metrik Rakamları */
+    div[data-testid="stMetricValue"] {
+        color: #ffffff !important;
+    }
+    /* Metrik Başlıkları */
+    div[data-testid="stMetricLabel"] {
+        color: #d0d0d0 !important;
+    }
+
+    /* SEKMELER (TABS) */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 5px;
+        gap: 8px;
         flex-wrap: wrap; 
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #ffffff;
-        border-radius: 5px;
-        padding: 5px 10px;
+        background-color: #0E1117; /* Çok koyu arka plan */
+        color: #ffffff; /* Beyaz yazı */
+        border: 1px solid #464b5f;
+        border-radius: 6px;
+        padding: 6px 12px;
         font-size: 14px;
     }
+    /* Seçili Sekme */
     .stTabs [aria-selected="true"] {
-        background-color: #FF4B4B !important;
+        background-color: #FF4B4B !important; /* Streamlit Kırmızısı */
         color: white !important;
+        border-color: #FF4B4B !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -46,11 +63,9 @@ st.markdown("""
 # --- BAŞLIK VE AYARLAR ---
 c_title, c_toggle = st.columns([3, 1])
 with c_title:
-    # İSTEĞİN ÜZERİNE GÜNCELLENEN BAŞLIK
     st.title("🏦 Merter'in Varlık Yönetim Dashboard'u")
 with c_toggle:
     st.write("") 
-    # DÖVİZ BAZLI GÖRÜNÜM TUŞU
     GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True)
 
 # --- SABİT KOLON İSİMLERİ ---
@@ -285,7 +300,6 @@ def render_pazar_tab(df, filter_text, currency_symbol):
 
 
 # --- ARAYÜZ VE SEKMELER ---
-# Yeni Sekme Yapısı
 tabs = st.tabs([
     "📊 Dashboard", 
     "📋 Tümü", 
