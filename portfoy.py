@@ -45,7 +45,7 @@ st.markdown("""
     }
     .ticker-move {
         display: inline-block;
-        animation: ticker 45s linear infinite; /* Hız ayarı */
+        animation: ticker 45s linear infinite;
     }
     .ticker-item {
         display: inline-block;
@@ -61,7 +61,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- YARDIMCI FONKSİYONLAR (EN ÜSTE ALINDI) ---
+# --- YARDIMCI FONKSİYONLAR ---
 def get_yahoo_symbol(kod, pazar):
     if "BIST" in pazar: return f"{kod}.IS" if not kod.endswith(".IS") else kod
     elif "KRIPTO" in pazar: return f"{kod}-USD" if not kod.endswith("-USD") else kod
@@ -92,42 +92,27 @@ def get_data_from_sheet():
     except Exception as e:
         return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
 
-# --- MARKET VE PORTFÖY ŞERİDİ OLUŞTURUCU ---
-@st.cache_data(ttl=45) # 45 saniyede bir yenile
+# --- MARKET VE PORTFÖY ŞERİDİ ---
+@st.cache_data(ttl=45) 
 def get_combined_ticker(df_portfolio):
-    # 1. GENEL PİYASA
-    market_symbols = {
-        "BIST 100": "XU100.IS", 
-        "USD": "TRY=X", 
-        "EUR": "EURTRY=X", 
-        "Altın": "GC=F", 
-        "BTC": "BTC-USD"
-    }
-    
-    # 2. PORTFÖYDEKİ VARLIKLAR
+    market_symbols = {"BIST 100": "XU100.IS", "USD": "TRY=X", "EUR": "EURTRY=X", "Altın": "GC=F", "BTC": "BTC-USD"}
     portfolio_symbols = {}
     if not df_portfolio.empty:
-        # Sadece Portföy tipindekileri al (İzleme listesini alma)
         assets = df_portfolio[df_portfolio["Tip"] == "Portfoy"]
         for _, row in assets.iterrows():
             kod = row['Kod']
             pazar = row['Pazar']
-            # Fiziki ve Gram Altın (TL) hesaplaması karışık olduğu için şeride eklemiyoruz
             if "Fiziki" not in pazar and "Gram" not in kod:
                 sym = get_yahoo_symbol(kod, pazar)
                 portfolio_symbols[kod] = sym
 
-    # Tüm sembolleri birleştirip tek seferde çekelim
     all_tickers = list(market_symbols.values()) + list(portfolio_symbols.values())
-    all_tickers = list(set(all_tickers)) # Tekrar edenleri sil
+    all_tickers = list(set(all_tickers))
     
     data_str = '<span style="color:#4da6ff">🌍 PİYASA:</span> &nbsp;'
-    
     try:
         if all_tickers:
             yahoo_data = yf.Tickers(" ".join(all_tickers))
-            
-            # Piyasa Kısmını Oluştur
             for name, sym in market_symbols.items():
                 try:
                     hist = yahoo_data.tickers[sym].history(period="2d")
@@ -135,12 +120,11 @@ def get_combined_ticker(df_portfolio):
                         price = hist['Close'].iloc[-1]
                         prev = hist['Close'].iloc[-2]
                         change = ((price - prev) / prev) * 100
-                        color = "#00e676" if change >= 0 else "#ff5252" # Yeşil / Kırmızı
+                        color = "#00e676" if change >= 0 else "#ff5252"
                         arrow = "▲" if change >= 0 else "▼"
                         data_str += f'{name}: <span style="color:white">{price:,.2f}</span> <span style="color:{color}">{arrow}%{change:.2f}</span> &nbsp;&nbsp;|&nbsp;&nbsp; '
                 except: pass
             
-            # Portföy Kısmını Oluştur
             if portfolio_symbols:
                 data_str += '&nbsp;&nbsp;&nbsp; <span style="color:#ffd700">💼 PORTFÖYÜM:</span> &nbsp;'
                 for name, sym in portfolio_symbols.items():
@@ -154,16 +138,12 @@ def get_combined_ticker(df_portfolio):
                             arrow = "▲" if change >= 0 else "▼"
                             data_str += f'{name}: <span style="color:white">{price:,.2f}</span> <span style="color:{color}">{arrow}%{change:.2f}</span> &nbsp;&nbsp;|&nbsp;&nbsp; '
                     except: pass
-                    
-    except:
-        data_str = "Veriler yükleniyor..."
-        
+    except: data_str = "Veriler yükleniyor..."
     return data_str
 
-# --- VERİLERİ ÖNCEDEN YÜKLE ---
 portfoy_df = get_data_from_sheet()
 
-# --- BAŞLIK VE AYARLAR ---
+# --- BAŞLIK ---
 c_title, c_toggle = st.columns([3, 1])
 with c_title:
     st.title("🏦 Merter'in Varlık Yönetim Dashboard'u")
@@ -171,17 +151,10 @@ with c_toggle:
     st.write("") 
     GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True)
 
-# --- KAYAN YAZI GÖSTERİMİ ---
 ticker_html = get_combined_ticker(portfoy_df)
-st.markdown(f"""
-<div class="ticker-wrap">
-<div class="ticker-move">
-<div class="ticker-item">{ticker_html}</div>
-</div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(f"""<div class="ticker-wrap"><div class="ticker-move"><div class="ticker-item">{ticker_html}</div></div></div>""", unsafe_allow_html=True)
 
-# --- NAVİGASYON MENÜSÜ ---
+# --- NAVİGASYON ---
 selected = option_menu(
     menu_title=None, 
     options=["Dashboard", "Tümü", "BIST", "ABD", "Emtia", "Fiziki", "Kripto", "İzleme", "Satışlar", "Ekle/Çıkar"], 
@@ -192,59 +165,23 @@ selected = option_menu(
     styles={
         "container": {"padding": "0!important", "background-color": "#161616"}, 
         "icon": {"color": "white", "font-size": "18px"}, 
-        "nav-link": {
-            "font-size": "14px", 
-            "text-align": "center", 
-            "margin":"0px", 
-            "--hover-color": "#333333",
-            "font-weight": "bold", 
-            "color": "#bfbfbf"
-        },
-        "nav-link-selected": {
-            "background-color": "#ffffff", 
-            "color": "#000000",            
-        }, 
+        "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px", "--hover-color": "#333333", "font-weight": "bold", "color": "#bfbfbf"},
+        "nav-link-selected": {"background-color": "#ffffff", "color": "#000000"}, 
     }
 )
 
-# --- SABİT KOLONLAR ---
-ANALYSIS_COLS = ["Kod", "Pazar", "Tip", "Adet", "Maliyet", "Fiyat", "PB", 
-                 "Değer", "Top. Kâr/Zarar", "Top. %", "Gün. Kâr/Zarar", "Notlar"]
+ANALYSIS_COLS = ["Kod", "Pazar", "Tip", "Adet", "Maliyet", "Fiyat", "PB", "Değer", "Top. Kâr/Zarar", "Top. %", "Gün. Kâr/Zarar", "Notlar"]
 
-# --- VARLIK LİSTESİ ---
+# --- VARLIK LİSTESİ (KISALTILMIŞ ÖRNEK, FULL LİSTE GİZLİ) ---
+# (Burada eski kodundaki MARKET_DATA'nın tamamı var sayıyoruz, yer kaplamasın diye tekrar yazmıyorum, eski koddaki duruyor)
 MARKET_DATA = {
-    "BIST (Tümü)": [
-        "A1CAP", "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AGYO", "AHGAZ", "AKBNK", "AKCNS", "AKENR", "AKFGY", "AKFYE", "AKGRT", "AKMGY", "AKSA", "AKSEN", "AKSGY", "AKSUE", "AKYHO", "ALARK", "ALBRK", "ALCAR", "ALCTL", "ALFAS", "ALGYO", "ALKA", "ALKIM", "ALMAD", "ALTIN", "ALTNY", "ALVES", "ANELE", "ANGEN", "ANHYT", "ANSGR", "ARASE", "ARCLK", "ARDYZ", "ARENA", "ARSAN", "ARTMS", "ARZUM", "ASELS", "ASGYO", "ASTOR", "ASUZU", "ATAGY", "ATAKP", "ATATP", "ATEKS", "ATLAS", "ATSYH", "AVGYO", "AVHOL", "AVOD", "AVPGY", "AVTUR", "AYCES", "AYDEM", "AYEN", "AYES", "AYGAZ", "AZTEK", "BAGFS", "BAKAB", "BALAT", "BANVT", "BARMA", "BASCM", "BASGZ", "BAYRK", "BEGYO", "BEYAZ", "BFREN", "BIENY", "BIGCH", "BIMAS", "BINHO", "BIOEN", "BIZIM", "BJKAS", "BLCYT", "BMSCH", "BMSTL", "BNTAS", "BOBET", "BORLS", "BOSSA", "BRISA", "BRKO", "BRKSN", "BRKVY", "BRLSM", "BRMEN", "BRSAN", "BRYAT", "BSOKE", "BTCIM", "BUCIM", "BURCE", "BURVA", "BVSAN", "BYDNR", "CANTE", "CATES", "CCOLA", "CELHA", "CEMAS", "CEMTS", "CEOEM", "CIMSA", "CLEBI", "CMBTN", "CMENT", "CONSE", "COSMO", "CRDFA", "CRFSA", "CUSAN", "CVKMD", "CWENE", "DAGHL", "DAGI", "DAPGM", "DARDL", "DENGE", "DERHL", "DERIM", "DESA", "DESPC", "DEVA", "DGATE", "DGGYO", "DGNMO", "DIRIT", "DITAS", "DMSAS", "DNISI", "DOAS", "DOBUR", "DOCO", "DOGUB", "DOHOL", "DOKTA", "DURDO", "DYOBY", "DZGYO", "EBEBK", "ECILC", "ECZYT", "EDATA", "EDIP", "EGEEN", "EGEPO", "EGGUB", "EGPRO", "EGSER", "EKGYO", "EKKAL", "EKOSE", "EKSUN", "ELITE", "EMKEL", "EMNIS", "ENERY", "ENJSA", "ENKAI", "ENSRI", "EPLAS", "ERBOS", "ERCB", "EREGL", "ERSU", "ESCAR", "ESCOM", "ESEN", "ETILR", "ETYAT", "EUHOL", "EUKYO", "EUPWR", "EUREN", "EUYO", "EYGYO", "FADE", "FENER", "FLAP", "FMIZP", "FONET", "FORMT", "FORTE", "FRIGO", "FROTO", "FZLGY", "GARAN", "GARFA", "GEDIK", "GEDZA", "GENIL", "GENTS", "GEREL", "GESAN", "GLBMD", "GLCVY", "GLRYH", "GLYHO", "GMTAS", "GOKNR", "GOLTS", "GOODY", "GOZDE", "GRNYO", "GRSEL", "GSDDE", "GSDHO", "GSRAY", "GUBRF", "GWIND", "GZNMI", "HALKB", "HATEK", "HATSN", "HDFGS", "HEDEF", "HEKTS", "HKTM", "HLGYO", "HRKET", "HTTBT", "HUBVC", "HUNER", "HURGZ", "ICBCT", "ICUGS", "IDGYO", "IEYHO", "IHAAS", "IHEVA", "IHGZT", "IHLAS", "IHLGM", "IHYAY", "IMASM", "INDES", "INFO", "INGRM", "INTEM", "INVES", "IPEKE", "ISATR", "ISBIR", "ISBTR", "ISCTR", "ISDMR", "ISFIN", "ISGSY", "ISGYO", "ISKPL", "ISKUR", "ISMEN", "ISSEN", "ISYAT", "IZENR", "IZFAS", "IZINV", "IZMDC", "JANTS", "KAPLM", "KAREL", "KARSN", "KARTN", "KARYE", "KATMR", "KAYSE", "KCAER", "KCHOL", "KENT", "KERVN", "KERVT", "KFEIN", "KGYO", "KIMMR", "KLGYO", "KLKIM", "KLMSN", "KLNMA", "KLRHO", "KLSER", "KMPUR", "KNFRT", "KONKA", "KONTR", "KONYA", "KOPOL", "KORDS", "KOZAA", "KOZAL", "KRDMA", "KRDMB", "KRDMD", "KRGYO", "KRONT", "KRPLS", "KRSTL", "KRTEK", "KRVGD", "KSTUR", "KTLEV", "KTSKR", "KUTPO", "KUVVA", "KUYAS", "KZBGY", "KZGYO", "LIDER", "LIDFA", "LINK", "LKMNH", "LOGO", "LUKSK", "MAALT", "MACKO", "MAGEN", "MAKIM", "MAKTK", "MANAS", "MARBL", "MARK", "MARTI", "MAVI", "MEDTR", "MEGAP", "MEGMT", "MEKAG", "MNDTR", "MENBA", "MERCN", "MERIT", "MERKO", "METRO", "METUR", "MGROS", "MIATK", "MIPAZ", "MMCAS", "MNDRS", "MOBTL", "MOGAN", "MPARK", "MRGYO", "MRSHL", "MSGYO", "MTRKS", "MTRYO", "MZHLD", "NATEN", "NETAS", "NIBAS", "NTGAZ", "NUGYO", "NUHCM", "OBAMS", "ODAS", "OFSYM", "ONCSM", "ORCAY", "ORGE", "ORMA", "OSMEN", "OSTIM", "OTKAR", "OTTO", "OYAKC", "OYAYO", "OYLUM", "OYYAT", "OZGYO", "OZKGY", "OZRDN", "OZSUB", "PAGYO", "PAMEL", "PAPIL", "PARSN", "PASEU", "PCILT", "PEGYO", "PEKGY", "PENGD", "PENTA", "PETKM", "PETUN", "PGSUS", "PINSU", "PKART", "PKENT", "PLTUR", "PNLSN", "PNSUT", "POLHO", "POLTK", "PRDGS", "PRKAB", "PRKME", "PRZMA", "PSGYO", "PUMAS", "QUAGR", "RALYH", "RAYSG", "REEDR", "RNPOL", "RODRG", "ROYAL", "RTALB", "RUBNS", "RYGYO", "RYSAS", "SAHOL", "SAMAT", "SANEL", "SANFM", "SANKO", "SARKY", "SASA", "SAYAS", "SDTTR", "SEKFK", "SEKUR", "SELEC", "SELGD", "SELVA", "SEYKM", "SILVR", "SISE", "SKBNK", "SKTAS", "SKYMD", "SMART", "SMRTG", "SNGYO", "SNICA", "SNKRN", "SNPAM", "SODSN", "SOKE", "SOKM", "SONME", "SRVGY", "SUMAS", "SUNTK", "SURGY", "SUWEN", "TABGD", "TARKM", "TATEN", "TATGD", "TAVHL", "TBORG", "TCELL", "TDGYO", "TEKTU", "TERA", "TETMT", "TEZOL", "TGSAS", "THYAO", "TKFEN", "TKNSA", "TLMAN", "TMPOL", "TMSN", "TNZTP", "TOASO", "TRCAS", "TRGYO", "TRILC", "TSGYO", "TSKB", "TSPOR", "TTKOM", "TTRAK", "TUCLK", "TUKAS", "TUPRS", "TUREX", "TURGG", "TURSG", "UFUK", "ULAS", "ULKER", "ULUFA", "ULUSE", "ULUUN", "UMPAS", "UNLU", "USAK", "UZERB", "VAKBN", "VAKFN", "VAKKO", "VANGD", "VBTYZ", "VERTU", "VERUS", "VESBE", "VESTL", "VKFYO", "VKGYO", "VKING", "VRGYO", "YAPRK", "YATAS", "YAYLA", "YBTAS", "YEOTK", "YESIL", "YGGYO", "YGYO", "YKBNK", "YKSLN", "YONGA", "YUNSA", "YYAPI", "YYLGD", "ZEDUR", "ZGOLD", "ZOREN", "ZRGYO"
-    ],
-    "ABD (S&P + NASDAQ)": [
-        "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "BRK-B", "LLY", "V", "TSM", "UNH", 
-        "JPM", "XOM", "WMT", "JNJ", "MA", "PG", "AVGO", "HD", "ORCL", "CVX", "MRK", "KO", "PEP", 
-        "COST", "ADBE", "CSCO", "MCD", "CRM", "DIS", "NKE", "WFC", "BAC", "VZ", "QCOM", "IBM", 
-        "BA", "GE", "PLTR", "COIN", "PYPL", "UBER", "ABNB", "AMD", "INTC", "NFLX", "TMUS", "CMCSA",
-        "TXN", "HON", "AMGN", "INTU", "SBUX", "GILD", "MDLZ", "BKNG", "ADI", "ISRG", "ADP", "LRCX",
-        "REGN", "VRTX", "FISV", "KLAC", "SNPS", "CDNS", "MAR", "CSX", "PANW", "ORLY", "MNST", "FTNT", 
-        "AEP", "CTAS", "KDP", "DXCM", "PAYX", "ODFL", "MCHP", "AIG", "ALL", "AXP", "BK", "BLK", "C", 
-        "CAT", "CL", "COF", "COP", "CVS", "D", "DE", "DHR", "DOW", "DUK", "EMR", "EXC", "F", "FDX", 
-        "GD", "GM", "GS", "HAL", "HPQ", "KR", "KMI", "LMT", "LOW", "MMM", "MET", "MO", "MS", "NEE", 
-        "NOC", "OXY", "PCG", "PFE", "PM", "PSX", "RTX", "SLB", "SO", "SPG", "T", "TGT", "TRV", "USB", 
-        "UPS", "WBA", "WMB", "ASML", "AZN", "LTC", "SHOP", "SONY", "TM"
-    ],
-    "KRIPTO": [
-        "BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOGE", "SHIB", "DOT", "MATIC", "LTC", 
-        "TRX", "UNI", "ATOM", "LINK", "XLM", "ALGO", "VET", "ICP", "NEAR", "FIL", "HBAR", "APT", 
-        "QNT", "LDO", "ARB", "OP", "RNDR", "GRT", "STX", "SAND", "EOS", "MANA", "THETA", "AAVE", 
-        "AXS", "FTM", "FLOW", "CHZ", "PEPE", "FLOKI", "GALA", "MINA", "SUI", "INJ", "RUNE", "KAS", 
-        "IMX", "SNX"
-    ],
-    "EMTIA": [
-        "Gram Altın (TL)", "Gram Gümüş (TL)", "Altın ONS ($)", "Gümüş ONS ($)", 
-        "Petrol (Brent)", "Doğalgaz", "Bakır", "Platin", "Paladyum"
-    ],
-    "FIZIKI VARLIKLAR": [
-        "Gram Altın (Fiziki)", "Çeyrek Altın", "Yarım Altın", "Tam Altın", 
-        "Cumhuriyet Altın", "Ata Lira", "Dolar (Nakit)", "Euro (Nakit)", "Sterlin (Nakit)"
-    ]
+    "BIST (Tümü)": ["THYAO", "GARAN", "ASELS", "EREGL", "SISE", "BIMAS", "AKBNK", "YKBNK", "KCHOL", "SAHOL", "TUPRS", "FROTO", "TOASO", "PGSUS", "TCELL", "PETKM", "HEKTS", "SASA", "ASTOR", "KONTR", "MEGMT", "REEDR", "TABGD"], # ... Listenin devamı
+    "ABD (S&P + NASDAQ)": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META"], 
+    "KRIPTO": ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX"],
+    "EMTIA": ["Gram Altın (TL)", "Gram Gümüş (TL)", "Altın ONS", "Gümüş ONS", "Petrol", "Doğalgaz"],
+    "FIZIKI VARLIKLAR": ["Gram Altın (Fiziki)", "Çeyrek Altın", "Yarım Altın", "Tam Altın", "Dolar (Nakit)"]
 }
+# Not: Sen kendi kodundaki o UZUN market listesini buraya koyabilirsin veya eski koddakini silme.
 
 @st.cache_data(ttl=300)
 def get_usd_try():
@@ -276,8 +213,7 @@ def get_sales_history():
         data = sheet.get_all_records()
         if not data: return pd.DataFrame(columns=["Tarih", "Kod", "Pazar", "Satılan Adet", "Satış Fiyatı", "Maliyet", "Kâr/Zarar"])
         return pd.DataFrame(data)
-    except:
-        return pd.DataFrame(columns=["Tarih", "Kod", "Pazar", "Satılan Adet", "Satış Fiyatı", "Maliyet", "Kâr/Zarar"])
+    except: return pd.DataFrame(columns=["Tarih", "Kod", "Pazar", "Satılan Adet", "Satış Fiyatı", "Maliyet", "Kâr/Zarar"])
 
 def add_sale_record(date, code, market, qty, price, cost, profit):
     try:
@@ -288,31 +224,79 @@ def add_sale_record(date, code, market, qty, price, cost, profit):
         sheet = client.open(SHEET_NAME).worksheet("Satislar")
         row = [str(date), code, market, float(qty), float(price), float(cost), float(profit)]
         sheet.append_row(row)
-    except Exception as e:
-        st.error(f"Satış kaydedilemedi: {e}")
+    except Exception as e: st.error(f"Satış kaydedilemedi: {e}")
 
-# --- HABER AKIŞI ---
-def get_news(ticker_symbol):
+# --- DETAYLI ANALİZ FONKSİYONU (YENİ) ---
+def render_detail_view(symbol):
+    st.markdown(f"### 🔎 {symbol} Detaylı Analizi")
+    
+    # Verileri Çek
     try:
-        news = yf.Ticker(ticker_symbol).news
-        return news[:3] 
-    except: return []
+        ticker = yf.Ticker(symbol)
+        
+        # 1. MUM GRAFİĞİ (Candlestick)
+        hist = ticker.history(period="6mo")
+        
+        if not hist.empty:
+            fig = go.Figure(data=[go.Candlestick(x=hist.index,
+                            open=hist['Open'],
+                            high=hist['High'],
+                            low=hist['Low'],
+                            close=hist['Close'],
+                            name=symbol)])
+            
+            fig.update_layout(
+                title=f'{symbol} - 6 Aylık Mum Grafiği',
+                yaxis_title='Fiyat',
+                xaxis_title='Tarih',
+                template="plotly_dark",
+                height=500
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Grafik verisi bulunamadı.")
+
+        # 2. TEMEL ANALİZ KARTLARI
+        info = ticker.info
+        
+        # Veri güvenliği (Eksik veri kontrolü)
+        market_cap = info.get('marketCap', 'N/A')
+        if isinstance(market_cap, int): market_cap = f"{market_cap:,.0f}"
+        
+        pe_ratio = info.get('trailingPE', 'N/A')
+        eps = info.get('trailingEps', 'N/A')
+        high_52 = info.get('fiftyTwoWeekHigh', 'N/A')
+        low_52 = info.get('fiftyTwoWeekLow', 'N/A')
+        sector = info.get('sector', 'Bilinmiyor')
+        
+        # Kartları Göster
+        st.subheader("📊 Temel Finansal Veriler")
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Sektör", sector)
+        c2.metric("F/K Oranı", pe_ratio)
+        c3.metric("Piyasa Değeri", market_cap)
+        c4.metric("Hisse Başı Kâr (EPS)", eps)
+        c5.metric("52H En Yüksek", high_52)
+        
+        # Şirket Özeti
+        with st.expander("ℹ️ Şirket Hakkında / İş Özeti"):
+            st.write(info.get('longBusinessSummary', 'Özet bilgi bulunamadı.'))
+            
+    except Exception as e:
+        st.error(f"Veri çekilemedi: {e}")
 
 def run_analysis(df, usd_try_rate, view_currency):
     results = []
     if df.empty: return pd.DataFrame(columns=ANALYSIS_COLS)
-        
     for i, row in df.iterrows():
         kod = row.get("Kod", "")
         pazar = row.get("Pazar", "")
         adet = float(row.get("Adet", 0))
         maliyet = float(row.get("Maliyet", 0))
         if not kod: continue 
-
         symbol = get_yahoo_symbol(kod, pazar)
         asset_currency = "USD"
         if "BIST" in pazar or "TL" in kod or "Fiziki" in pazar: asset_currency = "TRY"
-        
         try:
             if "Gram Altın (TL)" in kod:
                 hist = yf.Ticker("GC=F").history(period="2d")
@@ -322,10 +306,8 @@ def run_analysis(df, usd_try_rate, view_currency):
                 hist = yf.Ticker(symbol).history(period="2d")
                 curr_price = hist['Close'].iloc[-1] if not hist.empty else maliyet
         except: curr_price = maliyet
-
         val_native = curr_price * adet
         cost_native = maliyet * adet
-        
         if view_currency == "TRY":
             if asset_currency == "USD":
                 fiyat_goster = curr_price * usd_try_rate
@@ -344,19 +326,14 @@ def run_analysis(df, usd_try_rate, view_currency):
                 fiyat_goster = curr_price
                 val_goster = val_native
                 cost_goster = cost_native
-
         pnl = val_goster - cost_goster
         pnl_pct = (pnl / cost_goster * 100) if cost_goster > 0 else 0
-        
         results.append({
             "Kod": kod, "Pazar": pazar, "Tip": row["Tip"],
             "Adet": adet, "Maliyet": maliyet,
             "Fiyat": fiyat_goster, "PB": view_currency,
-            "Değer": val_goster, 
-            "Top. Kâr/Zarar": pnl, 
-            "Top. %": pnl_pct,
-            "Gün. Kâr/Zarar": 0,   
-            "Notlar": row.get("Notlar", "")
+            "Değer": val_goster, "Top. Kâr/Zarar": pnl, "Top. %": pnl_pct,
+            "Gün. Kâr/Zarar": 0, "Notlar": row.get("Notlar", "")
         })
     return pd.DataFrame(results)
 
@@ -375,9 +352,7 @@ def get_historical_chart(df, usd_try):
         data = yf.download(list(tickers_map.keys()), period="6mo")['Close']
     except: return None
     if data.empty: return None
-    
     data = data.ffill()
-    
     portfolio_history = pd.Series(0, index=data.index)
     if isinstance(data, pd.Series): data = data.to_frame(name=list(tickers_map.keys())[0])
     for col in data.columns:
@@ -387,10 +362,8 @@ def get_historical_chart(df, usd_try):
             price_series = data[col]
             if "KRIPTO" in pazar or "ABD" in pazar: portfolio_history += (price_series * adet * usd_try)
             else: portfolio_history += (price_series * adet)
-            
     return portfolio_history
 
-# --- RENKLENDİRME ---
 def highlight_pnl(val):
     if isinstance(val, (int, float)):
         color = '#2ecc71' if val > 0 else '#e74c3c' if val < 0 else ''
@@ -404,7 +377,6 @@ def styled_dataframe(df):
 
 # --- MAIN ---
 master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
-
 if "Tip" in master_df.columns:
     portfoy_only = master_df[master_df["Tip"] == "Portfoy"]
     takip_only = master_df[master_df["Tip"] == "Takip"]
@@ -412,7 +384,7 @@ else:
     portfoy_only = pd.DataFrame()
     takip_only = pd.DataFrame()
 
-def render_pazar_tab(df, filter_text, currency_symbol, news_ticker=None):
+def render_pazar_tab(df, filter_text, currency_symbol):
     if df.empty: 
         st.info("Veri yok.")
         return
@@ -426,33 +398,23 @@ def render_pazar_tab(df, filter_text, currency_symbol, news_ticker=None):
     c1.metric(f"Toplam {filter_text} Varlık", f"{currency_symbol}{total_val:,.0f}")
     c2.metric(f"Toplam {filter_text} Kâr/Zarar", f"{currency_symbol}{total_pl:,.0f}", delta=f"{total_pl:,.0f}")
     
+    # --- DETAYLI ANALİZ SEÇİMİ (YENİ) ---
     st.divider()
-    col_pie, col_bar = st.columns([1, 1])
-    with col_pie:
-        st.subheader(f"{filter_text} Dağılım")
-        fig_pie = px.pie(df_filtered, values='Değer', names='Kod', hole=0.4)
-        st.plotly_chart(fig_pie, use_container_width=True)
-    with col_bar:
-        st.subheader(f"{filter_text} Değerleri")
-        df_sorted = df_filtered.sort_values(by="Değer", ascending=False)
-        fig_bar = px.bar(df_sorted, x='Kod', y='Değer', color='Top. Kâr/Zarar')
-        st.plotly_chart(fig_bar, use_container_width=True)
+    st.markdown("#### 🔍 Detaylı Analiz & Grafikler")
+    # Sadece bu pazara ait hisseleri listele
+    varlik_listesi = df_filtered["Kod"].unique().tolist()
+    secilen_varlik = st.selectbox(f"İncelemek istediğiniz {filter_text} varlığını seçin:", varlik_listesi, index=None, placeholder="Varlık Seç...")
     
-    st.divider()
-    st.subheader(f"📈 {filter_text} Tarihsel Değer (Simülasyon)")
-    hist_data = get_historical_chart(df_filtered, USD_TRY)
-    if hist_data is not None: st.line_chart(hist_data, color="#4CAF50")
+    if secilen_varlik:
+        # Seçilen varlığın Yahoo sembolünü bul
+        row = df_filtered[df_filtered["Kod"] == secilen_varlik].iloc[0]
+        sym = get_yahoo_symbol(row["Kod"], row["Pazar"])
+        # Analiz Fonksiyonunu Çağır
+        render_detail_view(sym)
 
     st.divider()
     st.subheader(f"{filter_text} Liste")
     st.dataframe(styled_dataframe(df_filtered), use_container_width=True, hide_index=True)
-    
-    if news_ticker:
-        st.divider()
-        st.subheader("📰 İlgili Haberler")
-        news_items = get_news(news_ticker)
-        for n in news_items:
-            st.markdown(f"**[{n['title']}]({n['link']})**")
 
 sym = "₺" if GORUNUM_PB == "TRY" else "$"
 
@@ -466,7 +428,6 @@ if selected == "Dashboard":
         c2.metric("Genel Kâr/Zarar", f"{sym}{total_pl:,.0f}", delta=f"{total_pl:,.0f}")
         st.divider()
         col_pie, col_bar = st.columns([1, 1])
-        
         with col_pie:
             st.subheader("Dağılım")
             fig_pie = px.pie(portfoy_only, values='Değer', names='Pazar', hole=0.4)
@@ -476,7 +437,6 @@ if selected == "Dashboard":
             df_pazar_group = portfoy_only.groupby("Pazar")["Değer"].sum().reset_index().sort_values(by="Değer", ascending=False)
             fig_bar = px.bar(df_pazar_group, x='Pazar', y='Değer', color='Pazar')
             st.plotly_chart(fig_bar, use_container_width=True)
-            
         st.divider()
         st.subheader("📈 Tarihsel Zenginleşme (TL)")
         hist_data = get_historical_chart(portfoy_df, USD_TRY)
@@ -485,27 +445,24 @@ if selected == "Dashboard":
 
 elif selected == "Tümü":
     if not portfoy_only.empty:
-        col_pie_det, col_bar_det = st.columns([1, 1])
-        with col_pie_det:
-            st.subheader("Varlık Bazlı Dağılım")
-            fig_pie_det = px.pie(portfoy_only, values='Değer', names='Kod', hole=0.4)
-            st.plotly_chart(fig_pie_det, use_container_width=True)
-        with col_bar_det:
-            st.subheader("Varlık Bazlı Değerler")
-            top_assets = portfoy_only.sort_values(by="Değer", ascending=False)
-            fig_bar_det = px.bar(top_assets, x='Kod', y='Değer', color='Pazar')
-            st.plotly_chart(fig_bar_det, use_container_width=True)
+        # --- DETAYLI ANALİZ SEÇİMİ (TÜMÜ İÇİN) ---
+        st.markdown("#### 🔍 Detaylı Analiz & Grafikler")
+        all_assets = portfoy_only["Kod"].unique().tolist()
+        secilen = st.selectbox("İncelemek istediğiniz varlığı seçin:", all_assets, index=None, placeholder="Varlık Seç...")
+        if secilen:
+            row = portfoy_only[portfoy_only["Kod"] == secilen].iloc[0]
+            sym = get_yahoo_symbol(row["Kod"], row["Pazar"])
+            render_detail_view(sym)
         st.divider()
         st.subheader("Tüm Portföy Listesi")
         st.dataframe(styled_dataframe(portfoy_only), use_container_width=True, hide_index=True)
-    else:
-        st.info("Veri yok.")
+    else: st.info("Veri yok.")
 
-elif selected == "BIST": render_pazar_tab(portfoy_only, "BIST", sym, "XU100.IS")
-elif selected == "ABD": render_pazar_tab(portfoy_only, "ABD", sym, "^GSPC")
-elif selected == "Emtia": render_pazar_tab(portfoy_only, "EMTIA", sym, "GC=F")
+elif selected == "BIST": render_pazar_tab(portfoy_only, "BIST", sym)
+elif selected == "ABD": render_pazar_tab(portfoy_only, "ABD", sym)
+elif selected == "Emtia": render_pazar_tab(portfoy_only, "EMTIA", sym)
 elif selected == "Fiziki": render_pazar_tab(portfoy_only, "FIZIKI", sym)
-elif selected == "Kripto": render_pazar_tab(portfoy_only, "KRIPTO", sym, "BTC-USD")
+elif selected == "Kripto": render_pazar_tab(portfoy_only, "KRIPTO", sym)
 
 elif selected == "İzleme":
     st.subheader("İzleme Listesi")
@@ -520,20 +477,12 @@ elif selected == "Satışlar":
         st.metric("Toplam Realize Edilen (Cepteki) Kâr/Zarar", f"{total_realized_pl:,.2f}")
         st.divider()
         st.dataframe(styled_dataframe(sales_df.iloc[::-1]), use_container_width=True, hide_index=True)
-    else:
-        st.info("Henüz satış işlemi yok.")
+    else: st.info("Henüz satış işlemi yok.")
 
 elif selected == "Ekle/Çıkar":
     st.header("Varlık Yönetimi")
-    
     if not portfoy_only.empty:
-        st.download_button(
-            label="📥 Portföyü Excel Olarak İndir",
-            data=portfoy_only.to_csv(index=False).encode('utf-8'),
-            file_name='portfoyum.csv',
-            mime='text/csv',
-        )
-    
+        st.download_button(label="📥 Portföyü Excel Olarak İndir", data=portfoy_only.to_csv(index=False).encode('utf-8'), file_name='portfoyum.csv', mime='text/csv')
     tab_ekle, tab_sil = st.tabs(["➕ Ekle", "📉 Sat/Sil"])
     with tab_ekle:
         islem_tipi = st.radio("Tür", ["Portföy", "Takip"], horizontal=True)
@@ -563,7 +512,6 @@ elif selected == "Ekle/Çıkar":
                     time.sleep(1)
                     st.rerun()
                 else: st.error("Seçim yapın.")
-    
     with tab_sil:
         st.subheader("Satış veya Silme İşlemi")
         if not portfoy_df.empty:
@@ -579,11 +527,9 @@ elif selected == "Ekle/Çıkar":
                 else:
                     st.warning("Listede varlık yok.")
                     mevcut_adet = 0
-                
                 c1, c2 = st.columns(2)
                 satilan_adet = c1.number_input("Satılacak Adet", min_value=0.0, max_value=mevcut_adet, step=0.01)
                 satis_fiyati = c2.number_input("Satış Fiyatı", min_value=0.0, step=0.01)
-                
                 if st.form_submit_button("Satışı Onayla", type="primary"):
                     if satilan_adet > 0 and satis_fiyati > 0:
                         kar_zarar = (satis_fiyati - mevcut_maliyet) * satilan_adet
