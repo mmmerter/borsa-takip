@@ -51,7 +51,7 @@ selected = option_menu(
     orientation="horizontal",
     styles={
         "container": {"padding": "0!important", "background-color": "#161616"}, # Koyu Zemin
-        "icon": {"color": "white", "font-size": "18px"}, # İkonlar Beyaz
+        "icon": {"color": "red", "font-size": "18px"}, # İkonlar Beyaz
         "nav-link": {
             "font-size": "14px", 
             "text-align": "center", 
@@ -413,3 +413,4 @@ elif selected == "Ekle/Çıkar":
                         st.rerun()
                     else: st.error("Lütfen geçerli adet ve fiyat giriniz.")
         else: st.info("Satılacak varlık yok.")
+
