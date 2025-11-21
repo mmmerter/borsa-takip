@@ -419,4 +419,3 @@ with tabs[7]:
                 st.rerun()
         else:
             st.info("Listeniz boş.")
-
