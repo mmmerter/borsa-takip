@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS: MOBİL İÇİN ÖZEL AYARLAR ---
+# --- CSS: MOBİL VE WEB İÇİN TASARIM ---
 st.markdown("""
 <style>
     .main .block-container {
@@ -64,7 +64,7 @@ ANALYSIS_COLS = ["Kod", "Pazar", "Tip", "Adet", "Maliyet", "Fiyat", "Önceki", "
                  "Değer", "Top. P/L", "Top. %", "Gün. P/L", "Gün. %", 
                  "TL Değer", "TL Maliyet", "TL Gün P/L", "Notlar"]
 
-# --- DEVASA VARLIK LİSTESİ (TÜM BIST DAHİL) ---
+# --- DEVASA GÜNCEL VARLIK LİSTESİ ---
 MARKET_DATA = {
     "BIST (Tümü)": [
         "A1CAP", "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AGYO",
@@ -209,11 +209,9 @@ def fetch_market_data(kod, pazar, usd_try):
     currency = "USD"
     
     # ----------------------------------------------------
-    # BÜYÜK SIR BURADA: 
-    # Listede olsun olmasın, Pazar "BIST" ise sonuna .IS ekle!
+    # AKILLI DÜZELTME
     # ----------------------------------------------------
     if "BIST" in pazar:
-        # Zaten .IS ile bitmiyorsa ekle
         if not kod.endswith(".IS"):
             yahoo_symbol = f"{kod}.IS"
         currency = "TL"
@@ -413,12 +411,13 @@ with tabs[7]:
         yeni_pazar = st.selectbox("Pazar", list(MARKET_DATA.keys()))
         secenekler = MARKET_DATA.get(yeni_pazar, [])
         
-        st.info("💡 İpucu: Listede aradığınız hisse yoksa aşağıya 'Manuel Kod' olarak yazın, sistem otomatik bulur!")
+        st.info("💡 İpucu: Listeden seçebilir VEYA listede yoksa aşağıya elle yazabilirsiniz.")
         
         with st.form("add_asset_form"):
+            # Liste Seçimi
             yeni_kod = st.selectbox("Listeden Seç", options=secenekler, index=None, placeholder="Seçiniz...")
             
-            # BURASI ÖNEMLİ: Manuel girişi ayrı bir seçenek gibi değil, her zaman açık bıraktım.
+            # Manuel Giriş (Her zaman aktif)
             manuel_kod = st.text_input("Veya Manuel Yaz (Örn: MEGMT)").upper()
             
             c1, c2 = st.columns(2)
@@ -427,7 +426,7 @@ with tabs[7]:
             not_inp = st.text_input("Not")
             
             if st.form_submit_button("Kaydet", type="primary", use_container_width=True):
-                # Önce manuel kutuya bak, doluysa onu al. Boşsa listeden seçileni al.
+                # Mantık: Eğer manuel kutu doluysa onu kullan, boşsa listeden seçileni kullan.
                 final_kod = manuel_kod if manuel_kod else yeni_kod
                 
                 if final_kod:
