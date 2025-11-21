@@ -4,4 +4,5 @@ pandas
 gspread
 oauth2client
 plotly
+tefas-crawler
 streamlit-option-menu
