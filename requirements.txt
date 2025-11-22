@@ -6,3 +6,4 @@ oauth2client
 plotly
 tefas-crawler
 streamlit-option-menu
+feedparser
