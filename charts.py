@@ -10,12 +10,13 @@ from data_loader import get_tefas_data
 
 # --------------------------------------------------------------------
 #  ORTAK PIE + BAR CHART  ( %1 altını "Diğer" altında toplar )
+#  Pasta üzerinde yazı YOK, sadece hover + legend var (Seçenek A)
 # --------------------------------------------------------------------
 def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
     if df.empty or "Değer" not in df.columns:
         return
 
-    # Önce group_col bazında topluyoruz (aynı kod/pazar tekrarlarını birleştir)
+    # Aynı grup isimlerini birleştir (Kod/Pazar bazlı toplam)
     agg_cols = {"Değer": "sum"}
     has_pnl = "Top. Kâr/Zarar" in df.columns
     if has_pnl:
@@ -46,14 +47,13 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
             )
             plot_df = major.drop(columns=["_pct"], errors="ignore")
         else:
-            # Hepsi %1 altıysa veya major boşsa -> olduğu gibi kullan
             plot_df = grouped.drop(columns=["_pct"], errors="ignore")
 
-    # Pasta daha geniş, bar daha dar
+    # Pasta daha geniş, bar biraz daha dar
     c_pie, c_bar = st.columns([4, 3])
 
     # ====================
-    # PIE CHART
+    # PIE CHART (metin YOK – sadece hover & legend)
     # ====================
     pie_fig = px.pie(
         plot_df,
@@ -62,16 +62,12 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
         hole=0.40,
     )
     pie_fig.update_traces(
-        textinfo="percent+label",
-        textfont=dict(
-            size=18,
-            color="white",
-            family="Arial Black",
-        ),
+        textinfo="none",  # >>> yazıları tamamen gizle
+        hovertemplate="%{label}<br>Değer: %{value:,.0f}<br>%{percent}",
     )
     pie_fig.update_layout(
         legend=dict(font=dict(size=14)),
-        margin=dict(t=40, l=0, r=0, b=80),  # altta ekstra boşluk
+        margin=dict(t=40, l=0, r=0, b=40),
     )
     c_pie.plotly_chart(pie_fig, use_container_width=True)
 
