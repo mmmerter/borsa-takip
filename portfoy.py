@@ -20,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS: TASARIM (SİYAH/BEYAZ/GRİ TEMA & KALIN FONT) ---
+# --- CSS: TASARIM (ÇİFT ŞERİT) ---
 st.markdown("""
 <style>
     .block-container {padding-top: 1rem;}
@@ -36,26 +36,42 @@ st.markdown("""
     div[data-testid="stMetricValue"] { color: #ffffff !important; }
     div[data-testid="stMetricLabel"] { color: #d0d0d0 !important; }
     
-    /* Ticker Tape (Courier New, Kalın) */
+    /* Ticker Tape Genel Ayarlar */
     .ticker-container {
         width: 100%;
         overflow: hidden;
-        background-color: #161616;
-        border-bottom: 1px solid #333;
-        margin-bottom: 20px;
         white-space: nowrap;
         position: relative;
     }
+    
+    /* Üst Şerit (Piyasa) */
+    .market-ticker {
+        background-color: #0e1117; /* Daha koyu */
+        border-bottom: 1px solid #333;
+        padding: 8px 0;
+    }
+    
+    /* Alt Şerit (Portföy) */
+    .portfolio-ticker {
+        background-color: #161616; /* Hafif açık */
+        border-bottom: 1px solid #FF4B4B; /* Portföyü ayıran ince kırmızı çizgi */
+        padding: 8px 0;
+        margin-bottom: 20px;
+    }
+
     .ticker-text {
         display: inline-block;
         white-space: nowrap;
         padding-left: 0;
-        animation: ticker 60s linear infinite; 
         font-family: 'Courier New', Courier, monospace;
-        font-size: 18px;
-        font-weight: 900;
-        color: #00e676;
+        font-size: 16px;
+        font-weight: bold;
     }
+    
+    /* Animasyonlar (Farklı hızlar verilebilir) */
+    .animate-market { animation: ticker 65s linear infinite; color: #4da6ff; }
+    .animate-portfolio { animation: ticker 55s linear infinite; color: #ffd700; }
+
     @keyframes ticker {
         0% { transform: translate3d(0, 0, 0); }
         100% { transform: translate3d(-50%, 0, 0); } 
@@ -112,7 +128,7 @@ def get_tefas_data(fund_code):
         return 0, 0
     except: return 0, 0
 
-# --- COINGECKO VERİLERİ (BTC.D, TOTAL, OTHERS) ---
+# --- COINGECKO GLOBAL VERİ (TOTAL 3 EKLENDİ) ---
 @st.cache_data(ttl=300)
 def get_crypto_globals():
     try:
@@ -120,17 +136,21 @@ def get_crypto_globals():
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             d = response.json()['data']
+            
+            total_cap = d['total_market_cap']['usd']
             btc_d = d['market_cap_percentage']['btc']
             eth_d = d['market_cap_percentage']['eth']
-            total_cap = d['total_market_cap']['usd']
             
-            # Others Dominance Hesabı (BTC ve ETH hariç kalanı Others varsayıyoruz)
-            others_d = 100 - (btc_d + eth_d)
+            # TOTAL 3 HESABI (Total - (BTC + ETH))
+            # CoinGecko doğrudan Total3 vermez, biz hesaplarız:
+            # Toplam - (Toplam * (BTC% + ETH%) / 100)
+            top_2_share = btc_d + eth_d
+            total_3 = total_cap * (1 - (top_2_share / 100))
             
-            # Others Market Cap (Total * Others%)
-            others_cap = total_cap * (others_d / 100)
+            # Others (Genel Altcoin)
+            others_d = 100 - top_2_share
             
-            return btc_d, total_cap, others_cap, others_d
+            return total_cap, btc_d, total_3, others_d
     except:
         pass
     return 0, 0, 0, 0
@@ -211,17 +231,20 @@ def save_data_to_sheet(df):
     sheet.clear()
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
-# --- MARKET VE PORTFÖY ŞERİDİ (TAM SIRALAMA) ---
+# --- MARKET VE PORTFÖY ŞERİTLERİ (AYRI FONKSİYONLAR) ---
 @st.cache_data(ttl=45) 
-def get_combined_ticker(df_portfolio, usd_try):
-    # CoinGecko Global Verileri
-    btc_d, total_cap, others_cap, others_d = get_crypto_globals()
+def get_tickers_data(df_portfolio, usd_try):
+    # --- 1. ÜST ŞERİT (PİYASA) ---
+    total_cap, btc_d, total_3, others_d = get_crypto_globals()
     
-    # Yahoo Sembol Listesi (Piyasa Verileri)
-    # BIST, USD, EUR, ONS ALTIN, ONS GÜMÜŞ, NASDAQ, SP500, BTC, ETH
-    market_tickers = ["XU100.IS", "TRY=X", "EURTRY=X", "GC=F", "SI=F", "^IXIC", "^GSPC", "BTC-USD", "ETH-USD"]
+    market_symbols = [
+        ("BIST 100", "XU100.IS"), ("USD", "TRY=X"), ("EUR", "EURTRY=X"),
+        ("BTC/USDT", "BTC-USD"), ("ETH/USDT", "ETH-USD"),
+        ("Ons Altın", "GC=F"), ("Ons Gümüş", "SI=F"),
+        ("NASDAQ", "^IXIC"), ("S&P 500", "^GSPC")
+    ]
     
-    # Portföydeki Semboller
+    # Portföy Sembolleri
     portfolio_symbols = {}
     if not df_portfolio.empty:
         assets = df_portfolio[df_portfolio["Tip"] == "Portfoy"]
@@ -232,9 +255,10 @@ def get_combined_ticker(df_portfolio, usd_try):
                 sym = get_yahoo_symbol(kod, pazar)
                 portfolio_symbols[kod] = sym
 
-    all_fetch = list(set(market_tickers + list(portfolio_symbols.values())))
+    all_fetch = list(set([s[1] for s in market_symbols] + list(portfolio_symbols.values())))
     
-    data_str = '<span style="color:#4da6ff">🌍 PİYASA:</span> &nbsp;'
+    market_html = '<span style="color:#aaa">🌍 PİYASA:</span> &nbsp;'
+    portfolio_html = '<span style="color:#aaa">💼 PORTFÖY:</span> &nbsp;'
     
     try:
         yahoo_data = yf.Tickers(" ".join(all_fetch))
@@ -254,67 +278,48 @@ def get_combined_ticker(df_portfolio, usd_try):
             except: return ""
             return ""
 
-        # --- 1. BIST 100 ---
-        data_str += f'BIST 100: {get_val("XU100.IS")} &nbsp;|&nbsp; '
-        
-        # --- 2. USD ---
-        data_str += f'USD: {get_val("TRY=X")} &nbsp;|&nbsp; '
-        
-        # --- 3. EUR ---
-        data_str += f'EUR: {get_val("EURTRY=X")} &nbsp;|&nbsp; '
-        
-        # --- 4. BTC/USDT (BTC-USD verisiyle) ---
-        data_str += f'BTC/USDT: {get_val("BTC-USD")} &nbsp;|&nbsp; '
-        
-        # --- 5. ETH/USDT (ETH-USD verisiyle) ---
-        data_str += f'ETH/USDT: {get_val("ETH-USD")} &nbsp;|&nbsp; '
-        
-        # --- 6. GR ALTIN (Hesaplama) ---
-        try:
-            ons = yahoo_data.tickers["GC=F"].history(period="1d")['Close'].iloc[-1]
-            gr = (ons * usd_try) / 31.1035
-            data_str += f'GR ALTIN: <span style="color:white">{gr:.2f}</span> &nbsp;|&nbsp; '
-        except: pass
-        
-        # --- 7. GR GÜMÜŞ (Hesaplama) ---
-        try:
-            ons = yahoo_data.tickers["SI=F"].history(period="1d")['Close'].iloc[-1]
-            gr = (ons * usd_try) / 31.1035
-            data_str += f'GR GÜMÜŞ: <span style="color:white">{gr:.2f}</span> &nbsp;|&nbsp; '
-        except: pass
-        
-        # --- 8. ONS ALTIN ---
-        data_str += f'ONS ALTIN: {get_val("GC=F")} &nbsp;|&nbsp; '
-        
-        # --- 9. ONS GÜMÜŞ ---
-        data_str += f'ONS GÜMÜŞ: {get_val("SI=F")} &nbsp;|&nbsp; '
-        
-        # --- 10. NASDAQ ---
-        data_str += f'NASDAQ: {get_val("^IXIC")} &nbsp;|&nbsp; '
-        
-        # --- 11. SP 500 ---
-        data_str += f'S&P 500: {get_val("^GSPC")} &nbsp;|&nbsp; '
-        
-        # --- 12. COINGECKO KRİPTO METRİKLERİ ---
-        if total_cap > 0:
-            t_tril = total_cap / 1_000_000_000_000
-            o_bil = others_cap / 1_000_000_000
+        # --- PİYASA ŞERİDİ OLUŞTUR ---
+        for name, sym in market_symbols:
+            val = get_val(sym)
+            if val: market_html += f'{name}: {val} &nbsp;|&nbsp; '
             
-            data_str += f'BTC.D: <span style="color:#f2a900">% {btc_d:.2f}</span> &nbsp;|&nbsp; '
-            data_str += f'TOTAL: <span style="color:#00e676">${t_tril:.2f}T</span> &nbsp;|&nbsp; '
-            data_str += f'OTHERS: <span style="color:#627eea">${o_bil:.0f}B</span> &nbsp;|&nbsp; '
-            data_str += f'OTHERS.D: <span style="color:#627eea">% {others_d:.2f}</span> &nbsp;|&nbsp; '
+            # Araya Gramları Sıkıştır
+            if name == "ETH/USDT":
+                try:
+                    ons = yahoo_data.tickers["GC=F"].history(period="1d")['Close'].iloc[-1]
+                    gr = (ons * usd_try) / 31.1035
+                    market_html += f'Gr Altın: <span style="color:white">{gr:.2f}</span> &nbsp;|&nbsp; '
+                except: pass
+                try:
+                    ons = yahoo_data.tickers["SI=F"].history(period="1d")['Close'].iloc[-1]
+                    gr = (ons * usd_try) / 31.1035
+                    market_html += f'Gr Gümüş: <span style="color:white">{gr:.2f}</span> &nbsp;|&nbsp; '
+                except: pass
 
-        # --- 13. PORTFÖY ---
+        # Kripto Global Verileri (Sona Ekle)
+        if total_cap > 0:
+            t3_tril = total_3 / 1_000_000_000_000
+            market_html += f'BTC.D: <span style="color:#f2a900">% {btc_d:.2f}</span> &nbsp;|&nbsp; '
+            market_html += f'TOTAL 3: <span style="color:#627eea">${t3_tril:.2f}T</span> &nbsp;|&nbsp; '
+            market_html += f'OTHERS.D: <span style="color:#627eea">% {others_d:.2f}</span> &nbsp;|&nbsp; '
+
+        # --- PORTFÖY ŞERİDİ OLUŞTUR ---
         if portfolio_symbols:
-            data_str += '&nbsp;&nbsp;&nbsp; <span style="color:#ffd700">💼 PORTFÖYÜM:</span> &nbsp;'
             for name, sym in portfolio_symbols.items():
                 val = get_val(sym)
-                if val: data_str += f'{name}: {val} &nbsp;|&nbsp; '
+                if val: portfolio_html += f'{name}: {val} &nbsp;&nbsp;&nbsp; '
+        else:
+            portfolio_html += "Portföy boş veya veri çekilemiyor."
 
-    except: data_str = "Veriler yükleniyor..."
+    except: 
+        market_html = "Veri yükleniyor..."
+        portfolio_html = "Veri yükleniyor..."
     
-    return f'<div class="ticker-text">{data_str} &nbsp;&nbsp;&nbsp; {data_str}</div>'
+    # Sonsuz Döngü İçin Çiftleme
+    final_market = f'<div class="ticker-text animate-market">{market_html} &nbsp;&nbsp;&nbsp; {market_html}</div>'
+    final_portfolio = f'<div class="ticker-text animate-portfolio">{portfolio_html} &nbsp;&nbsp;&nbsp; {portfolio_html}</div>'
+    
+    return final_market, final_portfolio
 
 portfoy_df = get_data_from_sheet()
 
@@ -337,11 +342,19 @@ def get_usd_try():
 
 USD_TRY = get_usd_try()
 
-# --- KAYAN ŞERİT ---
-ticker_html = get_combined_ticker(portfoy_df, USD_TRY)
-st.markdown(f"""<div class="ticker-container">{ticker_html}</div>""", unsafe_allow_html=True)
+# --- ÇİFT KAYAN ŞERİT GÖSTERİMİ ---
+market_html, portfolio_html = get_tickers_data(portfoy_df, USD_TRY)
 
-# --- NAVİGASYON MENÜSÜ (MONOKROM TEMA) ---
+st.markdown(f"""
+<div class="ticker-container market-ticker">
+    {market_html}
+</div>
+<div class="ticker-container portfolio-ticker">
+    {portfolio_html}
+</div>
+""", unsafe_allow_html=True)
+
+# --- NAVİGASYON MENÜSÜ ---
 selected = option_menu(
     menu_title=None, 
     options=["Dashboard", "Tümü", "BIST", "ABD", "FON", "Emtia", "Fiziki", "Kripto", "Haberler", "İzleme", "Satışlar", "Ekle/Çıkar"], 
@@ -475,6 +488,7 @@ def run_analysis(df, usd_try_rate, view_currency):
 
         val_native = curr_price * adet
         cost_native = maliyet * adet
+        
         daily_chg_native = (curr_price - prev_close) * adet
 
         if view_currency == "TRY":
@@ -502,6 +516,7 @@ def run_analysis(df, usd_try_rate, view_currency):
         
         pnl = val_goster - cost_goster
         pnl_pct = (pnl / cost_goster * 100) if cost_goster > 0 else 0
+        
         results.append({
             "Kod": kod, "Pazar": pazar, "Tip": row["Tip"],
             "Adet": adet, "Maliyet": maliyet,
