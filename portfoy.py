@@ -20,12 +20,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS: TASARIM (ÇİFT ŞERİT) ---
+# --- CSS: TASARIM ---
 st.markdown("""
 <style>
     .block-container {padding-top: 1rem;}
     
-    /* Metrik Kutuları */
     div[data-testid="stMetric"] {
         background-color: #262730;
         border: 1px solid #464b5f;
@@ -36,42 +35,26 @@ st.markdown("""
     div[data-testid="stMetricValue"] { color: #ffffff !important; }
     div[data-testid="stMetricLabel"] { color: #d0d0d0 !important; }
     
-    /* Ticker Tape Genel Ayarlar */
+    /* Ticker Tape (Courier New, Kalın) */
     .ticker-container {
         width: 100%;
         overflow: hidden;
+        background-color: #161616;
+        border-bottom: 1px solid #333;
+        margin-bottom: 20px;
         white-space: nowrap;
         position: relative;
     }
-    
-    /* Üst Şerit (Piyasa) */
-    .market-ticker {
-        background-color: #0e1117; /* Daha koyu */
-        border-bottom: 1px solid #333;
-        padding: 8px 0;
-    }
-    
-    /* Alt Şerit (Portföy) */
-    .portfolio-ticker {
-        background-color: #161616; /* Hafif açık */
-        border-bottom: 1px solid #FF4B4B; /* Portföyü ayıran ince kırmızı çizgi */
-        padding: 8px 0;
-        margin-bottom: 20px;
-    }
-
     .ticker-text {
         display: inline-block;
         white-space: nowrap;
         padding-left: 0;
+        animation: ticker 60s linear infinite; 
         font-family: 'Courier New', Courier, monospace;
-        font-size: 16px;
-        font-weight: bold;
+        font-size: 18px;
+        font-weight: 900;
+        color: #00e676;
     }
-    
-    /* Animasyonlar (Farklı hızlar verilebilir) */
-    .animate-market { animation: ticker 65s linear infinite; color: #4da6ff; }
-    .animate-portfolio { animation: ticker 55s linear infinite; color: #ffd700; }
-
     @keyframes ticker {
         0% { transform: translate3d(0, 0, 0); }
         100% { transform: translate3d(-50%, 0, 0); } 
@@ -128,7 +111,7 @@ def get_tefas_data(fund_code):
         return 0, 0
     except: return 0, 0
 
-# --- COINGECKO GLOBAL VERİ (TOTAL 3 EKLENDİ) ---
+# --- COINGECKO GLOBAL VERİ (TOTAL 3 DAHİL) ---
 @st.cache_data(ttl=300)
 def get_crypto_globals():
     try:
@@ -141,19 +124,20 @@ def get_crypto_globals():
             btc_d = d['market_cap_percentage']['btc']
             eth_d = d['market_cap_percentage']['eth']
             
-            # TOTAL 3 HESABI (Total - (BTC + ETH))
-            # CoinGecko doğrudan Total3 vermez, biz hesaplarız:
-            # Toplam - (Toplam * (BTC% + ETH%) / 100)
-            top_2_share = btc_d + eth_d
-            total_3 = total_cap * (1 - (top_2_share / 100))
+            # TOTAL 3 HESAPLAMA (Total - (BTC + ETH Market Cap))
+            # CoinGecko market cap yüzdelerini verdiği için:
+            # Toplam * (1 - (btc% + eth%)/100) = Total 3
+            top2_share = btc_d + eth_d
+            total_3_cap = total_cap * (1 - (top2_share / 100))
             
-            # Others (Genel Altcoin)
-            others_d = 100 - top_2_share
+            # OTHERS HESAPLAMA (Genelde Total 3 ile aynı mantık ama Others.D için)
+            others_d = 100 - top2_share
+            others_cap = total_3_cap # Yaklaşık olarak Others Cap = Total 3 Cap
             
-            return total_cap, btc_d, total_3, others_d
+            return total_cap, btc_d, total_3_cap, others_d, others_cap
     except:
         pass
-    return 0, 0, 0, 0
+    return 0, 0, 0, 0, 0
 
 # --- HABER AKIŞI ---
 @st.cache_data(ttl=300)
@@ -231,20 +215,19 @@ def save_data_to_sheet(df):
     sheet.clear()
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
-# --- MARKET VE PORTFÖY ŞERİTLERİ (AYRI FONKSİYONLAR) ---
+# --- MARKET VE PORTFÖY ŞERİDİ (KESİN SIRALAMA) ---
 @st.cache_data(ttl=45) 
-def get_tickers_data(df_portfolio, usd_try):
-    # --- 1. ÜST ŞERİT (PİYASA) ---
-    total_cap, btc_d, total_3, others_d = get_crypto_globals()
+def get_combined_ticker(df_portfolio, usd_try):
+    # CoinGecko Global Verileri (TOTAL 3 DAHİL)
+    total_cap, btc_d, total_3_cap, others_d, others_cap = get_crypto_globals()
     
-    market_symbols = [
-        ("BIST 100", "XU100.IS"), ("USD", "TRY=X"), ("EUR", "EURTRY=X"),
-        ("BTC/USDT", "BTC-USD"), ("ETH/USDT", "ETH-USD"),
-        ("Ons Altın", "GC=F"), ("Ons Gümüş", "SI=F"),
-        ("NASDAQ", "^IXIC"), ("S&P 500", "^GSPC")
+    # Ham Sembol Listesi (Sıralama İçin)
+    # BIST 100 / USD / EUR / BTC / ETH / ONS ALTIN / ONS GÜMÜŞ / NASDAQ / SP500
+    yahoo_fetch_list = [
+        "XU100.IS", "TRY=X", "EURTRY=X", "BTC-USD", "ETH-USD", "GC=F", "SI=F", "^IXIC", "^GSPC"
     ]
     
-    # Portföy Sembolleri
+    # Portföy
     portfolio_symbols = {}
     if not df_portfolio.empty:
         assets = df_portfolio[df_portfolio["Tip"] == "Portfoy"]
@@ -255,13 +238,12 @@ def get_tickers_data(df_portfolio, usd_try):
                 sym = get_yahoo_symbol(kod, pazar)
                 portfolio_symbols[kod] = sym
 
-    all_fetch = list(set([s[1] for s in market_symbols] + list(portfolio_symbols.values())))
+    all_tickers = list(set(yahoo_fetch_list + list(portfolio_symbols.values())))
     
-    market_html = '<span style="color:#aaa">🌍 PİYASA:</span> &nbsp;'
-    portfolio_html = '<span style="color:#aaa">💼 PORTFÖY:</span> &nbsp;'
+    data_str = '<span style="color:#4da6ff">🌍 PİYASA:</span> &nbsp;'
     
     try:
-        yahoo_data = yf.Tickers(" ".join(all_fetch))
+        yahoo_data = yf.Tickers(" ".join(all_tickers))
         
         # YARDIMCI: Veri Formatla
         def get_val(symbol):
@@ -278,48 +260,71 @@ def get_tickers_data(df_portfolio, usd_try):
             except: return ""
             return ""
 
-        # --- PİYASA ŞERİDİ OLUŞTUR ---
-        for name, sym in market_symbols:
-            val = get_val(sym)
-            if val: market_html += f'{name}: {val} &nbsp;|&nbsp; '
-            
-            # Araya Gramları Sıkıştır
-            if name == "ETH/USDT":
-                try:
-                    ons = yahoo_data.tickers["GC=F"].history(period="1d")['Close'].iloc[-1]
-                    gr = (ons * usd_try) / 31.1035
-                    market_html += f'Gr Altın: <span style="color:white">{gr:.2f}</span> &nbsp;|&nbsp; '
-                except: pass
-                try:
-                    ons = yahoo_data.tickers["SI=F"].history(period="1d")['Close'].iloc[-1]
-                    gr = (ons * usd_try) / 31.1035
-                    market_html += f'Gr Gümüş: <span style="color:white">{gr:.2f}</span> &nbsp;|&nbsp; '
-                except: pass
-
-        # Kripto Global Verileri (Sona Ekle)
+        # --- KESİN İSTENEN SIRALAMA ---
+        
+        # 1. BIST 100
+        data_str += f'BIST 100: {get_val("XU100.IS")} &nbsp;|&nbsp; '
+        
+        # 2. USD
+        data_str += f'USD: {get_val("TRY=X")} &nbsp;|&nbsp; '
+        
+        # 3. EUR
+        data_str += f'EUR: {get_val("EURTRY=X")} &nbsp;|&nbsp; '
+        
+        # 4. BTC/USDT
+        data_str += f'BTC/USDT: {get_val("BTC-USD")} &nbsp;|&nbsp; '
+        
+        # 5. ETH/USDT
+        data_str += f'ETH/USDT: {get_val("ETH-USD")} &nbsp;|&nbsp; '
+        
+        # 6. GRAM ALTIN (Hesaplama)
+        try:
+            ons = yahoo_data.tickers["GC=F"].history(period="1d")['Close'].iloc[-1]
+            gr = (ons * usd_try) / 31.1035
+            data_str += f'GR ALTIN: <span style="color:white">{gr:.2f}</span> &nbsp;|&nbsp; '
+        except: pass
+        
+        # 7. GRAM GÜMÜŞ (Hesaplama)
+        try:
+            ons = yahoo_data.tickers["SI=F"].history(period="1d")['Close'].iloc[-1]
+            gr = (ons * usd_try) / 31.1035
+            data_str += f'GR GÜMÜŞ: <span style="color:white">{gr:.2f}</span> &nbsp;|&nbsp; '
+        except: pass
+        
+        # 8. ONS ALTIN
+        data_str += f'ONS ALTIN: {get_val("GC=F")} &nbsp;|&nbsp; '
+        
+        # 9. ONS GÜMÜŞ
+        data_str += f'ONS GÜMÜŞ: {get_val("SI=F")} &nbsp;|&nbsp; '
+        
+        # 10. NASDAQ
+        data_str += f'NASDAQ: {get_val("^IXIC")} &nbsp;|&nbsp; '
+        
+        # 11. S&P 500
+        data_str += f'S&P 500: {get_val("^GSPC")} &nbsp;|&nbsp; '
+        
+        # 12. KRIPTO DETAYLAR (TOTAL, TOTAL3, BTC.D)
         if total_cap > 0:
-            t3_tril = total_3 / 1_000_000_000_000
-            market_html += f'BTC.D: <span style="color:#f2a900">% {btc_d:.2f}</span> &nbsp;|&nbsp; '
-            market_html += f'TOTAL 3: <span style="color:#627eea">${t3_tril:.2f}T</span> &nbsp;|&nbsp; '
-            market_html += f'OTHERS.D: <span style="color:#627eea">% {others_d:.2f}</span> &nbsp;|&nbsp; '
+            t_tril = total_cap / 1_000_000_000_000 # Trilyon
+            t3_bil = total_3_cap / 1_000_000_000 # Milyar
+            o_bil = others_cap / 1_000_000_000 # Milyar
+            
+            data_str += f'BTC.D: <span style="color:#f2a900">% {btc_d:.2f}</span> &nbsp;|&nbsp; '
+            data_str += f'TOTAL: <span style="color:#00e676">${t_tril:.2f}T</span> &nbsp;|&nbsp; '
+            data_str += f'TOTAL 3: <span style="color:#627eea">${t3_bil:.0f}B</span> &nbsp;|&nbsp; '
+            data_str += f'OTHERS: <span style="color:#627eea">${o_bil:.0f}B</span> &nbsp;|&nbsp; '
+            data_str += f'OTHERS.D: <span style="color:#627eea">% {others_d:.2f}</span> &nbsp;|&nbsp; '
 
-        # --- PORTFÖY ŞERİDİ OLUŞTUR ---
+        # --- 13. PORTFÖY (İsteğe Bağlı Eklendi) ---
         if portfolio_symbols:
+            data_str += '&nbsp;&nbsp;&nbsp; <span style="color:#ffd700">💼 PORTFÖYÜM:</span> &nbsp;'
             for name, sym in portfolio_symbols.items():
                 val = get_val(sym)
-                if val: portfolio_html += f'{name}: {val} &nbsp;&nbsp;&nbsp; '
-        else:
-            portfolio_html += "Portföy boş veya veri çekilemiyor."
+                if val: data_str += f'{name}: {val} &nbsp;|&nbsp; '
 
-    except: 
-        market_html = "Veri yükleniyor..."
-        portfolio_html = "Veri yükleniyor..."
+    except: data_str = "Veriler yükleniyor..."
     
-    # Sonsuz Döngü İçin Çiftleme
-    final_market = f'<div class="ticker-text animate-market">{market_html} &nbsp;&nbsp;&nbsp; {market_html}</div>'
-    final_portfolio = f'<div class="ticker-text animate-portfolio">{portfolio_html} &nbsp;&nbsp;&nbsp; {portfolio_html}</div>'
-    
-    return final_market, final_portfolio
+    return f'<div class="ticker-text">{data_str} &nbsp;&nbsp;&nbsp; {data_str}</div>'
 
 portfoy_df = get_data_from_sheet()
 
@@ -342,19 +347,11 @@ def get_usd_try():
 
 USD_TRY = get_usd_try()
 
-# --- ÇİFT KAYAN ŞERİT GÖSTERİMİ ---
-market_html, portfolio_html = get_tickers_data(portfoy_df, USD_TRY)
+# --- KAYAN ŞERİT ---
+ticker_html = get_combined_ticker(portfoy_df, USD_TRY)
+st.markdown(f"""<div class="ticker-container">{ticker_html}</div>""", unsafe_allow_html=True)
 
-st.markdown(f"""
-<div class="ticker-container market-ticker">
-    {market_html}
-</div>
-<div class="ticker-container portfolio-ticker">
-    {portfolio_html}
-</div>
-""", unsafe_allow_html=True)
-
-# --- NAVİGASYON MENÜSÜ ---
+# --- NAVİGASYON MENÜSÜ (MONOKROM) ---
 selected = option_menu(
     menu_title=None, 
     options=["Dashboard", "Tümü", "BIST", "ABD", "FON", "Emtia", "Fiziki", "Kripto", "Haberler", "İzleme", "Satışlar", "Ekle/Çıkar"], 
@@ -458,10 +455,6 @@ def run_analysis(df, usd_try_rate, view_currency):
         symbol = get_yahoo_symbol(kod, pazar)
         asset_currency = "USD"
         if "BIST" in pazar or "TL" in kod or "Fiziki" in pazar or pazar == "FON": asset_currency = "TRY"
-        
-        curr_price = 0
-        prev_close = 0
-        
         try:
             if pazar == "FON":
                 curr_price, prev_close = get_tefas_data(kod)
@@ -488,7 +481,6 @@ def run_analysis(df, usd_try_rate, view_currency):
 
         val_native = curr_price * adet
         cost_native = maliyet * adet
-        
         daily_chg_native = (curr_price - prev_close) * adet
 
         if view_currency == "TRY":
@@ -516,7 +508,6 @@ def run_analysis(df, usd_try_rate, view_currency):
         
         pnl = val_goster - cost_goster
         pnl_pct = (pnl / cost_goster * 100) if cost_goster > 0 else 0
-        
         results.append({
             "Kod": kod, "Pazar": pazar, "Tip": row["Tip"],
             "Adet": adet, "Maliyet": maliyet,
@@ -688,19 +679,9 @@ elif selected == "Satışlar":
 
 elif selected == "Ekle/Çıkar":
     st.header("Varlık Yönetimi")
-    
-    # Excel İndir Butonu
     if not portfoy_only.empty:
-        st.download_button(
-            label="📥 Portföyü Excel Olarak İndir",
-            data=portfoy_only.to_csv(index=False).encode('utf-8'),
-            file_name='portfoyum.csv',
-            mime='text/csv',
-        )
-    
-    tab_ekle, tab_islem = st.tabs(["➕ Ekle", "📉 Satış / 🗑️ Sil"])
-    
-    # --- EKLEME KISMI ---
+        st.download_button(label="📥 Portföyü Excel Olarak İndir", data=portfoy_only.to_csv(index=False).encode('utf-8'), file_name='portfoyum.csv', mime='text/csv')
+    tab_ekle, tab_sil = st.tabs(["➕ Ekle", "📉 Sat/Sil"])
     with tab_ekle:
         islem_tipi = st.radio("Tür", ["Portföy", "Takip"], horizontal=True)
         yeni_pazar = st.selectbox("Pazar", list(MARKET_DATA.keys()))
@@ -716,7 +697,6 @@ elif selected == "Ekle/Çıkar":
             if st.form_submit_button("Kaydet", type="primary", use_container_width=True):
                 final_kod = manuel_kod if manuel_kod else yeni_kod
                 if final_kod:
-                    # Varsa eski kaydı çıkar (üzerine yazmak için)
                     portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod]
                     tip_str = "Portfoy" if islem_tipi == "Portföy" else "Takip"
                     yeni_satir = pd.DataFrame({
@@ -726,22 +706,16 @@ elif selected == "Ekle/Çıkar":
                     })
                     portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
                     save_data_to_sheet(portfoy_df)
-                    st.success(f"{final_kod} başarıyla kaydedildi!")
+                    st.success(f"{final_kod} kaydedildi!")
                     time.sleep(1)
                     st.rerun()
-                else: st.error("Lütfen bir varlık seçin veya yazın.")
-
-    # --- SATIŞ VE SİLME KISMI ---
-    with tab_islem:
+                else: st.error("Seçim yapın.")
+    with tab_sil:
+        st.subheader("Satış veya Silme İşlemi")
         if not portfoy_df.empty:
             varliklar = portfoy_df[portfoy_df["Tip"] == "Portfoy"]["Kod"].unique()
-            
-            # 1. SATIŞ İŞLEMİ
-            st.subheader("💰 Satış Yap (Kâr/Zarar İşler)")
             with st.form("sell_asset_form"):
-                satilacak_kod = st.selectbox("Satılacak Varlık", varliklar)
-                
-                # Bilgi Gösterimi
+                satilacak_kod = st.selectbox("Varlık Seç", varliklar)
                 if satilacak_kod:
                     mevcut_veri = portfoy_df[portfoy_df["Kod"] == satilacak_kod].iloc[0]
                     mevcut_adet = float(mevcut_veri["Adet"])
@@ -749,52 +723,25 @@ elif selected == "Ekle/Çıkar":
                     pazar_yeri = mevcut_veri["Pazar"]
                     st.info(f"Elinizdeki: **{mevcut_adet}** Adet | Ort. Maliyet: **{mevcut_maliyet}**")
                 else:
+                    st.warning("Listede varlık yok.")
                     mevcut_adet = 0
-
                 c1, c2 = st.columns(2)
                 satilan_adet = c1.number_input("Satılacak Adet", min_value=0.0, max_value=mevcut_adet, step=0.01)
                 satis_fiyati = c2.number_input("Satış Fiyatı", min_value=0.0, step=0.01)
-                
-                if st.form_submit_button("✅ Satışı Onayla", type="primary"):
+                if st.form_submit_button("Satışı Onayla", type="primary"):
                     if satilan_adet > 0 and satis_fiyati > 0:
                         kar_zarar = (satis_fiyati - mevcut_maliyet) * satilan_adet
                         tarih = datetime.now().strftime("%Y-%m-%d %H:%M")
-                        
-                        # Satış Geçmişine Ekle
                         add_sale_record(tarih, satilacak_kod, pazar_yeri, satilan_adet, satis_fiyati, mevcut_maliyet, kar_zarar)
-                        
-                        # Portföyden Düş
                         yeni_adet = mevcut_adet - satilan_adet
                         if yeni_adet <= 0.0001: 
                             portfoy_df = portfoy_df[portfoy_df["Kod"] != satilacak_kod]
-                            msg = f"{satilacak_kod} tamamen satıldı."
+                            st.success(f"{satilacak_kod} tamamen satıldı ve portföyden silindi.")
                         else: 
                             portfoy_df.loc[portfoy_df["Kod"] == satilacak_kod, "Adet"] = yeni_adet
-                            msg = f"{satilan_adet} adet satıldı. Kalan: {yeni_adet}"
-                            
+                            st.success(f"{satilan_adet} adet satıldı. Kalan: {yeni_adet}")
                         save_data_to_sheet(portfoy_df)
-                        st.success(msg)
                         time.sleep(1)
                         st.rerun()
                     else: st.error("Lütfen geçerli adet ve fiyat giriniz.")
-
-            st.markdown("---") # Ayırıcı Çizgi
-
-            # 2. DİREKT SİLME İŞLEMİ (YENİ İSTEĞİN)
-            st.subheader("🗑️ Kaydı Direkt Sil")
-            st.caption("⚠️ Dikkat: Bu işlem varlığı satış geçmişine eklemeden, kâr/zarar hesaplamadan direkt listeden siler. (Hatalı girişler için)")
-            
-            with st.form("delete_row_form"):
-                silinecek_kod = st.selectbox("Silinecek Varlık Seçin", varliklar, key="sil_box")
-                
-                if st.form_submit_button("🚫 Listeden Kalıcı Olarak Sil"):
-                    if silinecek_kod:
-                        portfoy_df = portfoy_df[portfoy_df["Kod"] != silinecek_kod]
-                        save_data_to_sheet(portfoy_df)
-                        st.warning(f"{silinecek_kod} listeden tamamen silindi!")
-                        time.sleep(1)
-                        st.rerun()
-        else:
-            st.info("Portföyünüz boş, işlem yapılacak varlık yok.")
         else: st.info("Satılacak varlık yok.")
-
