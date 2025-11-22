@@ -80,8 +80,6 @@ st.markdown("""
 # --- YARDIMCI FONKSİYONLAR ---
 def get_yahoo_symbol(kod, pazar):
     kod = str(kod).upper()
-    
-    # --- TRMET İÇİN ÖZEL DÜZELTME ---
     if kod == "TRMET": return "KOZAA.IS"
     
     if pazar == "NAKIT": return kod 
@@ -153,6 +151,14 @@ def get_binance_positions(api_key, api_secret):
 # --- TEFAS & COINGECKO ---
 @st.cache_data(ttl=14400) 
 def get_tefas_data(fund_code):
+    try:
+        url = f"https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod={fund_code}"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        r = requests.get(url, headers=headers, timeout=5)
+        if r.status_code == 200:
+            match = re.search(r'id="MainContent_PanelInfo_lblPrice">([\d,]+)', r.text)
+            if match: return float(match.group(1).replace(",", ".")), float(match.group(1).replace(",", "."))
+    except: pass
     try:
         crawler = Crawler()
         end = datetime.now().strftime("%Y-%m-%d")
@@ -301,6 +307,9 @@ def get_usd_try():
     try: return yf.Ticker("TRY=X").history(period="1d")['Close'].iloc[-1]
     except: return 34.0
 
+# --- BURADA SEMBOL TANIMLANIYOR (HATAYI ÇÖZEN SATIR) ---
+sym = "₺" if GORUNUM_PB == "TRY" else "$" 
+
 USD_TRY = get_usd_try()
 mh, ph = get_tickers_data(portfoy_df, USD_TRY)
 st.markdown(f"""<div class="ticker-container market-ticker">{mh}</div><div class="ticker-container portfolio-ticker">{ph}</div>""", unsafe_allow_html=True)
@@ -372,10 +381,12 @@ def run_analysis(df):
         if curr == 0: curr = maliyet
         if prev == 0: prev = curr
         
+        # Maliyet Düzeltmesi
         if curr > 0 and maliyet > 0 and (maliyet/curr) > 50: maliyet /= 100
         
+        # Vadeli İçin Özel PNL Hesabı (Kaldıraçsız Ham PNL Gösterimi - Manuel Olduğu İçin)
         if "VADELI" in pazar:
-            val_native = (curr - maliyet) * adet 
+            val_native = (curr - maliyet) * adet # PNL (USDT)
             cost_native = 0 
         else:
             val_native = curr * adet
@@ -383,13 +394,14 @@ def run_analysis(df):
         
         daily_chg_native = (curr - prev) * adet if "VADELI" not in pazar else 0
         
+        # Kur Çevirimi
         if GORUNUM_PB == "TRY":
             if asset_currency == "USD":
                 f_g = curr * USD_TRY; v_g = val_native * USD_TRY
                 c_g = cost_native * USD_TRY; d_g = daily_chg_native * USD_TRY
             else:
                 f_g = curr; v_g = val_native; c_g = cost_native; d_g = daily_chg_native
-        else: 
+        else: # USD GÖRÜNÜM
             if asset_currency == "TRY":
                 f_g = curr / USD_TRY; v_g = val_native / USD_TRY
                 c_g = cost_native / USD_TRY; d_g = daily_chg_native / USD_TRY
@@ -416,6 +428,7 @@ if "Tip" in master_df.columns:
     takip_only = master_df[master_df["Tip"] == "Takip"]
 else: portfoy_only, takip_only = pd.DataFrame(), pd.DataFrame()
 
+# --- GÖRÜNÜM FONKSİYONLARI ---
 def render_pazar_tab(df, filter, sym):
     if df.empty: return st.info("Veri yok.")
     if filter == "VADELI": sub = df[df["Pazar"].str.contains("VADELI", na=False)]
@@ -442,6 +455,7 @@ def render_pazar_tab(df, filter, sym):
 
     st.dataframe(styled_dataframe(sub), use_container_width=True, hide_index=True)
 
+# --- SEKMELER ---
 if selected == "Dashboard":
     if not portfoy_only.empty:
         spot_only = portfoy_only[~portfoy_only["Pazar"].str.contains("VADELI")]
@@ -453,15 +467,18 @@ if selected == "Dashboard":
         c2.metric("Genel Kâr/Zarar", f"{sym}{t_p:,.0f}", delta=f"{t_p:,.0f}")
         
         st.divider()
-        # --- TREEMAP DÜZENLEMESİ ---
+        # Treemap
         c_tree_1, c_tree_2 = st.columns([3, 1])
         with c_tree_1: st.subheader("🗺️ Portföy Isı Haritası")
         with c_tree_2: map_mode = st.radio("Renklendirme:", ["Genel Kâr %", "Günlük Değişim %"], horizontal=True)
         
         color_col = 'Top. %'
         spot_only['Gün. %'] = 0
-        safe_val = spot_only['Değer'] - spot_only['Gün. Kâr/Zarar']
-        spot_only.loc[safe_val != 0, 'Gün. %'] = (spot_only['Gün. Kâr/Zarar'] / safe_val) * 100
+        # Sıfıra bölme hatasını önle
+        safe_deger = spot_only['Değer'] - spot_only['Gün. Kâr/Zarar']
+        mask = safe_deger != 0
+        spot_only.loc[mask, 'Gün. %'] = (spot_only.loc[mask, 'Gün. Kâr/Zarar'] / safe_deger[mask]) * 100
+        
         if map_mode == "Günlük Değişim %": color_col = 'Gün. %'
 
         fig = px.treemap(
@@ -491,16 +508,14 @@ elif selected == "Vadeli":
         ak = st.text_input("API Key", type="password")
         ask = st.text_input("Secret", type="password")
         if ak and ask:
-            ok, val, df_pos = get_binance_positions(ak, ask)
-            if ok:
-                st.success("Bağlandı!")
-                st.metric("Cüzdan", f"${val:,.2f}")
+            stats, df_pos = get_binance_positions(ak, ask)
+            if stats:
+                st.metric("Cüzdan", f"${stats['wallet']:,.2f}")
                 st.dataframe(df_pos)
-            else: st.error(val)
+            else: st.error(df_pos)
     
     st.markdown("---")
     st.markdown("### 📝 Manuel Vadeli Takip")
-    st.info("VPN yoksa işlemlerini 'Ekle/Çıkar'dan **Pazar: VADELI** seçerek ekle.")
     render_pazar_tab(portfoy_only, "VADELI", sym)
 
 elif selected == "Nakit":
