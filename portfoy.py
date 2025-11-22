@@ -25,7 +25,6 @@ st.set_page_config(
 st.markdown("""
 <style>
     .block-container {padding-top: 1rem;}
-    
     div[data-testid="stMetric"] {
         background-color: #262730;
         border: 1px solid #464b5f;
@@ -93,30 +92,46 @@ def get_yahoo_symbol(kod, pazar):
         return kod
     return kod 
 
-# --- ZIRHLI SAYI ÇEVİRİCİ ---
+# --- ZIRHLI SAYI ÇEVİRİCİ (YENİ VERSİYON) ---
 def smart_parse(text_val):
-    if text_val is None: return 0.0
-    if isinstance(text_val, (int, float)): return float(text_val)
-    
-    val = str(text_val).strip()
-    if not val: return 0.0
-    
-    # Sadece sayı, nokta ve virgül bırak
-    val = re.sub(r"[^\d.,]", "", val)
-    
-    # 1. Durum: 30.26.0 gibi saçma format -> İlk noktadan sonrasını silme, noktaları temizle
-    if val.count(".") > 1: 
-        val = val.replace(".", "") # Binlik sandığı noktaları sil
-        
-    # 2. Durum: 1.500,50 -> 1500.50
-    if "." in val and "," in val:
-        val = val.replace(".", "").replace(",", ".")
-    # 3. Durum: 30,26 -> 30.26
-    elif "," in val:
-        val = val.replace(",", ".")
-        
-    try: return float(val)
-    except: return 0.0
+    """
+    Her türlü saçma sapan sayı formatını düzeltir.
+    Özellikle Google Sheets'in '30,26' değerini 3026 gibi göndermesi durumunda
+    otomatik olarak 3026 -> 30.26'ya çeviren ekstra bir hack içerir.
+    """
+    if text_val is None:
+        return 0.0
+
+    raw = str(text_val).strip()
+    if raw == "":
+        return 0.0
+
+    # Sadece rakam, nokta, virgül ve eksi kalsın
+    s = re.sub(r"[^\d,.\-]", "", raw)
+
+    # 1) Hem nokta hem virgül varsa (genelde 1.234,56 gibi Avrupa formatı)
+    if "," in s and "." in s:
+        # Binlik ayracını (.) kaldır, virgülü (,) ondalık olarak . yap
+        s = s.replace(".", "").replace(",", ".")
+
+    # 2) Sadece virgül varsa (30,26 gibi)
+    elif "," in s and "." not in s:
+        s = s.replace(",", ".")
+
+    # 3) Sadece nokta varsa -> zaten 30.26 gibi, olduğu gibi kalsın
+
+    try:
+        val = float(s)
+    except ValueError:
+        return 0.0
+
+    # --- ÖZEL HACK: 3026 GİBİ 100x KAYMIŞ DEĞERLERİ DÜZELT ---
+    # Eğer orijinal stringte virgül vardı ama sonuç büyük ve tam sayı çıktıysa
+    # (ör: '30,26' bir şekilde '3026' olmuşsa), 100'e böl (3026 -> 30.26)
+    if ("," in raw) and (val >= 1000) and (val == int(val)):
+        val = val / 100.0
+
+    return val
 
 # --- TEFAS FON VERİSİ ---
 @st.cache_data(ttl=14400) 
@@ -436,7 +451,7 @@ def render_detail_view(symbol, pazar):
     except Exception as e:
         st.error(f"Veri çekilemedi: {e}")
 
-# --- HESAPLAMA MOTORU (FİNAL DÜZELTME) ---
+# --- HESAPLAMA MOTORU (DÜZELTİLDİ) ---
 def run_analysis(df, usd_try_rate, view_currency):
     results = []
     if df.empty: return pd.DataFrame(columns=ANALYSIS_COLS)
@@ -444,16 +459,10 @@ def run_analysis(df, usd_try_rate, view_currency):
         kod = row.get("Kod", "")
         pazar = row.get("Pazar", "")
         
-        # VERİYİ OKURKEN TEMİZLE
+        # Veriyi çekerken smart_parse ile temizle
         adet = smart_parse(row.get("Adet", 0))
         maliyet = smart_parse(row.get("Maliyet", 0))
         
-        # GÜVENLİK: Maliyet şu anki fiyatın 1000 katıysa ve binlik hatası varsa düzelt
-        # Bu kısım otomatik düzeltme yapmaz ama okurken doğru okumaya çalışır
-        if maliyet > 0:
-             # 3026 -> 30.26 düzeltmesi (Manuel düzeltme en sağlıklısıdır)
-             pass
-
         if not kod: continue 
         symbol = get_yahoo_symbol(kod, pazar)
         asset_currency = "USD"
@@ -648,8 +657,8 @@ elif selected == "Tümü":
         secilen = st.selectbox("İncelemek istediğiniz varlığı seçin:", all_assets, index=None, placeholder="Varlık Seç...")
         if secilen:
             row = portfoy_only[portfoy_only["Kod"] == secilen].iloc[0]
-            sym = get_yahoo_symbol(row["Kod"], row["Pazar"])
-            render_detail_view(sym, row["Pazar"])
+            symb = get_yahoo_symbol(row["Kod"], row["Pazar"])
+            render_detail_view(symb, row["Pazar"])
         st.divider()
         st.subheader("Tüm Portföy Listesi")
         st.dataframe(styled_dataframe(portfoy_only), use_container_width=True, hide_index=True)
@@ -690,14 +699,6 @@ elif selected == "Satışlar":
 elif selected == "Ekle/Çıkar":
     st.header("Varlık Yönetimi")
     
-    # ÖNBELLEK TEMİZLEME BUTONU (SOL KENARDA)
-    with st.sidebar:
-        if st.button("🔄 Önbelleği Temizle", type="secondary"):
-            st.cache_data.clear()
-            st.success("Temizlendi!")
-            time.sleep(1)
-            st.rerun()
-            
     if not portfoy_only.empty:
         st.download_button(
             label="📥 Portföyü Excel Olarak İndir",
@@ -710,17 +711,19 @@ elif selected == "Ekle/Çıkar":
     
     # --- 1. EKLEME ---
     with tab_ekle:
-        st.info("💡 Ondalık için virgül kullanın. Örn: **30,26**")
+        st.info("💡 İpucu: Ondalık sayılar için **VİRGÜL ( , )** kullanın. Örn: **30,26**")
         islem_tipi = st.radio("Tür", ["Portföy", "Takip"], horizontal=True)
         yeni_pazar = st.selectbox("Pazar", list(MARKET_DATA.keys()))
+        if "ABD" in yeni_pazar: st.warning("🇺🇸 ABD için Maliyeti DOLAR girin.")
+        
         secenekler = MARKET_DATA.get(yeni_pazar, [])
         with st.form("add_asset_form"):
             yeni_kod = st.selectbox("Listeden Seç", options=secenekler, index=None, placeholder="Seçiniz...")
             manuel_kod = st.text_input("Veya Manuel Yaz (Örn: TTE)").upper()
             
             c1, c2 = st.columns(2)
-            adet_str = c1.text_input("Adet", value="0")
-            maliyet_str = c2.text_input("Maliyet", value="0")
+            adet_str = c1.text_input("Adet (Örn: 119)", value="0")
+            maliyet_str = c2.text_input("Maliyet (Örn: 30,26)", value="0")
             not_inp = st.text_input("Not")
 
             try:
@@ -750,7 +753,7 @@ elif selected == "Ekle/Çıkar":
                     st.rerun()
                 else: st.error("Lütfen geçerli değerler girin.")
 
-    # --- 2. DÜZENLEME ---
+    # --- 2. DÜZENLEME (YENİ) ---
     with tab_duzenle:
         st.subheader("✏️ Mevcut Kaydı Düzenle")
         if not portfoy_df.empty:
@@ -761,6 +764,9 @@ elif selected == "Ekle/Çıkar":
                 mevcut_row = portfoy_df[portfoy_df["Kod"] == secilen_duz].iloc[0]
                 curr_adet = smart_parse(mevcut_row["Adet"])
                 curr_maliyet = smart_parse(mevcut_row["Maliyet"])
+                curr_pazar = mevcut_row["Pazar"]
+                curr_tip = mevcut_row["Tip"]
+                curr_not = mevcut_row["Notlar"]
                 
                 st.info(f"Mevcut: **{curr_adet:g}** Adet | **{curr_maliyet:g}** Maliyet")
                 
@@ -774,9 +780,9 @@ elif selected == "Ekle/Çıkar":
                     
                     portfoy_df = portfoy_df[portfoy_df["Kod"] != secilen_duz]
                     yeni_satir = pd.DataFrame({
-                        "Kod": [secilen_duz], "Pazar": [mevcut_row["Pazar"]], 
+                        "Kod": [secilen_duz], "Pazar": [curr_pazar], 
                         "Adet": [y_adet], "Maliyet": [y_maliyet],
-                        "Tip": [mevcut_row["Tip"]], "Notlar": [mevcut_row["Notlar"]]
+                        "Tip": [curr_tip], "Notlar": [curr_not]
                     })
                     portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
                     save_data_to_sheet(portfoy_df)
@@ -789,7 +795,7 @@ elif selected == "Ekle/Çıkar":
         if not portfoy_df.empty:
             varliklar = portfoy_df[portfoy_df["Tip"] == "Portfoy"]["Kod"].unique()
             
-            st.markdown("#### 💰 Satış Yap")
+            st.markdown("#### 💰 Satış Yap (Kâr/Zarar İşler)")
             with st.form("sell_asset_form"):
                 satilacak_kod = st.selectbox("Satılacak Varlık", varliklar)
                 if satilacak_kod:
@@ -805,37 +811,42 @@ elif selected == "Ekle/Çıkar":
                 satilan_str = c1.text_input("Satılacak Adet", value="0")
                 fiyat_str = c2.text_input("Satış Fiyatı", value="0")
                 
-                if st.form_submit_button("✅ Satışı Onayla", type="primary"):
+                try:
                     s_adet = smart_parse(satilan_str)
                     s_fiyat = smart_parse(fiyat_str)
+                    c1.caption(f"Algılanan: {s_adet:g}")
+                    c2.caption(f"Algılanan: {s_fiyat:g}")
+                except: pass
+                
+                if st.form_submit_button("✅ Satışı Onayla", type="primary"):
                     if s_adet > 0 and s_fiyat > 0:
                         if s_adet > m_adet: st.error("Elinizden fazla satamazsınız!")
                         else:
                             kar_zarar = (s_fiyat - m_maliyet) * s_adet
                             tarih = datetime.now().strftime("%Y-%m-%d %H:%M")
                             add_sale_record(tarih, satilacak_kod, pazar_yeri, s_adet, s_fiyat, m_maliyet, kar_zarar)
-                            
                             yeni_adet = m_adet - s_adet
                             if yeni_adet <= 0.0001: 
                                 portfoy_df = portfoy_df[portfoy_df["Kod"] != satilacak_kod]
+                                msg = f"{satilacak_kod} tamamen satıldı."
                             else: 
                                 portfoy_df.loc[portfoy_df["Kod"] == satilacak_kod, "Adet"] = yeni_adet
-                                
+                                msg = f"{s_adet:g} adet satıldı. Kalan: {yeni_adet:g}"
                             save_data_to_sheet(portfoy_df)
-                            st.success("Satış kaydedildi.")
+                            st.success(msg)
                             time.sleep(1)
                             st.rerun()
                     else: st.error("Geçerli değerler giriniz.")
 
             st.markdown("---")
-            st.markdown("#### 🗑️ Kaydı Direkt Sil")
+            st.markdown("#### 🗑️ Kaydı Direkt Sil (Hesapsız)")
             with st.form("delete_row_form"):
                 silinecek_kod = st.selectbox("Silinecek Varlık Seçin", varliklar, key="sil_box")
-                if st.form_submit_button("🚫 Sil"):
+                if st.form_submit_button("🚫 Listeden Kalıcı Olarak Sil"):
                     if silinecek_kod:
                         portfoy_df = portfoy_df[portfoy_df["Kod"] != silinecek_kod]
                         save_data_to_sheet(portfoy_df)
-                        st.warning(f"{silinecek_kod} silindi!")
+                        st.warning(f"{silinecek_kod} listeden silindi!")
                         time.sleep(1)
                         st.rerun()
         else: st.info("İşlem yapılacak varlık yok.")
