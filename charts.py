@@ -9,13 +9,13 @@ from data_loader import get_tefas_data
 
 
 # --------------------------------------------------------------------
-#  ORTAK PIE + BAR CHART (BÜYÜTÜLMÜŞ ve OKUNUR HALE GETİRİLMİŞ)
+#  ORTAK PIE + BAR CHART
 # --------------------------------------------------------------------
 def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
     if df.empty or "Değer" not in df.columns:
         return
 
-    # Daha geniş alan / daha büyük pasta
+    # Pasta daha geniş, bar daha dar
     c_pie, c_bar = st.columns([4, 3])
 
     # ====================
@@ -29,11 +29,15 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
     )
     pie_fig.update_traces(
         textinfo="percent+label",
-        textfont=dict(size=20, color="white"),
+        textfont=dict(
+            size=18,
+            color="white",
+            family="Arial Black",
+        ),
     )
     pie_fig.update_layout(
         legend=dict(font=dict(size=14)),
-        margin=dict(t=40, l=0, r=0, b=0)
+        margin=dict(t=40, l=0, r=0, b=80),  # altta ekstra boşluk
     )
     c_pie.plotly_chart(pie_fig, use_container_width=True)
 
@@ -59,13 +63,17 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
     bar_fig.update_traces(
         texttemplate="%{text:,.0f}",
         textposition="outside",
-        textfont=dict(size=14, color="white"),
+        textfont=dict(
+            size=14,
+            color="white",
+            family="Arial Black",
+        ),
     )
     bar_fig.update_layout(
         xaxis=dict(tickfont=dict(size=14)),
         yaxis=dict(tickfont=dict(size=14)),
         legend=dict(font=dict(size=14)),
-        margin=dict(t=40, l=20, r=20, b=20),
+        margin=dict(t=40, l=20, r=20, b=40),
     )
     c_bar.plotly_chart(bar_fig, use_container_width=True)
 
@@ -78,7 +86,7 @@ def get_historical_chart(df_portfolio: pd.DataFrame, usd_try: float):
 
 
 # --------------------------------------------------------------------
-#  SEKME BAZLI PAZAR EKRANI (burada grafik çağrılıyor)
+#  SEKME BAZLI PAZAR EKRANI
 # --------------------------------------------------------------------
 def render_pazar_tab(df, filter_key, symb, usd_try):
     if df.empty:
@@ -101,15 +109,22 @@ def render_pazar_tab(df, filter_key, symb, usd_try):
     col1.metric(label, f"{symb}{total_val:,.0f}")
 
     if filter_key == "VADELI":
-        col2.metric("Toplam Kâr/Zarar", f"{symb}{total_pnl:,.0f}", delta=f"{symb}{total_pnl:,.0f}")
+        col2.metric(
+            "Toplam Kâr/Zarar",
+            f"{symb}{total_pnl:,.0f}",
+            delta=f"{symb}{total_pnl:,.0f}",
+        )
     else:
         total_cost = (sub["Değer"] - sub["Top. Kâr/Zarar"]).sum()
         pct = (total_pnl / total_cost * 100) if total_cost != 0 else 0
-        col2.metric("Toplam Kâr/Zarar", f"{symb}{total_pnl:,.0f}", delta=f"%{pct:.2f}")
+        col2.metric(
+            "Toplam Kâr/Zarar",
+            f"{symb}{total_pnl:,.0f}",
+            delta=f"%{pct:.2f}",
+        )
 
     st.divider()
 
-    # Grafikler burda büyütülmüş haliyle geliyor 🔥
     if filter_key != "VADELI":
         render_pie_bar_charts(sub, "Kod")
 
