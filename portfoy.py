@@ -424,8 +424,6 @@ MARKET_DATA = {
     "FIZIKI VARLIKLAR": ["Gram Altın (Fiziki)", "Çeyrek Altın", "Yarım Altın", "Tam Altın", "Dolar (Nakit)"]
 }
 
-}
-
 # --- DETAYLI ANALİZ ---
 def render_detail_view(symbol, pazar):
     st.markdown(f"### 🔎 {symbol} Detaylı Analizi")
@@ -894,5 +892,6 @@ elif selected == "Ekle/Çıkar":
                         time.sleep(1)
                         st.rerun()
         else: st.info("İşlem yapılacak varlık yok.")
+
 
 
