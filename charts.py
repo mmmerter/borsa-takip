@@ -65,11 +65,23 @@ def render_pazar_tab(df, filter_key, symb, usd_try):
     c1, c2 = st.columns(2)
     lbl = "Toplam PNL" if filter_key == "VADELI" else "Toplam Varlık"
     c1.metric(lbl, f"{symb}{t_val:,.0f}")
-    c2.metric(
-        "Toplam Kâr/Zarar",
-        f"{symb}{t_pl:,.0f}",
-        delta=f"{t_pl:,.0f}",
-    )
+
+    if filter_key == "VADELI":
+        # Vadeli için maliyet bilgisi ayrı tutulmadığından delta TL bazlı bırakıldı
+        c2.metric(
+            "Toplam Kâr/Zarar",
+            f"{symb}{t_pl:,.0f}",
+            delta=f"{symb}{t_pl:,.0f}",
+        )
+    else:
+        # Spot sekmelerde (BIST, ABD, FON, Emtia, Kripto, Nakit) delta yüzde
+        total_cost = (sub["Değer"] - sub["Top. Kâr/Zarar"]).sum()
+        total_pct = (t_pl / total_cost * 100) if total_cost != 0 else 0
+        c2.metric(
+            "Toplam Kâr/Zarar",
+            f"{symb}{t_pl:,.0f}",
+            delta=f"%{total_pct:,.2f}",
+        )
 
     st.divider()
 
