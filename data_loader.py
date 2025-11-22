@@ -135,7 +135,7 @@ def add_sale_record(date, code, market, qty, price, cost, profit):
 
 
 # --- TEFAS ---
-@st.cache_data(ttl=14400)  # 4 saat – KRAL’dakiyle aynı
+@st.cache_data(ttl=14400)  # 4 saat – KRAL ile aynı
 def get_tefas_data(fund_code):
     # Önce TEFAS HTML parse denemesi
     try:
@@ -216,8 +216,9 @@ def get_financial_news(topic="finance"):
 # --- TAPE ---
 @st.cache_data(ttl=45)  # KRAL’daki gibi 45 sn
 def get_tickers_data(df_portfolio, usd_try):
-    from .data_loader import get_crypto_globals as _get_crypto_globals  # same module, but ensures latest
-    total_cap, btc_d, total_3, others_d, others_cap = _get_crypto_globals()
+    # HATA VEREN relative import SİLİNDİ
+    # Aynı dosyadaki cache'li fonksiyonu direkt çağırıyoruz
+    total_cap, btc_d, total_3, others_d, others_cap = get_crypto_globals()
 
     market_symbols = [
         ("BIST 100", "XU100.IS"),
