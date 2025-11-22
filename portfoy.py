@@ -92,23 +92,22 @@ def get_yahoo_symbol(kod, pazar):
         return kod
     return kod 
 
-# --- ZIRHLI SAYI ÇEVİRİCİ (30.26.0 -> 30.26 DÜZELTMESİ) ---
+# --- ZIRHLI SAYI ÇEVİRİCİ (BU FONKSİYON HAYAT KURTARIR) ---
 def smart_parse(text_val):
+    """Her türlü saçma sapan sayı formatını düzeltir"""
     if text_val is None: return 0.0
     val = str(text_val).strip()
     if not val: return 0.0
     
-    # 1. Adım: Harfleri temizle, sadece sayı ve ayırıcılar kalsın
+    # Sadece sayı, nokta ve virgül bırak
     val = re.sub(r"[^\d.,]", "", val)
     
-    # 2. Adım: Hatalı çift nokta temizliği (30.26.0 -> 30.26)
-    # Eğer birden fazla nokta varsa ve virgül yoksa, sonuncusu hariç diğerlerini silmek riskli olabilir.
-    # En güvenlisi: Eğer nokta sayısı > 1 ise, sadece ilk noktayı tut, gerisini sil.
+    # Eğer "30.26.0" gibi bir şey varsa düzelt
     if val.count('.') > 1 and ',' not in val:
         parts = val.split('.')
         val = f"{parts[0]}.{''.join(parts[1:])}"
     
-    # 3. Adım: Binlik/Ondalık Ayrımı
+    # Binlik ve Ondalık ayrımı
     if "." in val and "," in val: # 1.500,50 -> 1500.50
         val = val.replace(".", "").replace(",", ".")
     elif "," in val: # 30,26 -> 30.26
@@ -437,6 +436,7 @@ def render_detail_view(symbol, pazar):
     except Exception as e:
         st.error(f"Veri çekilemedi: {e}")
 
+# --- HESAPLAMA MOTORU (DÜZELTİLDİ) ---
 def run_analysis(df, usd_try_rate, view_currency):
     results = []
     if df.empty: return pd.DataFrame(columns=ANALYSIS_COLS)
@@ -444,7 +444,7 @@ def run_analysis(df, usd_try_rate, view_currency):
         kod = row.get("Kod", "")
         pazar = row.get("Pazar", "")
         
-        # GÜVENLİ VERİ OKUMA (VERİTABANINDAN GELEN)
+        # BURASI ÇOK ÖNEMLİ: Veriyi çekerken smart_parse ile temizle
         adet = smart_parse(row.get("Adet", 0))
         maliyet = smart_parse(row.get("Maliyet", 0))
         
@@ -694,10 +694,9 @@ elif selected == "Ekle/Çıkar":
     
     tab_ekle, tab_duzenle, tab_sil = st.tabs(["➕ Ekle", "✏️ Düzenle", "📉 Satış / 🗑️ Sil"])
     
-    # --- 1. EKLEME SEKME ---
+    # --- 1. EKLEME ---
     with tab_ekle:
         st.info("💡 İpucu: Ondalık sayılar için **VİRGÜL ( , )** kullanın. Örn: **30,26**")
-        
         islem_tipi = st.radio("Tür", ["Portföy", "Takip"], horizontal=True)
         yeni_pazar = st.selectbox("Pazar", list(MARKET_DATA.keys()))
         if "ABD" in yeni_pazar: st.warning("🇺🇸 ABD için Maliyeti DOLAR girin.")
@@ -710,24 +709,14 @@ elif selected == "Ekle/Çıkar":
             c1, c2 = st.columns(2)
             adet_str = c1.text_input("Adet (Örn: 119)", value="0")
             maliyet_str = c2.text_input("Maliyet (Örn: 30,26)", value="0")
-            
+            not_inp = st.text_input("Not")
+
             try:
                 a_v = smart_parse(adet_str)
                 m_v = smart_parse(maliyet_str)
                 t_v = a_v * m_v
-                # ÖNİZLEME KUTUSU (GÜVENLİK İÇİN)
-                if t_v > 0:
-                    st.markdown(f"""
-                    <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
-                        <b>✅ KONTROL:</b> <br>
-                        Adet: <b>{a_v:g}</b> <br>
-                        Birim Maliyet: <b>{m_v:g}</b> <br>
-                        Toplam Tutar: <b>{t_v:,.2f}</b>
-                    </div>
-                    """, unsafe_allow_html=True)
+                st.markdown(f"📝 **Özet:** {a_v:g} Adet x {m_v:g} Fiyat = **{t_v:,.2f}**")
             except: pass
-
-            not_inp = st.text_input("Not")
             
             if st.form_submit_button("Kaydet", type="primary", use_container_width=True):
                 adet_inp = smart_parse(adet_str)
@@ -735,26 +724,21 @@ elif selected == "Ekle/Çıkar":
                 final_kod = manuel_kod if manuel_kod else yeni_kod
                 
                 if final_kod and adet_inp > 0:
-                    # KAYDET BUTONUNA BASINCA 0 MALİYET KONTROLÜ
-                    if maliyet_inp == 0 and "Fiziki" not in yeni_pazar:
-                        st.error("⚠️ HATA: Maliyet 0 olamaz! Lütfen fiyatı kontrol edin.")
-                    else:
-                        portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod]
-                        tip_str = "Portfoy" if islem_tipi == "Portföy" else "Takip"
-                        yeni_satir = pd.DataFrame({
-                            "Kod": [final_kod], "Pazar": [yeni_pazar], 
-                            "Adet": [adet_inp], "Maliyet": [maliyet_inp],
-                            "Tip": [tip_str], "Notlar": [not_inp]
-                        })
-                        portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
-                        save_data_to_sheet(portfoy_df)
-                        st.success(f"{final_kod} eklendi!")
-                        time.sleep(1)
-                        st.rerun()
-                else:
-                    st.error("Lütfen geçerli değerler girin.")
+                    portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod]
+                    tip_str = "Portfoy" if islem_tipi == "Portföy" else "Takip"
+                    yeni_satir = pd.DataFrame({
+                        "Kod": [final_kod], "Pazar": [yeni_pazar], 
+                        "Adet": [adet_inp], "Maliyet": [maliyet_inp],
+                        "Tip": [tip_str], "Notlar": [not_inp]
+                    })
+                    portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
+                    save_data_to_sheet(portfoy_df)
+                    st.success(f"{final_kod} eklendi!")
+                    time.sleep(1)
+                    st.rerun()
+                else: st.error("Lütfen geçerli değerler girin.")
 
-    # --- 2. DÜZENLEME SEKME (YENİ) ---
+    # --- 2. DÜZENLEME (YENİ) ---
     with tab_duzenle:
         st.subheader("✏️ Mevcut Kaydı Düzenle")
         if not portfoy_df.empty:
@@ -762,15 +746,14 @@ elif selected == "Ekle/Çıkar":
             secilen_duz = st.selectbox("Düzenlenecek Varlık", varliklar_duz)
             
             if secilen_duz:
-                # Mevcut verileri getir
                 mevcut_row = portfoy_df[portfoy_df["Kod"] == secilen_duz].iloc[0]
-                # Burada smart_parse kullanarak ham veriyi temizliyoruz
                 curr_adet = smart_parse(mevcut_row["Adet"])
                 curr_maliyet = smart_parse(mevcut_row["Maliyet"])
                 curr_pazar = mevcut_row["Pazar"]
                 curr_tip = mevcut_row["Tip"]
+                curr_not = mevcut_row["Notlar"]
                 
-                st.info(f"Mevcut Kayıt: **{curr_adet:g}** Adet | **{curr_maliyet:g}** Maliyet")
+                st.info(f"Mevcut: **{curr_adet:g}** Adet | **{curr_maliyet:g}** Maliyet")
                 
                 c1, c2 = st.columns(2)
                 yeni_adet_str = c1.text_input("Yeni Adet", value=f"{curr_adet:g}")
@@ -780,12 +763,11 @@ elif selected == "Ekle/Çıkar":
                     y_adet = smart_parse(yeni_adet_str)
                     y_maliyet = smart_parse(yeni_maliyet_str)
                     
-                    # Eskiyi sil, yeniyi ekle
                     portfoy_df = portfoy_df[portfoy_df["Kod"] != secilen_duz]
                     yeni_satir = pd.DataFrame({
                         "Kod": [secilen_duz], "Pazar": [curr_pazar], 
                         "Adet": [y_adet], "Maliyet": [y_maliyet],
-                        "Tip": [curr_tip], "Notlar": [mevcut_row["Notlar"]]
+                        "Tip": [curr_tip], "Notlar": [curr_not]
                     })
                     portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
                     save_data_to_sheet(portfoy_df)
@@ -793,7 +775,7 @@ elif selected == "Ekle/Çıkar":
                     time.sleep(1)
                     st.rerun()
 
-    # --- 3. SATIŞ / SİLME SEKME ---
+    # --- 3. SATIŞ / SİLME ---
     with tab_sil:
         if not portfoy_df.empty:
             varliklar = portfoy_df[portfoy_df["Tip"] == "Portfoy"]["Kod"].unique()
@@ -823,13 +805,11 @@ elif selected == "Ekle/Çıkar":
                 
                 if st.form_submit_button("✅ Satışı Onayla", type="primary"):
                     if s_adet > 0 and s_fiyat > 0:
-                        if s_adet > m_adet:
-                            st.error("Elinizden fazla satamazsınız!")
+                        if s_adet > m_adet: st.error("Elinizden fazla satamazsınız!")
                         else:
                             kar_zarar = (s_fiyat - m_maliyet) * s_adet
                             tarih = datetime.now().strftime("%Y-%m-%d %H:%M")
                             add_sale_record(tarih, satilacak_kod, pazar_yeri, s_adet, s_fiyat, m_maliyet, kar_zarar)
-                            
                             yeni_adet = m_adet - s_adet
                             if yeni_adet <= 0.0001: 
                                 portfoy_df = portfoy_df[portfoy_df["Kod"] != satilacak_kod]
@@ -837,7 +817,6 @@ elif selected == "Ekle/Çıkar":
                             else: 
                                 portfoy_df.loc[portfoy_df["Kod"] == satilacak_kod, "Adet"] = yeni_adet
                                 msg = f"{s_adet:g} adet satıldı. Kalan: {yeni_adet:g}"
-                                
                             save_data_to_sheet(portfoy_df)
                             st.success(msg)
                             time.sleep(1)
@@ -855,23 +834,4 @@ elif selected == "Ekle/Çıkar":
                         st.warning(f"{silinecek_kod} listeden silindi!")
                         time.sleep(1)
                         st.rerun()
-            
-            # --- ACİL SİLME (HAYALET AVCISI) ---
-            st.markdown("---")
-            st.markdown("#### 🔥 Acil Silme (Manuel İsimle)")
-            with st.form("force_delete"):
-                hedef_isim = st.text_input("Silinecek Kod (Örn: MEGMT)").upper().strip()
-                if st.form_submit_button("Tüm Kayıtları Sil"):
-                    if hedef_isim:
-                        eski_len = len(portfoy_df)
-                        portfoy_df = portfoy_df[portfoy_df["Kod"] != hedef_isim]
-                        yeni_len = len(portfoy_df)
-                        if eski_len > yeni_len:
-                            save_data_to_sheet(portfoy_df)
-                            st.success(f"{hedef_isim} temizlendi!")
-                            time.sleep(1)
-                            st.rerun()
-                        else:
-                            st.warning("Bu isimde kayıt bulunamadı.")
-        else:
-            st.info("İşlem yapılacak varlık yok.")
+        else: st.info("İşlem yapılacak varlık yok.")
