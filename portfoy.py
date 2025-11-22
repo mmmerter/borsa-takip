@@ -269,7 +269,7 @@ def run_analysis(df, usd_try_rate, view_currency):
                             .history(period="1d")["Close"]
                             .iloc[-1]
                         )
-                    except:
+                    except Exception:
                         curr = 36.0
                 prev = curr
 
@@ -298,7 +298,7 @@ def run_analysis(df, usd_try_rate, view_currency):
                 h = yf.Ticker(symbol).history(period="2d")
                 curr = h["Close"].iloc[-1]
                 prev = h["Close"].iloc[0]
-        except:
+        except Exception:
             pass
 
         if curr == 0:
@@ -384,18 +384,9 @@ if selected == "Dashboard":
         t_v = spot_only["Değer"].sum()
         t_p = spot_only["Top. Kâr/Zarar"].sum()
 
-        # Toplam maliyet (görünüm para biriminde) = Değer - Kâr/Zarar
-        total_cost = (spot_only["Değer"] - spot_only["Top. Kâr/Zarar"]).sum()
-        total_pct = (t_p / total_cost * 100) if total_cost != 0 else 0
-
         c1, c2 = st.columns(2)
         c1.metric("Toplam Spot Varlık", f"{sym}{t_v:,.0f}")
-        # Alt yeşil kısım artık yüzde gösteriyor
-        c2.metric(
-            "Genel Kâr/Zarar",
-            f"{sym}{t_p:,.0f}",
-            delta=f"%{total_pct:,.2f}",
-        )
+        c2.metric("Genel Kâr/Zarar", f"{sym}{t_p:,.0f}", delta=f"{t_p:,.0f}")
 
         st.divider()
 
@@ -404,7 +395,8 @@ if selected == "Dashboard":
             spot_only.groupby("Pazar", as_index=False)
             .agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
         )
-        render_pie_bar_charts(dash_pazar, "Pazar")
+        # Dashboard'da pazar bazlı grafik, normal mod (tüm dilimler yazılı)
+        render_pie_bar_charts(dash_pazar, "Pazar", all_tab=False)
 
         st.divider()
 
@@ -421,8 +413,8 @@ if selected == "Dashboard":
         color_col = "Top. %"
         spot_only = spot_only.copy()
         spot_only["Gün. %"] = (
-            spot_only["Gün. Kâr/Zarar"]
-            / (spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"])
+            spot_only["Gün. Kâr/Zarar"] /
+            (spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"])
         ) * 100
 
         if map_mode == "Günlük Değişim %":
@@ -452,7 +444,8 @@ if selected == "Dashboard":
 elif selected == "Tümü":
     if not portfoy_only.empty:
         st.subheader("📊 Varlık Bazlı Dağılım (Tümü)")
-        render_pie_bar_charts(portfoy_only, "Kod")
+        # SADECE TÜMÜ sekmesinde -> %5 üstü yazılı
+        render_pie_bar_charts(portfoy_only, "Kod", all_tab=True)
 
         st.divider()
 
