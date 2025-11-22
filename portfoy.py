@@ -688,9 +688,19 @@ elif selected == "Satışlar":
 
 elif selected == "Ekle/Çıkar":
     st.header("Varlık Yönetimi")
+    
+    # Excel İndir Butonu
     if not portfoy_only.empty:
-        st.download_button(label="📥 Portföyü Excel Olarak İndir", data=portfoy_only.to_csv(index=False).encode('utf-8'), file_name='portfoyum.csv', mime='text/csv')
-    tab_ekle, tab_sil = st.tabs(["➕ Ekle", "📉 Sat/Sil"])
+        st.download_button(
+            label="📥 Portföyü Excel Olarak İndir",
+            data=portfoy_only.to_csv(index=False).encode('utf-8'),
+            file_name='portfoyum.csv',
+            mime='text/csv',
+        )
+    
+    tab_ekle, tab_islem = st.tabs(["➕ Ekle", "📉 Satış / 🗑️ Sil"])
+    
+    # --- EKLEME KISMI ---
     with tab_ekle:
         islem_tipi = st.radio("Tür", ["Portföy", "Takip"], horizontal=True)
         yeni_pazar = st.selectbox("Pazar", list(MARKET_DATA.keys()))
@@ -706,6 +716,7 @@ elif selected == "Ekle/Çıkar":
             if st.form_submit_button("Kaydet", type="primary", use_container_width=True):
                 final_kod = manuel_kod if manuel_kod else yeni_kod
                 if final_kod:
+                    # Varsa eski kaydı çıkar (üzerine yazmak için)
                     portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod]
                     tip_str = "Portfoy" if islem_tipi == "Portföy" else "Takip"
                     yeni_satir = pd.DataFrame({
@@ -715,16 +726,22 @@ elif selected == "Ekle/Çıkar":
                     })
                     portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
                     save_data_to_sheet(portfoy_df)
-                    st.success(f"{final_kod} kaydedildi!")
+                    st.success(f"{final_kod} başarıyla kaydedildi!")
                     time.sleep(1)
                     st.rerun()
-                else: st.error("Seçim yapın.")
-    with tab_sil:
-        st.subheader("Satış veya Silme İşlemi")
+                else: st.error("Lütfen bir varlık seçin veya yazın.")
+
+    # --- SATIŞ VE SİLME KISMI ---
+    with tab_islem:
         if not portfoy_df.empty:
             varliklar = portfoy_df[portfoy_df["Tip"] == "Portfoy"]["Kod"].unique()
+            
+            # 1. SATIŞ İŞLEMİ
+            st.subheader("💰 Satış Yap (Kâr/Zarar İşler)")
             with st.form("sell_asset_form"):
-                satilacak_kod = st.selectbox("Varlık Seç", varliklar)
+                satilacak_kod = st.selectbox("Satılacak Varlık", varliklar)
+                
+                # Bilgi Gösterimi
                 if satilacak_kod:
                     mevcut_veri = portfoy_df[portfoy_df["Kod"] == satilacak_kod].iloc[0]
                     mevcut_adet = float(mevcut_veri["Adet"])
@@ -732,25 +749,52 @@ elif selected == "Ekle/Çıkar":
                     pazar_yeri = mevcut_veri["Pazar"]
                     st.info(f"Elinizdeki: **{mevcut_adet}** Adet | Ort. Maliyet: **{mevcut_maliyet}**")
                 else:
-                    st.warning("Listede varlık yok.")
                     mevcut_adet = 0
+
                 c1, c2 = st.columns(2)
                 satilan_adet = c1.number_input("Satılacak Adet", min_value=0.0, max_value=mevcut_adet, step=0.01)
                 satis_fiyati = c2.number_input("Satış Fiyatı", min_value=0.0, step=0.01)
-                if st.form_submit_button("Satışı Onayla", type="primary"):
+                
+                if st.form_submit_button("✅ Satışı Onayla", type="primary"):
                     if satilan_adet > 0 and satis_fiyati > 0:
                         kar_zarar = (satis_fiyati - mevcut_maliyet) * satilan_adet
                         tarih = datetime.now().strftime("%Y-%m-%d %H:%M")
+                        
+                        # Satış Geçmişine Ekle
                         add_sale_record(tarih, satilacak_kod, pazar_yeri, satilan_adet, satis_fiyati, mevcut_maliyet, kar_zarar)
+                        
+                        # Portföyden Düş
                         yeni_adet = mevcut_adet - satilan_adet
                         if yeni_adet <= 0.0001: 
                             portfoy_df = portfoy_df[portfoy_df["Kod"] != satilacak_kod]
-                            st.success(f"{satilacak_kod} tamamen satıldı ve portföyden silindi.")
+                            msg = f"{satilacak_kod} tamamen satıldı."
                         else: 
                             portfoy_df.loc[portfoy_df["Kod"] == satilacak_kod, "Adet"] = yeni_adet
-                            st.success(f"{satilan_adet} adet satıldı. Kalan: {yeni_adet}")
+                            msg = f"{satilan_adet} adet satıldı. Kalan: {yeni_adet}"
+                            
                         save_data_to_sheet(portfoy_df)
+                        st.success(msg)
                         time.sleep(1)
                         st.rerun()
                     else: st.error("Lütfen geçerli adet ve fiyat giriniz.")
+
+            st.markdown("---") # Ayırıcı Çizgi
+
+            # 2. DİREKT SİLME İŞLEMİ (YENİ İSTEĞİN)
+            st.subheader("🗑️ Kaydı Direkt Sil")
+            st.caption("⚠️ Dikkat: Bu işlem varlığı satış geçmişine eklemeden, kâr/zarar hesaplamadan direkt listeden siler. (Hatalı girişler için)")
+            
+            with st.form("delete_row_form"):
+                silinecek_kod = st.selectbox("Silinecek Varlık Seçin", varliklar, key="sil_box")
+                
+                if st.form_submit_button("🚫 Listeden Kalıcı Olarak Sil"):
+                    if silinecek_kod:
+                        portfoy_df = portfoy_df[portfoy_df["Kod"] != silinecek_kod]
+                        save_data_to_sheet(portfoy_df)
+                        st.warning(f"{silinecek_kod} listeden tamamen silindi!")
+                        time.sleep(1)
+                        st.rerun()
+        else:
+            st.info("Portföyünüz boş, işlem yapılacak varlık yok.")
         else: st.info("Satılacak varlık yok.")
+
