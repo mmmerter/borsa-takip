@@ -78,8 +78,6 @@ st.markdown("""
 # --- YARDIMCI FONKSİYONLAR ---
 def get_yahoo_symbol(kod, pazar):
     kod = str(kod).upper()
-    
-    # TRMET Düzeltmesi
     if kod == "TRMET": return "KOZAA.IS"
     
     if "FON" in pazar: return kod 
@@ -107,11 +105,10 @@ def smart_parse(text_val):
     try: return float(val)
     except: return 0.0
 
-# --- TEFAS FON VERİSİ ---
+# --- TEFAS VERİSİ ---
 @st.cache_data(ttl=14400) 
 def get_tefas_data(fund_code):
     try:
-        # Web Scraping (Öncelikli)
         url = f"https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod={fund_code}"
         headers = {'User-Agent': 'Mozilla/5.0'}
         r = requests.get(url, headers=headers, timeout=5)
@@ -123,7 +120,6 @@ def get_tefas_data(fund_code):
     except: pass
 
     try:
-        # Kütüphane (Yedek)
         crawler = Crawler()
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
@@ -136,7 +132,7 @@ def get_tefas_data(fund_code):
     except: pass
     return 0, 0
 
-# --- COINGECKO GLOBAL VERİ ---
+# --- COINGECKO GLOBAL ---
 @st.cache_data(ttl=300)
 def get_crypto_globals():
     try:
@@ -194,10 +190,8 @@ def get_data_from_sheet():
         for col in expected_cols:
             if col not in df.columns: df[col] = "" 
         
-        # FON İSMİNİ BİRLEŞTİRME
         if not df.empty:
             df["Pazar"] = df["Pazar"].apply(lambda x: "FON" if "FON" in str(x) else x)
-            # FİZİKİ OLANLARI EMTIA YAP
             df["Pazar"] = df["Pazar"].apply(lambda x: "EMTIA" if "FIZIKI" in str(x).upper() else x)
             
         return df
@@ -256,7 +250,6 @@ def get_tickers_data(df_portfolio, usd_try):
         for _, row in assets.iterrows():
             kod = row['Kod']
             pazar = row['Pazar']
-            # FONLARI ve FİZİKİLERİ ŞERİDE ALMA (Sade olsun)
             if "Fiziki" not in pazar and "Gram" not in kod and "FON" not in pazar:
                 sym = get_yahoo_symbol(kod, pazar)
                 portfolio_symbols[kod] = sym
@@ -358,7 +351,6 @@ st.markdown(f"""
 # --- NAVİGASYON MENÜSÜ ---
 selected = option_menu(
     menu_title=None, 
-    # FİZİKİ KALDIRILDI
     options=["Dashboard", "Tümü", "BIST", "ABD", "FON", "Emtia", "Kripto", "Haberler", "İzleme", "Satışlar", "Ekle/Çıkar"], 
     icons=["speedometer2", "list-task", "graph-up-arrow", "currency-dollar", "piggy-bank", "fuel-pump", "currency-bitcoin", "newspaper", "eye", "receipt", "gear"], 
     menu_icon="cast", 
@@ -464,7 +456,7 @@ def run_analysis(df, usd_try_rate, view_currency):
             pazar = pazar_raw
         
         if "FON" in pazar: pazar = "FON"
-        if "FIZIKI" in str(pazar).upper(): pazar = "EMTIA" # FİZİKİLERİ EMTIA YAP
+        if "FIZIKI" in str(pazar).upper(): pazar = "EMTIA"
 
         adet = smart_parse(row.get("Adet", 0))
         maliyet = smart_parse(row.get("Maliyet", 0))
@@ -502,10 +494,6 @@ def run_analysis(df, usd_try_rate, view_currency):
                 else:
                     curr_price = maliyet
                     prev_close = maliyet
-            
-            elif "Fiziki" in pazar: # Çeyrek vb manuel
-                 curr_price = maliyet
-                 prev_close = maliyet
 
             else:
                 hist = yf.Ticker(symbol).history(period="2d")
@@ -575,7 +563,6 @@ def get_historical_chart(df, usd_try):
     for idx, row in df.iterrows():
         kod = row['Kod']
         pazar = row['Pazar']
-        # GRAM VE FİZİKİ HARİÇ
         if "Gram" not in kod and "Fiziki" not in pazar and "FON" not in pazar:
             sym = get_yahoo_symbol(kod, pazar)
             try: adet = smart_parse(row['Adet'])
@@ -628,11 +615,12 @@ def render_pazar_tab(df, filter_text, currency_symbol):
     c1.metric(f"Toplam {filter_text} Varlık", f"{currency_symbol}{total_val:,.0f}")
     c2.metric(f"Toplam {filter_text} Kâr/Zarar", f"{currency_symbol}{total_pl:,.0f}", delta=f"{total_pl:,.0f}")
     
-    # GRAFİKLER GERİ GELDİ
+    # GRAFİKLER (DASHBOARD GİBİ AMA FİLTRELİ VE TEK PARÇA)
     st.divider()
     col_pie, col_bar = st.columns([1, 1])
     with col_pie:
         st.subheader(f"{filter_text} Dağılım")
+        # --- BURADAKİ DÜZELTME ÖNEMLİ: names='Kod' YAPILDI ---
         fig_pie = px.pie(df_filtered, values='Değer', names='Kod', hole=0.4)
         st.plotly_chart(fig_pie, use_container_width=True)
     with col_bar:
@@ -641,7 +629,7 @@ def render_pazar_tab(df, filter_text, currency_symbol):
         fig_bar = px.bar(df_sorted, x='Kod', y='Değer', color='Top. Kâr/Zarar')
         st.plotly_chart(fig_bar, use_container_width=True)
     
-    if filter_text not in ["FON", "FIZIKI"]:
+    if filter_text not in ["FON"]:
         st.divider()
         st.subheader(f"📈 {filter_text} Tarihsel Değer (Simülasyon)")
         hist_data = get_historical_chart(df_filtered, USD_TRY)
@@ -664,14 +652,14 @@ sym = "₺" if GORUNUM_PB == "TRY" else "$"
 
 if selected == "Dashboard":
     if not portfoy_only.empty:
-        # --- ISI HARİTASI (TREEMAP) ---
+        # --- TREEMAP (BÜTÜNLEŞİK - PAZAR AYRIMI YOK) ---
         st.subheader("🗺️ Portföy Isı Haritası")
         fig_tree = px.treemap(
             portfoy_only,
-            path=[px.Constant("Portföy"), 'Pazar', 'Kod'],
+            path=[px.Constant("Portföy"), 'Kod'], # 'Pazar' hiyerarşisi kaldırıldı
             values='Değer',
             color='Top. %',
-            hover_data=['Değer', 'Top. Kâr/Zarar', 'Top. %'],
+            hover_data=['Pazar', 'Değer', 'Top. Kâr/Zarar', 'Top. %'],
             color_continuous_scale='RdYlGn',
             color_continuous_midpoint=0
         )
@@ -703,7 +691,7 @@ if selected == "Dashboard":
 
 elif selected == "Tümü":
     if not portfoy_only.empty:
-        # GRAFİKLER EKLENDİ (HİSSE BAZLI)
+        # GRAFİKLER EKLENDİ (DASHBOARD TARZI AMA HİSSE ODAKLI)
         col_pie_det, col_bar_det = st.columns([1, 1])
         with col_pie_det:
             st.subheader("Varlık Bazlı Dağılım")
@@ -801,7 +789,20 @@ elif selected == "Ekle/Çıkar":
                 final_kod = manuel_kod if manuel_kod else yeni_kod
                 
                 if final_kod and adet_inp > 0:
-                    portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod]
+                    # ORTALAMA MALİYET HESAPLAMA
+                    mevcut_hisse = portfoy_df[portfoy_df["Kod"] == final_kod]
+                    if not mevcut_hisse.empty:
+                         eski_adet = smart_parse(mevcut_hisse.iloc[0]["Adet"])
+                         eski_maliyet = smart_parse(mevcut_hisse.iloc[0]["Maliyet"])
+                         
+                         toplam_yeni_adet = eski_adet + adet_inp
+                         toplam_yeni_maliyet = ((eski_adet * eski_maliyet) + (adet_inp * maliyet_inp)) / toplam_yeni_adet
+                         
+                         adet_inp = toplam_yeni_adet
+                         maliyet_inp = toplam_yeni_maliyet
+                         portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod] # Eskiyi sil
+                         st.info(f"🔄 {final_kod} üzerine eklendi. Yeni Ort. Maliyet: {maliyet_inp:,.2f}")
+                    
                     tip_str = "Portfoy" if islem_tipi == "Portföy" else "Takip"
                     yeni_satir = pd.DataFrame({
                         "Kod": [final_kod], "Pazar": [yeni_pazar], 
@@ -810,7 +811,7 @@ elif selected == "Ekle/Çıkar":
                     })
                     portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
                     save_data_to_sheet(portfoy_df)
-                    st.success(f"{final_kod} eklendi!")
+                    st.success(f"{final_kod} kaydedildi!")
                     time.sleep(1)
                     st.rerun()
                 else:
