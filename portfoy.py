@@ -5,12 +5,14 @@ import time
 import plotly.express as px
 from streamlit_option_menu import option_menu
 
+# --- MODÜLLER ---
 from utils import (
     ANALYSIS_COLS,
     KNOWN_FUNDS,
     MARKET_DATA,
     smart_parse,
     styled_dataframe,
+    get_yahoo_symbol,
 )
 from data_loader import (
     get_data_from_sheet,
@@ -38,7 +40,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# --- CSS: TASARIM ---
+# --- CSS ---
 st.markdown(
     """
 <style>
@@ -209,14 +211,12 @@ selected = option_menu(
             "font-weight": "bold",
             "color": "#bfbfbf",
         },
-        "nav-link-selected": {
-            "background-color": "#ffffff",
-            "color": "#000000",
-        },
+        "nav-link-selected": {"background-color": "#ffffff", "color": "#000"},
     },
 )
 
 
+# --- ANALİZ ---
 def run_analysis(df, usd_try_rate, view_currency):
     results = []
 
@@ -241,16 +241,17 @@ def run_analysis(df, usd_try_rate, view_currency):
 
         symbol = get_yahoo_symbol(kod, pazar)
 
-        # Varlığın ana para birimi
-        asset_currency = "USD"
-        if (
-            "BIST" in pazar
-            or "TL" in kod
-            or "FON" in pazar
-            or "EMTIA" in pazar
-            or "NAKIT" in pazar
-        ):
-            asset_currency = "TRY"
+        asset_currency = (
+            "TRY"
+            if (
+                "BIST" in pazar
+                or "TL" in kod
+                or "FON" in pazar
+                or "EMTIA" in pazar
+                or "NAKIT" in pazar
+            )
+            else "USD"
+        )
 
         curr = 0
         prev = 0
@@ -268,42 +269,36 @@ def run_analysis(df, usd_try_rate, view_currency):
                             .history(period="1d")["Close"]
                             .iloc[-1]
                         )
-                    except Exception:
+                    except:
                         curr = 36.0
                 prev = curr
 
             elif "VADELI" in pazar:
                 h = yf.Ticker(symbol).history(period="2d")
-                if not h.empty:
-                    curr = h["Close"].iloc[-1]
-                else:
-                    curr = maliyet
+                curr = h["Close"].iloc[-1] if not h.empty else maliyet
 
             elif "FON" in pazar:
                 curr, prev = get_tefas_data(kod)
 
             elif "Gram Gümüş" in kod:
                 h = yf.Ticker("SI=F").history(period="2d")
-                if not h.empty:
-                    c = h["Close"].iloc[-1]
-                    p = h["Close"].iloc[-2]
-                    curr = (c * USD_TRY) / 31.1035
-                    prev = (p * USD_TRY) / 31.1035
+                c = h["Close"].iloc[-1]
+                p = h["Close"].iloc[-2]
+                curr = (c * USD_TRY) / 31.1035
+                prev = (p * USD_TRY) / 31.1035
 
             elif "Gram Altın" in kod:
                 h = yf.Ticker("GC=F").history(period="2d")
-                if not h.empty:
-                    c = h["Close"].iloc[-1]
-                    p = h["Close"].iloc[-2]
-                    curr = (c * USD_TRY) / 31.1035
-                    prev = (p * USD_TRY) / 31.1035
+                c = h["Close"].iloc[-1]
+                p = h["Close"].iloc[-2]
+                curr = (c * USD_TRY) / 31.1035
+                prev = (p * USD_TRY) / 31.1035
 
             else:
                 h = yf.Ticker(symbol).history(period="2d")
-                if not h.empty:
-                    curr = h["Close"].iloc[-1]
-                    prev = h["Close"].iloc[0]
-        except Exception:
+                curr = h["Close"].iloc[-1]
+                prev = h["Close"].iloc[0]
+        except:
             pass
 
         if curr == 0:
@@ -311,7 +306,6 @@ def run_analysis(df, usd_try_rate, view_currency):
         if prev == 0:
             prev = curr
 
-        # Yanlışlıkla 100x yüksek maliyet girilmişse düzelt
         if curr > 0 and maliyet > 0 and (maliyet / curr) > 50:
             maliyet /= 100
 
@@ -324,7 +318,6 @@ def run_analysis(df, usd_try_rate, view_currency):
 
         daily_chg_native = (curr - prev) * adet if "VADELI" not in pazar else 0
 
-        # Görünüm para birimine çeviri
         if GORUNUM_PB == "TRY":
             if asset_currency == "USD":
                 f_g = curr * USD_TRY
@@ -336,7 +329,7 @@ def run_analysis(df, usd_try_rate, view_currency):
                 v_g = val_native
                 c_g = cost_native
                 d_g = daily_chg_native
-        else:  # USD görünüm
+        else:
             if asset_currency == "TRY":
                 f_g = curr / USD_TRY
                 v_g = val_native / USD_TRY
@@ -377,11 +370,8 @@ def run_analysis(df, usd_try_rate, view_currency):
 
 master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
 
-if "Tip" in master_df.columns:
-    portfoy_only = master_df[master_df["Tip"] == "Portfoy"]
-    takip_only = master_df[master_df["Tip"] == "Takip"]
-else:
-    portfoy_only, takip_only = pd.DataFrame(), pd.DataFrame()
+portfoy_only = master_df[master_df["Tip"] == "Portfoy"]
+takip_only = master_df[master_df["Tip"] == "Takip"]
 
 
 # --- MENÜLER ---
@@ -400,7 +390,6 @@ if selected == "Dashboard":
 
         st.divider()
 
-        # --- Pazar bazlı donut + bar ---
         st.subheader("📊 Pazarlara Göre Dağılım")
         dash_pazar = (
             spot_only.groupby("Pazar", as_index=False)
@@ -410,7 +399,6 @@ if selected == "Dashboard":
 
         st.divider()
 
-        # --- Isı haritası ---
         c_tree_1, c_tree_2 = st.columns([3, 1])
         with c_tree_1:
             st.subheader("🗺️ Portföy Isı Haritası")
@@ -423,12 +411,9 @@ if selected == "Dashboard":
 
         color_col = "Top. %"
         spot_only = spot_only.copy()
-        spot_only["Gün. %"] = 0.0
-        safe_val = spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"]
-        non_zero = safe_val != 0
-        spot_only.loc[non_zero, "Gün. %"] = (
-            spot_only.loc[non_zero, "Gün. Kâr/Zarar"] / safe_val[non_zero] * 100
-        )
+        spot_only["Gün. %"] = (
+            spot_only["Gün. Kâr/Zarar"] / (spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"])
+        ) * 100
 
         if map_mode == "Günlük Değişim %":
             color_col = "Gün. %"
@@ -451,12 +436,6 @@ if selected == "Dashboard":
         fig.update_layout(margin=dict(t=0, l=0, r=0, b=0))
         st.plotly_chart(fig, use_container_width=True)
 
-        try:
-            h = get_historical_chart(portfoy_df, USD_TRY)
-            if h is not None:
-                st.line_chart(h)
-        except Exception:
-            st.warning("Tarihsel grafik yüklenemedi.")
     else:
         st.info("Boş.")
 
@@ -524,7 +503,6 @@ elif selected == "Haberler":
         render_news_section("Döviz / Altın", "DOVIZ")
 
 elif selected == "İzleme":
-    st.subheader("👁️ İzleme Listesi")
     if not takip_only.empty:
         st.dataframe(
             styled_dataframe(takip_only),
@@ -535,7 +513,6 @@ elif selected == "İzleme":
         st.info("İzleme listesi boş.")
 
 elif selected == "Satışlar":
-    st.subheader("🧾 Satış Geçmişi")
     sales_df = get_sales_history()
     if not sales_df.empty:
         st.dataframe(
@@ -551,7 +528,7 @@ elif selected == "Ekle/Çıkar":
 
     tab1, tab2, tab3 = st.tabs(["Ekle", "Düzenle", "Sil/Sat"])
 
-    # EKLE
+    # --- EKLE ---
     with tab1:
         pazar = st.selectbox(
             "Pazar", list(MARKET_DATA.keys()) + ["VADELI (Manuel)"]
@@ -584,36 +561,36 @@ elif selected == "Ekle/Çıkar":
                 time.sleep(1)
                 st.rerun()
 
-    # DÜZENLE
+    # --- DÜZENLE ---
     with tab2:
         if not portfoy_df.empty:
             s = st.selectbox("Seç", portfoy_df["Kod"].unique())
-            if s:
-                r = portfoy_df[portfoy_df["Kod"] == s].iloc[0]
-                na = st.text_input("Yeni Adet", str(r["Adet"]))
-                nm = st.text_input("Yeni Maliyet", str(r["Maliyet"]))
+            r = portfoy_df[portfoy_df["Kod"] == s].iloc[0]
 
-                if st.button("Güncelle"):
-                    portfoy_df = portfoy_df[portfoy_df["Kod"] != s]
-                    new_row = pd.DataFrame(
-                        {
-                            "Kod": [s],
-                            "Pazar": [r["Pazar"]],
-                            "Adet": [smart_parse(na)],
-                            "Maliyet": [smart_parse(nm)],
-                            "Tip": [r["Tip"]],
-                            "Notlar": [""],
-                        }
-                    )
-                    portfoy_df = pd.concat(
-                        [portfoy_df, new_row], ignore_index=True
-                    )
-                    save_data_to_sheet(portfoy_df)
-                    st.success("Güncellendi!")
-                    time.sleep(1)
-                    st.rerun()
+            na = st.text_input("Yeni Adet", str(r["Adet"]))
+            nm = st.text_input("Yeni Maliyet", str(r["Maliyet"]))
 
-    # SİL
+            if st.button("Güncelle"):
+                portfoy_df = portfoy_df[portfoy_df["Kod"] != s]
+                new_row = pd.DataFrame(
+                    {
+                        "Kod": [s],
+                        "Pazar": [r["Pazar"]],
+                        "Adet": [smart_parse(na)],
+                        "Maliyet": [smart_parse(nm)],
+                        "Tip": [r["Tip"]],
+                        "Notlar": [""],
+                    }
+                )
+                portfoy_df = pd.concat(
+                    [portfoy_df, new_row], ignore_index=True
+                )
+                save_data_to_sheet(portfoy_df)
+                st.success("Güncellendi!")
+                time.sleep(1)
+                st.rerun()
+
+    # --- SİL ---
     with tab3:
         if not portfoy_df.empty:
             s = st.selectbox(
