@@ -105,7 +105,7 @@ def smart_parse(text_val):
     try: return float(val)
     except: return 0.0
 
-# --- TEFAS VERİSİ ---
+# --- TEFAS FON VERİSİ ---
 @st.cache_data(ttl=14400) 
 def get_tefas_data(fund_code):
     try:
@@ -478,6 +478,7 @@ def run_analysis(df, usd_try_rate, view_currency):
                 if len(hist) > 0:
                     ons_now = hist['Close'].iloc[-1]
                     ons_prev = hist['Close'].iloc[-2] if len(hist) > 1 else ons_now
+                    # FORMÜL: (ONS GÜMÜŞ * DOLAR) / 31.1035
                     curr_price = (ons_now * usd_try_rate) / 31.1035
                     prev_close = (ons_prev * usd_try_rate) / 31.1035
                 else:
@@ -615,12 +616,11 @@ def render_pazar_tab(df, filter_text, currency_symbol):
     c1.metric(f"Toplam {filter_text} Varlık", f"{currency_symbol}{total_val:,.0f}")
     c2.metric(f"Toplam {filter_text} Kâr/Zarar", f"{currency_symbol}{total_pl:,.0f}", delta=f"{total_pl:,.0f}")
     
-    # GRAFİKLER (DASHBOARD GİBİ AMA FİLTRELİ VE TEK PARÇA)
+    # GRAFİKLER EKLENDİ
     st.divider()
     col_pie, col_bar = st.columns([1, 1])
     with col_pie:
         st.subheader(f"{filter_text} Dağılım")
-        # --- BURADAKİ DÜZELTME ÖNEMLİ: names='Kod' YAPILDI ---
         fig_pie = px.pie(df_filtered, values='Değer', names='Kod', hole=0.4)
         st.plotly_chart(fig_pie, use_container_width=True)
     with col_bar:
@@ -629,7 +629,7 @@ def render_pazar_tab(df, filter_text, currency_symbol):
         fig_bar = px.bar(df_sorted, x='Kod', y='Değer', color='Top. Kâr/Zarar')
         st.plotly_chart(fig_bar, use_container_width=True)
     
-    if filter_text not in ["FON"]:
+    if filter_text not in ["FON", "FIZIKI"]:
         st.divider()
         st.subheader(f"📈 {filter_text} Tarihsel Değer (Simülasyon)")
         hist_data = get_historical_chart(df_filtered, USD_TRY)
@@ -652,16 +652,36 @@ sym = "₺" if GORUNUM_PB == "TRY" else "$"
 
 if selected == "Dashboard":
     if not portfoy_only.empty:
-        # --- TREEMAP (BÜTÜNLEŞİK - PAZAR AYRIMI YOK) ---
-        st.subheader("🗺️ Portföy Isı Haritası")
+        # TREEMAP İÇİN SWITCH
+        c_tree_1, c_tree_2 = st.columns([3, 1])
+        with c_tree_1:
+            st.subheader("🗺️ Portföy Isı Haritası")
+        with c_tree_2:
+            map_mode = st.radio("Renklendirme:", ["Genel Kâr %", "Günlük Değişim %"], horizontal=True)
+        
+        # Renk sütununu belirle (Veri varsa)
+        color_col = 'Top. %'
+        # Günlük % hesabı (Sanal Sütun)
+        portfoy_only['Gün. %'] = (portfoy_only['Gün. Kâr/Zarar'] / (portfoy_only['Değer'] - portfoy_only['Gün. Kâr/Zarar'])) * 100
+        
+        if map_mode == "Günlük Değişim %":
+            color_col = 'Gün. %'
+
         fig_tree = px.treemap(
             portfoy_only,
-            path=[px.Constant("Portföy"), 'Kod'], # 'Pazar' hiyerarşisi kaldırıldı
+            path=[px.Constant("Portföy"), 'Kod'], 
             values='Değer',
-            color='Top. %',
-            hover_data=['Pazar', 'Değer', 'Top. Kâr/Zarar', 'Top. %'],
+            color=color_col,
+            custom_data=['Değer', 'Top. Kâr/Zarar', color_col],
             color_continuous_scale='RdYlGn',
             color_continuous_midpoint=0
+        )
+        
+        fig_tree.update_traces(
+            textinfo="label+value+percent entry",
+            texttemplate="<b>%{label}</b><br>%{customdata[0]:,.0f}<br><b>%{customdata[2]:.2f}%</b>",
+            textposition="middle center",
+            textfont=dict(size=20, family="Arial Black")
         )
         fig_tree.update_layout(margin=dict(t=0, l=0, r=0, b=0))
         st.plotly_chart(fig_tree, use_container_width=True)
@@ -691,7 +711,6 @@ if selected == "Dashboard":
 
 elif selected == "Tümü":
     if not portfoy_only.empty:
-        # GRAFİKLER EKLENDİ (DASHBOARD TARZI AMA HİSSE ODAKLI)
         col_pie_det, col_bar_det = st.columns([1, 1])
         with col_pie_det:
             st.subheader("Varlık Bazlı Dağılım")
@@ -801,7 +820,7 @@ elif selected == "Ekle/Çıkar":
                          adet_inp = toplam_yeni_adet
                          maliyet_inp = toplam_yeni_maliyet
                          portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod] # Eskiyi sil
-                         st.info(f"🔄 {final_kod} üzerine eklendi. Yeni Ort. Maliyet: {maliyet_inp:,.2f}")
+                         st.info(f"🔄 {final_kod} güncellendi. Yeni Ort. Maliyet: {maliyet_inp:,.2f}")
                     
                     tip_str = "Portfoy" if islem_tipi == "Portföy" else "Takip"
                     yeni_satir = pd.DataFrame({
