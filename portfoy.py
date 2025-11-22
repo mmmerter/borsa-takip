@@ -788,27 +788,11 @@ def render_pazar_tab(df, filter_text, currency_symbol):
         st.info(f"{filter_text} kategorisinde varlık bulunamadı.")
         return
 
-total_val = df_filtered["Değer"].sum()
-total_pl = df_filtered["Top. Kâr/Zarar"].sum()
-
-# Yüzdesel getiri (toplam kâr / toplam değer)
-pnl_pct = (total_pl / total_val * 100) if total_val > 0 else 0
-
-c1, c2 = st.columns(2)
-
-# 1. kart: toplam varlık
-c1.metric(
-    f"Toplam {filter_text} Varlık",
-    f"{currency_symbol}{total_val:,.0f}"
-)
-
-# 2. kart: nakit pozisyon + yüzde
-c2.metric(
-    "Nakit pozisyon",
-    f"{currency_symbol}{total_pl:,.0f}",
-    delta=f"{pnl_pct:.2f}%"
-)
-
+    total_val = df_filtered["Değer"].sum()
+    total_pl = df_filtered["Top. Kâr/Zarar"].sum()
+    c1, c2 = st.columns(2)
+    c1.metric(f"Toplam {filter_text} Varlık", f"{currency_symbol}{total_val:,.0f}")
+    c2.metric(f"Toplam {filter_text} Kâr/Zarar", f"{currency_symbol}{total_pl:,.0f}", delta=f"{total_pl:,.0f}")
     
     st.divider()
     col_pie, col_bar = st.columns([1, 1])
