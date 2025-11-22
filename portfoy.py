@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS: TASARIM ---
+# --- CSS: TASARIM (FONT VE HOVER DÜZELTMESİ) ---
 st.markdown("""
 <style>
     .block-container {padding-top: 1rem;}
@@ -34,7 +34,7 @@ st.markdown("""
     div[data-testid="stMetricValue"] { color: #ffffff !important; }
     div[data-testid="stMetricLabel"] { color: #d0d0d0 !important; }
     
-    /* Ticker Tape */
+    /* Ticker Tape (Yazı Tipi Düzeltildi) */
     .ticker-container {
         width: 100%;
         overflow: hidden;
@@ -49,9 +49,9 @@ st.markdown("""
         white-space: nowrap;
         padding-left: 0;
         animation: ticker 60s linear infinite; 
-        font-family: 'Courier New', monospace;
-        font-size: 16px;
-        font-weight: bold;
+        font-family: 'Courier New', Courier, monospace; /* İstenilen Font */
+        font-size: 18px; /* Biraz büyütüldü */
+        font-weight: 900; /* Daha kalın */
         color: #00e676;
     }
     @keyframes ticker {
@@ -95,29 +95,22 @@ def get_yahoo_symbol(kod, pazar):
         return kod
     return kod 
 
-# --- TEFAS FON VERİSİ (GÜNCELLENDİ) ---
-@st.cache_data(ttl=14400) # 4 saatte bir yenile (Fon fiyatları gün boyu sabit kalır)
+# --- TEFAS FON VERİSİ ---
+@st.cache_data(ttl=14400) 
 def get_tefas_data(fund_code):
     try:
         crawler = Crawler()
-        # Son 10 günlük veriyi çek (Tatiller vs için garanti olsun)
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
-        
-        # Sütun isimleri kütüphaneye göre değişebilir, genellikle 'Price' döner
         result = crawler.fetch(start=start_date, end=end_date, name=fund_code, columns=["Price"])
-        
         if not result.empty:
-            current_price = result["Price"].iloc[0] # En güncel fiyat
-            # Bir önceki günün fiyatı (Günlük değişim için)
+            current_price = result["Price"].iloc[0]
             prev_price = result["Price"].iloc[1] if len(result) > 1 else current_price
             return current_price, prev_price
-            
         return 0, 0
-    except:
-        return 0, 0
+    except: return 0, 0
 
-# --- HABER AKIŞI (RSS) ---
+# --- HABER AKIŞI ---
 @st.cache_data(ttl=300)
 def get_financial_news(topic="finance"):
     urls = {
@@ -194,12 +187,24 @@ def save_data_to_sheet(df):
     sheet.clear()
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
-# --- MARKET VE PORTFÖY ŞERİDİ ---
+# --- MARKET VE PORTFÖY ŞERİDİ (GÜNCELLENDİ) ---
 @st.cache_data(ttl=45) 
-def get_combined_ticker(df_portfolio):
-    market_symbols = {"BIST 100": "XU100.IS", "USD": "TRY=X", "EUR": "EURTRY=X", "Altın": "GC=F", "BTC": "BTC-USD"}
-    portfolio_symbols = {}
+def get_combined_ticker(df_portfolio, usd_try):
+    # 1. GENEL PİYASA (İsteklerin Eklendi)
+    market_symbols = {
+        "BIST": "XU100.IS", 
+        "USD": "TRY=X", 
+        "EUR": "EURTRY=X", 
+        "Altın": "GC=F", 
+        "Gümüş(Ons)": "SI=F", # Gram Gümüş Hesabı için
+        "BTC": "BTC-USD",
+        "ETH": "ETH-USD",
+        "USDT": "USDT-USD",
+        "USDC": "USDC-USD"
+    }
     
+    # 2. PORTFÖY
+    portfolio_symbols = {}
     if not df_portfolio.empty:
         assets = df_portfolio[df_portfolio["Tip"] == "Portfoy"]
         for _, row in assets.iterrows():
@@ -212,11 +217,36 @@ def get_combined_ticker(df_portfolio):
     all_tickers = list(market_symbols.values()) + list(portfolio_symbols.values())
     all_tickers = list(set(all_tickers))
     
+    # PİYASA SOLDA
     data_str = '<span style="color:#4da6ff">🌍 PİYASA:</span> &nbsp;'
+    
     try:
-        if all_tickers:
-            yahoo_data = yf.Tickers(" ".join(all_tickers))
-            for name, sym in market_symbols.items():
+        yahoo_data = yf.Tickers(" ".join(all_tickers))
+        
+        # Özel Hesap: Gram Gümüş
+        try:
+            silver_ons = yahoo_data.tickers["SI=F"].history(period="1d")['Close'].iloc[-1]
+            gram_silver = (silver_ons * usd_try) / 31.1035
+            data_str += f'Gümüş(Gr): <span style="color:white">{gram_silver:.2f}</span> &nbsp;&nbsp;|&nbsp;&nbsp; '
+        except: pass
+
+        for name, sym in market_symbols.items():
+            if name == "Gümüş(Ons)": continue # Onu zaten gram olarak ekledik
+            try:
+                hist = yahoo_data.tickers[sym].history(period="2d")
+                if not hist.empty:
+                    price = hist['Close'].iloc[-1]
+                    prev = hist['Close'].iloc[-2]
+                    change = ((price - prev) / prev) * 100
+                    color = "#00e676" if change >= 0 else "#ff5252"
+                    arrow = "▲" if change >= 0 else "▼"
+                    data_str += f'{name}: <span style="color:white">{price:,.2f}</span> <span style="color:{color}">{arrow}%{change:.2f}</span> &nbsp;&nbsp;|&nbsp;&nbsp; '
+            except: pass
+        
+        # PORTFÖY SAĞDA
+        if portfolio_symbols:
+            data_str += '&nbsp;&nbsp;&nbsp; <span style="color:#ffd700">💼 PORTFÖYÜM:</span> &nbsp;'
+            for name, sym in portfolio_symbols.items():
                 try:
                     hist = yahoo_data.tickers[sym].history(period="2d")
                     if not hist.empty:
@@ -227,20 +257,6 @@ def get_combined_ticker(df_portfolio):
                         arrow = "▲" if change >= 0 else "▼"
                         data_str += f'{name}: <span style="color:white">{price:,.2f}</span> <span style="color:{color}">{arrow}%{change:.2f}</span> &nbsp;&nbsp;|&nbsp;&nbsp; '
                 except: pass
-            
-            if portfolio_symbols:
-                data_str += '&nbsp;&nbsp;&nbsp; <span style="color:#ffd700">💼 PORTFÖYÜM:</span> &nbsp;'
-                for name, sym in portfolio_symbols.items():
-                    try:
-                        hist = yahoo_data.tickers[sym].history(period="2d")
-                        if not hist.empty:
-                            price = hist['Close'].iloc[-1]
-                            prev = hist['Close'].iloc[-2]
-                            change = ((price - prev) / prev) * 100
-                            color = "#00e676" if change >= 0 else "#ff5252"
-                            arrow = "▲" if change >= 0 else "▼"
-                            data_str += f'{name}: <span style="color:white">{price:,.2f}</span> <span style="color:{color}">{arrow}%{change:.2f}</span> &nbsp;&nbsp;|&nbsp;&nbsp; '
-                    except: pass
     except: data_str = "Veriler yükleniyor..."
     
     return f'<div class="ticker-text">{data_str} &nbsp;&nbsp;&nbsp; {data_str}</div>'
@@ -255,10 +271,22 @@ with c_toggle:
     st.write("") 
     GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True)
 
-ticker_html = get_combined_ticker(portfoy_df)
+@st.cache_data(ttl=300)
+def get_usd_try():
+    try:
+        ticker = yf.Ticker("TRY=X")
+        hist = ticker.history(period="1d")
+        if not hist.empty: return hist['Close'].iloc[-1]
+        return 34.0
+    except: return 34.0
+
+USD_TRY = get_usd_try()
+
+# --- KAYAN ŞERİT ---
+ticker_html = get_combined_ticker(portfoy_df, USD_TRY)
 st.markdown(f"""<div class="ticker-container">{ticker_html}</div>""", unsafe_allow_html=True)
 
-# --- NAVİGASYON ---
+# --- NAVİGASYON MENÜSÜ (HOVER GRİ YAPILDI) ---
 selected = option_menu(
     menu_title=None, 
     options=["Dashboard", "Tümü", "BIST", "ABD", "FON", "Emtia", "Fiziki", "Kripto", "Haberler", "İzleme", "Satışlar", "Ekle/Çıkar"], 
@@ -269,7 +297,14 @@ selected = option_menu(
     styles={
         "container": {"padding": "0!important", "background-color": "#161616"}, 
         "icon": {"color": "white", "font-size": "18px"}, 
-        "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px", "--hover-color": "#333333", "font-weight": "bold", "color": "#bfbfbf"},
+        "nav-link": {
+            "font-size": "14px", 
+            "text-align": "center", 
+            "margin":"0px", 
+            "--hover-color": "#444444", # HOVER RENGİ KOYU GRİ YAPILDI
+            "font-weight": "bold", 
+            "color": "#bfbfbf"
+        },
         "nav-link-selected": {"background-color": "#ffffff", "color": "#000000"}, 
     }
 )
@@ -286,39 +321,14 @@ MARKET_DATA = {
     "FIZIKI VARLIKLAR": ["Gram Altın (Fiziki)", "Çeyrek Altın", "Yarım Altın", "Tam Altın", "Dolar (Nakit)"]
 }
 
-@st.cache_data(ttl=300)
-def get_usd_try():
-    try:
-        ticker = yf.Ticker("TRY=X")
-        hist = ticker.history(period="1d")
-        if not hist.empty: return hist['Close'].iloc[-1]
-        return 34.0
-    except: return 34.0
-
-USD_TRY = get_usd_try()
-
 # --- DETAYLI ANALİZ ---
 def render_detail_view(symbol, pazar):
     st.markdown(f"### 🔎 {symbol} Detaylı Analizi")
     
     if pazar == "FON":
-        try:
-            crawler = Crawler()
-            start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-            df_tefas = crawler.fetch(start=start_date, name=symbol, columns=["Price"])
-            
-            if not df_tefas.empty:
-                current_price = df_tefas["Price"].iloc[0]
-                st.metric(f"{symbol} Güncel Fiyat", f"₺{current_price:,.6f}")
-                
-                # FON GRAFİĞİ
-                fig = px.line(df_tefas, x=df_tefas.index, y="Price", title=f"{symbol} Son 30 Günlük Performans")
-                fig.update_layout(template="plotly_dark")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.warning("TEFAS verisi çekilemedi.")
-        except Exception as e:
-            st.error(f"Hata: {e}")
+        price, _ = get_tefas_data(symbol)
+        st.metric(f"{symbol} Son Fiyat", f"₺{price:,.6f}")
+        st.info("Yatırım fonları için anlık grafik desteği TEFAS kaynaklı sınırlıdır.")
         return
 
     try:
@@ -381,7 +391,6 @@ def run_analysis(df, usd_try_rate, view_currency):
         asset_currency = "USD"
         if "BIST" in pazar or "TL" in kod or "Fiziki" in pazar or pazar == "FON": asset_currency = "TRY"
         
-        # Fiyat ve Önceki Kapanış Çekme (P/L Hesabı İçin)
         curr_price = 0
         prev_close = 0
         
@@ -401,7 +410,7 @@ def run_analysis(df, usd_try_rate, view_currency):
                 hist = yf.Ticker(symbol).history(period="2d")
                 if not hist.empty:
                     curr_price = hist['Close'].iloc[-1]
-                    prev_close = hist['Close'].iloc[0] # 2 günlük verinin ilki önceki kapanıştır
+                    prev_close = hist['Close'].iloc[0] 
                 else: 
                     curr_price = maliyet
                     prev_close = maliyet
@@ -412,7 +421,6 @@ def run_analysis(df, usd_try_rate, view_currency):
         val_native = curr_price * adet
         cost_native = maliyet * adet
         
-        # Günlük Değişim (Native Para Biriminde)
         daily_chg_native = (curr_price - prev_close) * adet
 
         if view_currency == "TRY":
@@ -457,8 +465,8 @@ def get_historical_chart(df, usd_try):
     for idx, row in df.iterrows():
         kod = row['Kod']
         pazar = row['Pazar']
+        sym = get_yahoo_symbol(kod, pazar)
         if "Gram" not in kod and "Fiziki" not in pazar and pazar != "FON":
-            sym = get_yahoo_symbol(kod, pazar)
             tickers_map[sym] = {"Adet": float(row['Adet']), "Pazar": pazar}
     if not tickers_map: return None
     try:
@@ -501,7 +509,6 @@ def render_pazar_tab(df, filter_text, currency_symbol):
     if df.empty: st.info("Veri yok."); return
     df_filtered = df[df["Pazar"].str.contains(filter_text, na=False)]
     if df_filtered.empty: st.info(f"{filter_text} kategorisinde varlık bulunamadı."); return
-    
     total_val = df_filtered["Değer"].sum()
     total_pl = df_filtered["Top. Kâr/Zarar"].sum()
     c1, c2 = st.columns(2)
@@ -520,7 +527,6 @@ def render_pazar_tab(df, filter_text, currency_symbol):
         fig_bar = px.bar(df_sorted, x='Kod', y='Değer', color='Top. Kâr/Zarar')
         st.plotly_chart(fig_bar, use_container_width=True)
     
-    # Tarihsel Grafik (FON ve FİZİKİ hariç çünkü verileri sınırlı)
     if filter_text not in ["FON", "FIZIKI"]:
         st.divider()
         st.subheader(f"📈 {filter_text} Tarihsel Değer (Simülasyon)")
@@ -570,7 +576,7 @@ elif selected == "Tümü":
     if not portfoy_only.empty:
         st.markdown("#### 🔍 Detaylı Analiz")
         all_assets = portfoy_only["Kod"].unique().tolist()
-        secilen = st.selectbox("İncelemek istediğiniz varlığı seçin:", all_assets, index=None, placeholder="Seçiniz...")
+        secilen = st.selectbox("İncelemek istediğiniz varlığı seçin:", all_assets, index=None, placeholder="Varlık Seç...")
         if secilen:
             row = portfoy_only[portfoy_only["Kod"] == secilen].iloc[0]
             sym = get_yahoo_symbol(row["Kod"], row["Pazar"])
