@@ -117,7 +117,6 @@ def get_tefas_data(fund_code):
                 current_price = float(price_str)
                 return current_price, current_price 
     except: pass
-
     try:
         crawler = Crawler()
         end_date = datetime.now().strftime("%Y-%m-%d")
@@ -244,7 +243,7 @@ def get_tickers_data(df_portfolio, usd_try):
         for _, row in assets.iterrows():
             kod = row['Kod']
             pazar = row['Pazar']
-            if "Fiziki" not in pazar and "Gram" not in kod and "FON" not in pazar:
+            if "Fiziki" not in pazar and "Gram" not in kod and pazar != "FON":
                 sym = get_yahoo_symbol(kod, pazar)
                 portfolio_symbols[kod] = sym
 
@@ -434,7 +433,7 @@ def render_detail_view(symbol, pazar):
     except Exception as e:
         st.error(f"Veri çekilemedi: {e}")
 
-# --- HESAPLAMA MOTORU ---
+# --- HESAPLAMA MOTORU (GRAM ALTIN FİX) ---
 def run_analysis(df, usd_try_rate, view_currency):
     results = []
     if df.empty: return pd.DataFrame(columns=ANALYSIS_COLS)
@@ -445,6 +444,7 @@ def run_analysis(df, usd_try_rate, view_currency):
         kod = row.get("Kod", "")
         pazar_raw = row.get("Pazar", "")
         
+        # FON TANIMA KORUMASI
         if kod in KNOWN_FUNDS:
             pazar = "FON"
         else:
@@ -464,43 +464,62 @@ def run_analysis(df, usd_try_rate, view_currency):
         try:
             if "FON" in pazar:
                 curr_price, prev_close = get_tefas_data(kod)
-            elif "Gram Altın (TL)" in kod:
-                hist = yf.Ticker("GC=F").history(period="2d")
-                if len(hist) > 1:
-                    curr_price = (hist['Close'].iloc[-1] * usd_try_rate) / 31.1035
-                    prev_close = (hist['Close'].iloc[-2] * usd_try_rate) / 31.1035
-                else: curr_price = maliyet
+            
+            # --- GRAM ALTIN (Fiziki ve TL) Düzeltmesi ---
+            elif "Gram Altın" in kod:
+                # Formül: (Ons * Dolar) / 31.1035 = Gram Fiyatı (Yaklaşık 2970 TL)
+                hist_ons = yf.Ticker("GC=F").history(period="2d")
+                if len(hist_ons) > 0:
+                    ons_now = hist_ons['Close'].iloc[-1]
+                    ons_prev = hist_ons['Close'].iloc[-2] if len(hist_ons) > 1 else ons_now
+                    
+                    curr_price = (ons_now * usd_try_rate) / 31.1035
+                    prev_close = (ons_prev * usd_try_rate) / 31.1035
+                else:
+                    curr_price = maliyet
+                    prev_close = maliyet
+
+            # --- GRAM GÜMÜŞ Düzeltmesi ---
+            elif "Gram Gümüş" in kod:
+                hist_ons = yf.Ticker("SI=F").history(period="2d")
+                if len(hist_ons) > 0:
+                    ons_now = hist_ons['Close'].iloc[-1]
+                    ons_prev = hist_ons['Close'].iloc[-2] if len(hist_ons) > 1 else ons_now
+                    
+                    curr_price = (ons_now * usd_try_rate) / 31.1035
+                    prev_close = (ons_prev * usd_try_rate) / 31.1035
+                else:
+                    curr_price = maliyet
+                    prev_close = maliyet
+
+            # --- DİĞER FİZİKİ (Çeyrek, Dolar vb) ---
             elif "Fiziki" in pazar: 
+                # Şimdilik maliyetten göster, ileride özel veri çekilebilir
                 curr_price = maliyet
                 prev_close = maliyet
+            
             else:
+                # Hisseler (TRMET DAHİL)
                 hist = yf.Ticker(symbol).history(period="2d")
                 if not hist.empty:
                     curr_price = hist['Close'].iloc[-1]
                     prev_close = hist['Close'].iloc[0] 
                 else: 
-                    curr_price = maliyet
-                    prev_close = maliyet
+                    # Veri çekilemezse 0 yap (Hata anlaşılsın)
+                    curr_price = 0
+                    prev_close = 0
         except: 
-            curr_price = maliyet
-            prev_close = maliyet
+            curr_price = 0
+            prev_close = 0
         
+        # EĞER FİYAT 0 İSE, MALİYETİ KULLAN (GEÇİCİ KORUMA)
         if curr_price == 0: 
             curr_price = maliyet
             prev_close = maliyet
 
-        if curr_price > 0 and maliyet > 0:
-            if (maliyet / curr_price) > 50: 
-                maliyet = maliyet / 100
-
         val_native = curr_price * adet
         cost_native = maliyet * adet
-        
-        # GÜNLÜK KÂR/ZARAR HESABI İÇİN KORUMA
-        if prev_close == 0:
-            daily_chg_native = 0
-        else:
-            daily_chg_native = (curr_price - prev_close) * adet
+        daily_chg_native = (curr_price - prev_close) * adet
 
         if view_currency == "TRY":
             if asset_currency == "USD":
@@ -655,16 +674,13 @@ if selected == "Dashboard":
 
 elif selected == "Tümü":
     if not portfoy_only.empty:
-        col_pie_det, col_bar_det = st.columns([1, 1])
-        with col_pie_det:
-            st.subheader("Varlık Bazlı Dağılım")
-            fig_pie_det = px.pie(portfoy_only, values='Değer', names='Kod', hole=0.4)
-            st.plotly_chart(fig_pie_det, use_container_width=True)
-        with col_bar_det:
-            st.subheader("Varlık Bazlı Değerler")
-            top_assets = portfoy_only.sort_values(by="Değer", ascending=False)
-            fig_bar_det = px.bar(top_assets, x='Kod', y='Değer', color='Pazar')
-            st.plotly_chart(fig_bar_det, use_container_width=True)
+        st.markdown("#### 🔍 Detaylı Analiz")
+        all_assets = portfoy_only["Kod"].unique().tolist()
+        secilen = st.selectbox("İncelemek istediğiniz varlığı seçin:", all_assets, index=None, placeholder="Varlık Seç...")
+        if secilen:
+            row = portfoy_only[portfoy_only["Kod"] == secilen].iloc[0]
+            sym = get_yahoo_symbol(row["Kod"], row["Pazar"])
+            render_detail_view(sym, row["Pazar"])
         st.divider()
         st.subheader("Tüm Portföy Listesi")
         st.dataframe(styled_dataframe(portfoy_only), use_container_width=True, hide_index=True)
