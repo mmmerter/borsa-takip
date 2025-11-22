@@ -8,3 +8,4 @@ tefas-crawler
 streamlit-option-menu
 feedparser
 requests
+ccxt
