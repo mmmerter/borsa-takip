@@ -97,4 +97,68 @@ def render_pazar_tab(df, filter_key, symb, usd_try):
 
     col1, col2 = st.columns(2)
 
-    label = "
+    label = "Toplam PNL" if filter_key == "VADELI" else "Toplam Varlık"
+    col1.metric(label, f"{symb}{total_val:,.0f}")
+
+    if filter_key == "VADELI":
+        col2.metric("Toplam Kâr/Zarar", f"{symb}{total_pnl:,.0f}", delta=f"{symb}{total_pnl:,.0f}")
+    else:
+        total_cost = (sub["Değer"] - sub["Top. Kâr/Zarar"]).sum()
+        pct = (total_pnl / total_cost * 100) if total_cost != 0 else 0
+        col2.metric("Toplam Kâr/Zarar", f"{symb}{total_pnl:,.0f}", delta=f"%{pct:.2f}")
+
+    st.divider()
+
+    # Grafikler burda büyütülmüş haliyle geliyor 🔥
+    if filter_key != "VADELI":
+        render_pie_bar_charts(sub, "Kod")
+
+    st.dataframe(
+        styled_dataframe(sub),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
+# --------------------------------------------------------------------
+#  DETAY SAYFASI
+# --------------------------------------------------------------------
+def render_detail_view(symbol, pazar):
+    st.markdown(f"### 🔎 {symbol} Detaylı Analizi")
+
+    if "FON" in pazar:
+        price, _ = get_tefas_data(symbol)
+        st.metric(f"{symbol} Son Fiyat", f"₺{price:,.6f}")
+        st.info("Yatırım fonu grafik desteği kısıtlıdır.")
+        return
+
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="2y")
+
+        if hist.empty:
+            st.warning("Grafik verisi yok.")
+            return
+
+        fig = go.Figure(
+            data=[
+                go.Candlestick(
+                    x=hist.index,
+                    open=hist["Open"],
+                    high=hist["High"],
+                    low=hist["Low"],
+                    close=hist["Close"],
+                )
+            ]
+        )
+
+        fig.update_layout(
+            title=f"{symbol} Fiyat Grafiği",
+            template="plotly_dark",
+            yaxis_title="Fiyat",
+            height=600,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Hata: {e}")
