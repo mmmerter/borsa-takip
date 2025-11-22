@@ -78,8 +78,6 @@ st.markdown("""
 # --- YARDIMCI FONKSİYONLAR ---
 def get_yahoo_symbol(kod, pazar):
     kod = str(kod).upper()
-    
-    # TRMET Düzeltmesi
     if kod == "TRMET": return "KOZAA.IS"
     
     if "FON" in pazar: return kod 
@@ -107,11 +105,10 @@ def smart_parse(text_val):
     try: return float(val)
     except: return 0.0
 
-# --- TEFAS FON VERİSİ ---
+# --- TEFAS VERİSİ ---
 @st.cache_data(ttl=14400) 
 def get_tefas_data(fund_code):
     try:
-        # Web Scraping (Öncelikli)
         url = f"https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod={fund_code}"
         headers = {'User-Agent': 'Mozilla/5.0'}
         r = requests.get(url, headers=headers, timeout=5)
@@ -123,7 +120,6 @@ def get_tefas_data(fund_code):
     except: pass
 
     try:
-        # Kütüphane (Yedek)
         crawler = Crawler()
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
@@ -136,7 +132,7 @@ def get_tefas_data(fund_code):
     except: pass
     return 0, 0
 
-# --- COINGECKO GLOBAL VERİ ---
+# --- COINGECKO GLOBAL ---
 @st.cache_data(ttl=300)
 def get_crypto_globals():
     try:
@@ -194,7 +190,6 @@ def get_data_from_sheet():
         for col in expected_cols:
             if col not in df.columns: df[col] = "" 
         
-        # FON İSMİNİ BİRLEŞTİRME
         if not df.empty:
             df["Pazar"] = df["Pazar"].apply(lambda x: "FON" if "FON" in str(x) else x)
             
@@ -355,8 +350,8 @@ st.markdown(f"""
 # --- NAVİGASYON MENÜSÜ ---
 selected = option_menu(
     menu_title=None, 
-    options=["Dashboard", "Tümü", "BIST", "ABD", "FON", "Emtia", "Kripto", "Haberler", "İzleme", "Satışlar", "Ekle/Çıkar"], 
-    icons=["speedometer2", "list-task", "graph-up-arrow", "currency-dollar", "piggy-bank", "fuel-pump", "currency-bitcoin", "newspaper", "eye", "receipt", "gear"], 
+    options=["Dashboard", "Tümü", "BIST", "ABD", "FON", "Emtia", "Fiziki", "Kripto", "Haberler", "İzleme", "Satışlar", "Ekle/Çıkar"], 
+    icons=["speedometer2", "list-task", "graph-up-arrow", "currency-dollar", "piggy-bank", "fuel-pump", "house", "currency-bitcoin", "newspaper", "eye", "receipt", "gear"], 
     menu_icon="cast", 
     default_index=0, 
     orientation="horizontal",
@@ -383,7 +378,8 @@ MARKET_DATA = {
     "ABD (S&P + NASDAQ)": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META"], 
     "KRIPTO": ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX"],
     "FON (TEFAS/BES)": ["TTE", "MAC", "AFT", "AFA", "YAY", "IPJ", "TCD", "NNF", "GMR", "TI2", "TI3", "IHK", "IDH", "YHB", "OJT", "HKH", "IPB", "KZL", "RPD"],
-    "EMTIA": ["Gram Altın (TL)", "Gram Gümüş (TL)", "Altın ONS", "Gümüş ONS", "Petrol", "Doğalgaz", "Gram Altın (Fiziki)", "Gram Gümüş (Fiziki)", "Çeyrek Altın", "Yarım Altın", "Tam Altın", "Dolar (Nakit)"]
+    "EMTIA": ["Gram Altın (TL)", "Gram Gümüş (TL)", "Altın ONS", "Gümüş ONS", "Petrol", "Doğalgaz"],
+    "FIZIKI VARLIKLAR": ["Gram Altın (Fiziki)", "Gram Gümüş (Fiziki)", "Çeyrek Altın", "Yarım Altın", "Tam Altın", "Dolar (Nakit)"]
 }
 
 # --- DETAYLI ANALİZ ---
@@ -443,7 +439,7 @@ def render_detail_view(symbol, pazar):
     except Exception as e:
         st.error(f"Veri çekilemedi: {e}")
 
-# --- HESAPLAMA MOTORU ---
+# --- HESAPLAMA MOTORU (ORTALAMA MALİYET EKLENDİ) ---
 def run_analysis(df, usd_try_rate, view_currency):
     results = []
     if df.empty: return pd.DataFrame(columns=ANALYSIS_COLS)
@@ -618,7 +614,6 @@ def render_pazar_tab(df, filter_text, currency_symbol):
     c1.metric(f"Toplam {filter_text} Varlık", f"{currency_symbol}{total_val:,.0f}")
     c2.metric(f"Toplam {filter_text} Kâr/Zarar", f"{currency_symbol}{total_pl:,.0f}", delta=f"{total_pl:,.0f}")
     
-    # GRAFİKLER GERİ GELDİ
     st.divider()
     col_pie, col_bar = st.columns([1, 1])
     with col_pie:
@@ -707,6 +702,7 @@ elif selected == "BIST": render_pazar_tab(portfoy_only, "BIST", sym)
 elif selected == "ABD": render_pazar_tab(portfoy_only, "ABD", sym)
 elif selected == "FON": render_pazar_tab(portfoy_only, "FON", sym)
 elif selected == "Emtia": render_pazar_tab(portfoy_only, "EMTIA", sym)
+elif selected == "Fiziki": render_pazar_tab(portfoy_only, "FIZIKI", sym)
 elif selected == "Kripto": render_pazar_tab(portfoy_only, "KRIPTO", sym)
 
 elif selected == "Haberler":
@@ -751,8 +747,6 @@ elif selected == "Ekle/Çıkar":
         st.info("💡 İpucu: Ondalık sayılar için **VİRGÜL ( , )** kullanın. Örn: **30,26**")
         islem_tipi = st.radio("Tür", ["Portföy", "Takip"], horizontal=True)
         yeni_pazar = st.selectbox("Pazar", list(MARKET_DATA.keys()))
-        if "ABD" in yeni_pazar: st.warning("🇺🇸 ABD için Maliyeti DOLAR girin.")
-        
         secenekler = MARKET_DATA.get(yeni_pazar, [])
         with st.form("add_asset_form"):
             yeni_kod = st.selectbox("Listeden Seç", options=secenekler, index=None, placeholder="Seçiniz...")
@@ -776,7 +770,21 @@ elif selected == "Ekle/Çıkar":
                 final_kod = manuel_kod if manuel_kod else yeni_kod
                 
                 if final_kod and adet_inp > 0:
-                    portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod]
+                    # --- ORTALAMA MALİYET MANTIĞI ---
+                    mevcut_hisse = portfoy_df[portfoy_df["Kod"] == final_kod]
+                    if not mevcut_hisse.empty:
+                         eski_adet = smart_parse(mevcut_hisse.iloc[0]["Adet"])
+                         eski_maliyet = smart_parse(mevcut_hisse.iloc[0]["Maliyet"])
+                         
+                         toplam_yeni_adet = eski_adet + adet_inp
+                         toplam_yeni_maliyet = ((eski_adet * eski_maliyet) + (adet_inp * maliyet_inp)) / toplam_yeni_adet
+                         
+                         adet_inp = toplam_yeni_adet
+                         maliyet_inp = toplam_yeni_maliyet
+                         portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod] # Eskiyi sil
+                         st.info(f"🔄 {final_kod} güncellendi. Yeni Ort. Maliyet: {maliyet_inp:,.2f}")
+                    
+                    # YENİ KAYIT OLUŞTUR
                     tip_str = "Portfoy" if islem_tipi == "Portföy" else "Takip"
                     yeni_satir = pd.DataFrame({
                         "Kod": [final_kod], "Pazar": [yeni_pazar], 
@@ -785,7 +793,7 @@ elif selected == "Ekle/Çıkar":
                     })
                     portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
                     save_data_to_sheet(portfoy_df)
-                    st.success(f"{final_kod} eklendi!")
+                    st.success(f"{final_kod} kaydedildi!")
                     time.sleep(1)
                     st.rerun()
                 else:
@@ -860,3 +868,22 @@ elif selected == "Ekle/Çıkar":
                                 msg = f"{satilacak_kod} tamamen satıldı."
                             else: 
                                 portfoy_df.loc[portfoy_df["Kod"] == satilacak_kod, "Adet"] = yeni_adet
+                                msg = f"{s_adet:g} adet satıldı. Kalan: {yeni_adet:g}"
+                            save_data_to_sheet(portfoy_df)
+                            st.success(msg)
+                            time.sleep(1)
+                            st.rerun()
+                    else: st.error("Geçerli değerler giriniz.")
+
+            st.markdown("---")
+            st.markdown("#### 🗑️ Kaydı Direkt Sil")
+            with st.form("delete_row_form"):
+                silinecek_kod = st.selectbox("Silinecek Varlık Seçin", varliklar, key="sil_box")
+                if st.form_submit_button("🚫 Sil"):
+                    if silinecek_kod:
+                        portfoy_df = portfoy_df[portfoy_df["Kod"] != silinecek_kod]
+                        save_data_to_sheet(portfoy_df)
+                        st.warning(f"{silinecek_kod} silindi!")
+                        time.sleep(1)
+                        st.rerun()
+        else: st.info("İşlem yapılacak varlık yok.")
