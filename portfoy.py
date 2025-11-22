@@ -307,10 +307,9 @@ def get_usd_try():
     try: return yf.Ticker("TRY=X").history(period="1d")['Close'].iloc[-1]
     except: return 34.0
 
-# --- BURADA SEMBOL TANIMLANIYOR (HATAYI ÇÖZEN SATIR) ---
-sym = "₺" if GORUNUM_PB == "TRY" else "$" 
-
 USD_TRY = get_usd_try()
+sym = "₺" if GORUNUM_PB == "TRY" else "$" # FIX
+
 mh, ph = get_tickers_data(portfoy_df, USD_TRY)
 st.markdown(f"""<div class="ticker-container market-ticker">{mh}</div><div class="ticker-container portfolio-ticker">{ph}</div>""", unsafe_allow_html=True)
 
@@ -326,11 +325,36 @@ ANALYSIS_COLS = ["Kod", "Pazar", "Tip", "Adet", "Maliyet", "Fiyat", "PB", "Değe
 KNOWN_FUNDS = ["YHB", "TTE", "MAC", "AFT", "AFA", "YAY", "IPJ", "TCD", "NNF", "GMR", "TI2", "TI3", "IHK", "IDH", "OJT", "HKH", "IPB", "KZL", "RPD"]
 MARKET_DATA = {
     "BIST (Tümü)": ["THYAO", "GARAN", "ASELS", "TRMET"], 
-    "ABD": ["AAPL", "TSLA"], "KRIPTO": ["BTC", "ETH"], "FON": KNOWN_FUNDS, "EMTIA": ["Gram Altın", "Gram Gümüş"], "VADELI": ["BTC", "ETH", "SOL"]
+    "ABD": ["AAPL", "TSLA"], "KRIPTO": ["BTC", "ETH"], "FON": KNOWN_FUNDS, "EMTIA": ["Gram Altın", "Gram Gümüş"], "VADELI": ["BTC", "ETH", "SOL"], "NAKIT": ["TL", "USD", "EUR"]
 }
 
-# --- MAIN ANALİZ ---
-def run_analysis(df):
+def render_detail_view(symbol, pazar):
+    st.markdown(f"### 🔎 {symbol} Detaylı Analizi")
+    if "FON" in pazar:
+        price, _ = get_tefas_data(symbol)
+        st.metric(f"{symbol} Son Fiyat", f"₺{price:,.6f}")
+        st.info("Yatırım fonları için anlık grafik desteği TEFAS kaynaklı sınırlıdır.")
+        return
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="2y")
+        if not hist.empty:
+            fig = go.Figure(data=[go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name=symbol)])
+            fig.update_layout(title=f'{symbol} Fiyat Grafiği', yaxis_title='Fiyat', template="plotly_dark", height=600, xaxis=dict(rangeselector=dict(buttons=list([dict(count=1, label="1A", step="month", stepmode="backward"), dict(count=3, label="3A", step="month", stepmode="backward"), dict(count=6, label="6A", step="month", stepmode="backward"), dict(count=1, label="YTD", step="year", stepmode="todate"), dict(count=1, label="1Y", step="year", stepmode="backward"), dict(step="all", label="TÜMÜ")]), bgcolor="#262730", font=dict(color="white")), rangeslider=dict(visible=False), type="date"))
+            st.plotly_chart(fig, use_container_width=True)
+            info = ticker.info
+            market_cap = info.get('marketCap', 'N/A')
+            if isinstance(market_cap, int): market_cap = f"{market_cap:,.0f}"
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Sektör", info.get('sector', '-'))
+            c2.metric("F/K", info.get('trailingPE', '-'))
+            c3.metric("Piyasa Değeri", market_cap)
+            c4.metric("52H Yüksek", info.get('fiftyTwoWeekHigh', '-'))
+            c5.metric("52H Düşük", info.get('fiftyTwoWeekLow', '-'))
+        else: st.warning("Grafik verisi bulunamadı.")
+    except Exception as e: st.error(f"Veri çekilemedi: {e}")
+
+def run_analysis(df, usd_try_rate, view_currency):
     results = []
     if df.empty: return pd.DataFrame(columns=ANALYSIS_COLS)
     for i, row in df.iterrows():
@@ -347,7 +371,6 @@ def run_analysis(df):
         if "BIST" in pazar or "TL" in kod or "FON" in pazar or "EMTIA" in pazar or "NAKIT" in pazar: asset_currency = "TRY"
         
         curr, prev = 0, 0
-        # --- FİYAT ÇEKME MANTIKLARI ---
         try:
             if "NAKIT" in pazar:
                 if kod == "TL": curr = 1
@@ -372,7 +395,7 @@ def run_analysis(df):
                 if not h.empty:
                     c = h['Close'].iloc[-1]; p = h['Close'].iloc[-2]
                     curr = (c * USD_TRY) / 31.1035; prev = (p * USD_TRY) / 31.1035
-            else: # Normal Hisseler
+            else:
                 h = yf.Ticker(symbol).history(period="2d")
                 if not h.empty:
                     curr = h['Close'].iloc[-1]; prev = h['Close'].iloc[0]
@@ -381,12 +404,10 @@ def run_analysis(df):
         if curr == 0: curr = maliyet
         if prev == 0: prev = curr
         
-        # Maliyet Düzeltmesi
         if curr > 0 and maliyet > 0 and (maliyet/curr) > 50: maliyet /= 100
         
-        # Vadeli İçin Özel PNL Hesabı (Kaldıraçsız Ham PNL Gösterimi - Manuel Olduğu İçin)
         if "VADELI" in pazar:
-            val_native = (curr - maliyet) * adet # PNL (USDT)
+            val_native = (curr - maliyet) * adet 
             cost_native = 0 
         else:
             val_native = curr * adet
@@ -394,14 +415,13 @@ def run_analysis(df):
         
         daily_chg_native = (curr - prev) * adet if "VADELI" not in pazar else 0
         
-        # Kur Çevirimi
         if GORUNUM_PB == "TRY":
             if asset_currency == "USD":
                 f_g = curr * USD_TRY; v_g = val_native * USD_TRY
                 c_g = cost_native * USD_TRY; d_g = daily_chg_native * USD_TRY
             else:
                 f_g = curr; v_g = val_native; c_g = cost_native; d_g = daily_chg_native
-        else: # USD GÖRÜNÜM
+        else: 
             if asset_currency == "TRY":
                 f_g = curr / USD_TRY; v_g = val_native / USD_TRY
                 c_g = cost_native / USD_TRY; d_g = daily_chg_native / USD_TRY
@@ -422,13 +442,12 @@ def run_analysis(df):
         })
     return pd.DataFrame(results)
 
-master_df = run_analysis(portfoy_df)
+master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
 if "Tip" in master_df.columns:
     portfoy_only = master_df[master_df["Tip"] == "Portfoy"]
     takip_only = master_df[master_df["Tip"] == "Takip"]
 else: portfoy_only, takip_only = pd.DataFrame(), pd.DataFrame()
 
-# --- GÖRÜNÜM FONKSİYONLARI ---
 def render_pazar_tab(df, filter, sym):
     if df.empty: return st.info("Veri yok.")
     if filter == "VADELI": sub = df[df["Pazar"].str.contains("VADELI", na=False)]
@@ -449,13 +468,15 @@ def render_pazar_tab(df, filter, sym):
         c_p, c_b = st.columns(2)
         c_p.plotly_chart(px.pie(sub, values='Değer', names='Kod', hole=0.4), use_container_width=True)
         c_b.plotly_chart(px.bar(sub.sort_values('Değer'), x='Kod', y='Değer', color='Top. Kâr/Zarar'), use_container_width=True)
-        if filter not in ["FON", "EMTIA"]:
-             h = get_historical_chart(sub, USD_TRY)
-             if h is not None: st.line_chart(h, color="#4CAF50")
+        if filter not in ["FON", "EMTIA", "NAKIT"]:
+            # Zırhlı Grafik Çağrısı
+            try:
+                h = get_historical_chart(sub, USD_TRY)
+                if h is not None: st.line_chart(h, color="#4CAF50")
+            except: st.warning("Grafik yüklenemedi.")
 
     st.dataframe(styled_dataframe(sub), use_container_width=True, hide_index=True)
 
-# --- SEKMELER ---
 if selected == "Dashboard":
     if not portfoy_only.empty:
         spot_only = portfoy_only[~portfoy_only["Pazar"].str.contains("VADELI")]
@@ -467,18 +488,14 @@ if selected == "Dashboard":
         c2.metric("Genel Kâr/Zarar", f"{sym}{t_p:,.0f}", delta=f"{t_p:,.0f}")
         
         st.divider()
-        # Treemap
         c_tree_1, c_tree_2 = st.columns([3, 1])
         with c_tree_1: st.subheader("🗺️ Portföy Isı Haritası")
         with c_tree_2: map_mode = st.radio("Renklendirme:", ["Genel Kâr %", "Günlük Değişim %"], horizontal=True)
         
         color_col = 'Top. %'
         spot_only['Gün. %'] = 0
-        # Sıfıra bölme hatasını önle
-        safe_deger = spot_only['Değer'] - spot_only['Gün. Kâr/Zarar']
-        mask = safe_deger != 0
-        spot_only.loc[mask, 'Gün. %'] = (spot_only.loc[mask, 'Gün. Kâr/Zarar'] / safe_deger[mask]) * 100
-        
+        safe_val = spot_only['Değer'] - spot_only['Gün. Kâr/Zarar']
+        spot_only.loc[safe_val != 0, 'Gün. %'] = (spot_only['Gün. Kâr/Zarar'] / safe_val) * 100
         if map_mode == "Günlük Değişim %": color_col = 'Gün. %'
 
         fig = px.treemap(
@@ -495,8 +512,11 @@ if selected == "Dashboard":
         fig.update_layout(margin=dict(t=0, l=0, r=0, b=0))
         st.plotly_chart(fig, use_container_width=True)
         
-        h = get_historical_chart(portfoy_df, USD_TRY)
-        if h is not None: st.line_chart(h, color="#4CAF50")
+        # Zırhlı Grafik Çağrısı
+        try:
+            h = get_historical_chart(portfoy_df, USD_TRY)
+            if h is not None: st.line_chart(h, color="#4CAF50")
+        except: st.warning("Tarihsel grafik yüklenemedi.")
     else: st.info("Boş.")
 
 elif selected == "Tümü":
