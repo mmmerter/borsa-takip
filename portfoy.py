@@ -811,7 +811,7 @@ c2.metric(
 
     
 st.divider()
-    col_pie, col_bar = st.columns([1, 1])
+col_pie, col_bar = st.columns([1, 1])
     with col_pie:
         st.subheader(f"{filter_text} Dağılım")
         fig_pie = px.pie(df_filtered, values='Değer', names='Kod', hole=0.4)
@@ -1164,5 +1164,6 @@ elif selected == "Ekle/Çıkar":
                         st.rerun()
         else:
             st.info("İşlem yapılacak varlık yok.")
+
 
 
