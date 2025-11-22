@@ -78,6 +78,8 @@ st.markdown("""
 # --- YARDIMCI FONKSİYONLAR ---
 def get_yahoo_symbol(kod, pazar):
     kod = str(kod).upper()
+    
+    # TRMET Düzeltmesi
     if kod == "TRMET": return "KOZAA.IS"
     
     if "FON" in pazar: return kod 
@@ -109,6 +111,7 @@ def smart_parse(text_val):
 @st.cache_data(ttl=14400) 
 def get_tefas_data(fund_code):
     try:
+        # Web Scraping (Öncelikli)
         url = f"https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod={fund_code}"
         headers = {'User-Agent': 'Mozilla/5.0'}
         r = requests.get(url, headers=headers, timeout=5)
@@ -118,7 +121,9 @@ def get_tefas_data(fund_code):
                 price = float(match.group(1).replace(",", "."))
                 return price, price 
     except: pass
+
     try:
+        # Kütüphane (Yedek)
         crawler = Crawler()
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
@@ -131,7 +136,7 @@ def get_tefas_data(fund_code):
     except: pass
     return 0, 0
 
-# --- COINGECKO GLOBAL ---
+# --- COINGECKO GLOBAL VERİ ---
 @st.cache_data(ttl=300)
 def get_crypto_globals():
     try:
@@ -192,7 +197,7 @@ def get_data_from_sheet():
         # FON İSMİNİ BİRLEŞTİRME
         if not df.empty:
             df["Pazar"] = df["Pazar"].apply(lambda x: "FON" if "FON" in str(x) else x)
-            # FİZİKİ OLANLARI EMTİA YAP
+            # FİZİKİ OLANLARI EMTIA YAP
             df["Pazar"] = df["Pazar"].apply(lambda x: "EMTIA" if "FIZIKI" in str(x).upper() else x)
             
         return df
@@ -251,8 +256,8 @@ def get_tickers_data(df_portfolio, usd_try):
         for _, row in assets.iterrows():
             kod = row['Kod']
             pazar = row['Pazar']
-            # FONLAR şeride gelmesin
-            if "FON" not in pazar and "Gram" not in kod:
+            # FONLARI ve FİZİKİLERİ ŞERİDE ALMA (Sade olsun)
+            if "Fiziki" not in pazar and "Gram" not in kod and "FON" not in pazar:
                 sym = get_yahoo_symbol(kod, pazar)
                 portfolio_symbols[kod] = sym
 
@@ -350,10 +355,10 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# --- NAVİGASYON MENÜSÜ (FIZIKI KALDIRILDI) ---
+# --- NAVİGASYON MENÜSÜ ---
 selected = option_menu(
     menu_title=None, 
-    # "Fiziki" seçeneği kaldırıldı
+    # FİZİKİ KALDIRILDI
     options=["Dashboard", "Tümü", "BIST", "ABD", "FON", "Emtia", "Kripto", "Haberler", "İzleme", "Satışlar", "Ekle/Çıkar"], 
     icons=["speedometer2", "list-task", "graph-up-arrow", "currency-dollar", "piggy-bank", "fuel-pump", "currency-bitcoin", "newspaper", "eye", "receipt", "gear"], 
     menu_icon="cast", 
@@ -376,7 +381,7 @@ selected = option_menu(
 
 ANALYSIS_COLS = ["Kod", "Pazar", "Tip", "Adet", "Maliyet", "Fiyat", "PB", "Değer", "Top. Kâr/Zarar", "Top. %", "Gün. Kâr/Zarar", "Notlar"]
 
-# --- VARLIK LİSTESİ (FIZIKI VARLIKLAR EMTIAYA TASINDI) ---
+# --- VARLIK LİSTESİ ---
 MARKET_DATA = {
     "BIST (Tümü)": ["THYAO", "GARAN", "ASELS", "EREGL", "SISE", "BIMAS", "AKBNK", "YKBNK", "KCHOL", "SAHOL", "TUPRS", "FROTO", "TOASO", "PGSUS", "TCELL", "PETKM", "HEKTS", "SASA", "ASTOR", "KONTR", "MEGMT", "REEDR", "TABGD", "A1CAP", "ACSEL", "TRMET"], 
     "ABD (S&P + NASDAQ)": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META"], 
@@ -459,9 +464,7 @@ def run_analysis(df, usd_try_rate, view_currency):
             pazar = pazar_raw
         
         if "FON" in pazar: pazar = "FON"
-        
-        # Eski Fiziki'leri EMTIA'ya çevir
-        if "FIZIKI" in str(pazar).upper(): pazar = "EMTIA"
+        if "FIZIKI" in str(pazar).upper(): pazar = "EMTIA" # FİZİKİLERİ EMTIA YAP
 
         adet = smart_parse(row.get("Adet", 0))
         maliyet = smart_parse(row.get("Maliyet", 0))
@@ -469,7 +472,7 @@ def run_analysis(df, usd_try_rate, view_currency):
         if not kod: continue 
         symbol = get_yahoo_symbol(kod, pazar)
         asset_currency = "USD"
-        if "BIST" in pazar or "TL" in kod or "Fiziki" in pazar or "FON" in pazar: asset_currency = "TRY"
+        if "BIST" in pazar or "TL" in kod or "Fiziki" in pazar or "FON" in pazar or "EMTIA" in pazar: asset_currency = "TRY"
         
         curr_price = 0
         prev_close = 0
@@ -499,6 +502,10 @@ def run_analysis(df, usd_try_rate, view_currency):
                 else:
                     curr_price = maliyet
                     prev_close = maliyet
+            
+            elif "Fiziki" in pazar: # Çeyrek vb manuel
+                 curr_price = maliyet
+                 prev_close = maliyet
 
             else:
                 hist = yf.Ticker(symbol).history(period="2d")
@@ -568,8 +575,8 @@ def get_historical_chart(df, usd_try):
     for idx, row in df.iterrows():
         kod = row['Kod']
         pazar = row['Pazar']
-        # FON ve Eski Fiziki (Şimdi EMTIA) hariç
-        if "Gram" not in kod and "FON" not in pazar:
+        # GRAM VE FİZİKİ HARİÇ
+        if "Gram" not in kod and "Fiziki" not in pazar and "FON" not in pazar:
             sym = get_yahoo_symbol(kod, pazar)
             try: adet = smart_parse(row['Adet'])
             except: adet = 0
@@ -634,7 +641,7 @@ def render_pazar_tab(df, filter_text, currency_symbol):
         fig_bar = px.bar(df_sorted, x='Kod', y='Değer', color='Top. Kâr/Zarar')
         st.plotly_chart(fig_bar, use_container_width=True)
     
-    if filter_text not in ["FON"]:
+    if filter_text not in ["FON", "FIZIKI"]:
         st.divider()
         st.subheader(f"📈 {filter_text} Tarihsel Değer (Simülasyon)")
         hist_data = get_historical_chart(df_filtered, USD_TRY)
@@ -657,6 +664,21 @@ sym = "₺" if GORUNUM_PB == "TRY" else "$"
 
 if selected == "Dashboard":
     if not portfoy_only.empty:
+        # --- ISI HARİTASI (TREEMAP) ---
+        st.subheader("🗺️ Portföy Isı Haritası")
+        fig_tree = px.treemap(
+            portfoy_only,
+            path=[px.Constant("Portföy"), 'Pazar', 'Kod'],
+            values='Değer',
+            color='Top. %',
+            hover_data=['Değer', 'Top. Kâr/Zarar', 'Top. %'],
+            color_continuous_scale='RdYlGn',
+            color_continuous_midpoint=0
+        )
+        fig_tree.update_layout(margin=dict(t=0, l=0, r=0, b=0))
+        st.plotly_chart(fig_tree, use_container_width=True)
+
+        st.divider()
         total_val = portfoy_only["Değer"].sum()
         total_pl = portfoy_only["Top. Kâr/Zarar"].sum()
         c1, c2 = st.columns(2)
@@ -779,21 +801,7 @@ elif selected == "Ekle/Çıkar":
                 final_kod = manuel_kod if manuel_kod else yeni_kod
                 
                 if final_kod and adet_inp > 0:
-                    # --- ORTALAMA MALİYET MANTIĞI ---
-                    mevcut_hisse = portfoy_df[portfoy_df["Kod"] == final_kod]
-                    if not mevcut_hisse.empty:
-                         eski_adet = smart_parse(mevcut_hisse.iloc[0]["Adet"])
-                         eski_maliyet = smart_parse(mevcut_hisse.iloc[0]["Maliyet"])
-                         
-                         toplam_yeni_adet = eski_adet + adet_inp
-                         toplam_yeni_maliyet = ((eski_adet * eski_maliyet) + (adet_inp * maliyet_inp)) / toplam_yeni_adet
-                         
-                         adet_inp = toplam_yeni_adet
-                         maliyet_inp = toplam_yeni_maliyet
-                         portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod] # Eskiyi sil
-                         st.info(f"🔄 {final_kod} güncellendi. Yeni Ort. Maliyet: {maliyet_inp:,.2f}")
-                    
-                    # YENİ KAYIT OLUŞTUR
+                    portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod]
                     tip_str = "Portfoy" if islem_tipi == "Portföy" else "Takip"
                     yeni_satir = pd.DataFrame({
                         "Kod": [final_kod], "Pazar": [yeni_pazar], 
@@ -802,7 +810,7 @@ elif selected == "Ekle/Çıkar":
                     })
                     portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
                     save_data_to_sheet(portfoy_df)
-                    st.success(f"{final_kod} kaydedildi!")
+                    st.success(f"{final_kod} eklendi!")
                     time.sleep(1)
                     st.rerun()
                 else:
