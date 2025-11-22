@@ -9,10 +9,12 @@ from data_loader import get_tefas_data
 
 
 # --------------------------------------------------------------------
-#  ORTAK PIE + BAR CHART  ( %1 altını "Diğer" altında toplar )
-#  Pasta üzerinde yazı YOK, sadece hover + legend var (Seçenek A)
+#  ORTAK PIE + BAR CHART
+#  - %1 altını "Diğer" altında toplar
+#  - all_tab=True ise (Tümü sekmesi) sadece %5 üzeri dilimlerde yazı gösterir
+#  - diğer sekmelerde tüm dilimlerde yazı + yüzde gösterilir (kalın font)
 # --------------------------------------------------------------------
-def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
+def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = False):
     if df.empty or "Değer" not in df.columns:
         return
 
@@ -49,11 +51,30 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
         else:
             plot_df = grouped.drop(columns=["_pct"], errors="ignore")
 
+    # Plot df üzerinde tekrar yüzde hesapla (Diğer dahil)
+    total_plot_val = plot_df["Değer"].sum()
+    if total_plot_val > 0:
+        plot_df["_pct"] = plot_df["Değer"] / total_plot_val * 100
+    else:
+        plot_df["_pct"] = 0
+
+    # Yazı eşiği:
+    # - Tümü sekmesi (all_tab=True)    -> sadece %5 ve üstü
+    # - Diğer tüm sekmeler (all_tab=False) -> hepsi
+    threshold = 5.0 if all_tab else 0.0
+
+    texts = []
+    for _, r in plot_df.iterrows():
+        if r["_pct"] >= threshold:
+            texts.append(f"{r[group_col]} {r['_pct']:.1f}%")
+        else:
+            texts.append("")  # küçük dilimde yazı yok
+
     # Pasta daha geniş, bar biraz daha dar
     c_pie, c_bar = st.columns([4, 3])
 
     # ====================
-    # PIE CHART (metin YOK – sadece hover & legend)
+    # PIE CHART
     # ====================
     pie_fig = px.pie(
         plot_df,
@@ -62,12 +83,17 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
         hole=0.40,
     )
     pie_fig.update_traces(
-        textinfo="none",  # >>> yazıları tamamen gizle
-        hovertemplate="%{label}<br>Değer: %{value:,.0f}<br>%{percent}",
+        text=texts,
+        textinfo="text",
+        textfont=dict(
+            size=18,
+            color="white",
+            family="Arial Black",
+        ),
     )
     pie_fig.update_layout(
         legend=dict(font=dict(size=14)),
-        margin=dict(t=40, l=0, r=0, b=40),
+        margin=dict(t=40, l=0, r=0, b=80),
     )
     c_pie.plotly_chart(pie_fig, use_container_width=True)
 
@@ -156,7 +182,8 @@ def render_pazar_tab(df, filter_key, symb, usd_try):
     st.divider()
 
     if filter_key != "VADELI":
-        render_pie_bar_charts(sub, "Kod")
+        # BIST / ABD / FON / Emtia / Kripto / Nakit -> all_tab=False (tümü yazılı)
+        render_pie_bar_charts(sub, "Kod", all_tab=False)
 
     st.dataframe(
         styled_dataframe(sub),
