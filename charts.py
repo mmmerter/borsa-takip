@@ -9,11 +9,45 @@ from data_loader import get_tefas_data
 
 
 # --------------------------------------------------------------------
-#  ORTAK PIE + BAR CHART
+#  ORTAK PIE + BAR CHART  ( %1 altını "Diğer" altında toplar )
 # --------------------------------------------------------------------
 def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
     if df.empty or "Değer" not in df.columns:
         return
+
+    # Önce group_col bazında topluyoruz (aynı kod/pazar tekrarlarını birleştir)
+    agg_cols = {"Değer": "sum"}
+    has_pnl = "Top. Kâr/Zarar" in df.columns
+    if has_pnl:
+        agg_cols["Top. Kâr/Zarar"] = "sum"
+
+    grouped = df.groupby(group_col, as_index=False).agg(agg_cols)
+
+    total_val = grouped["Değer"].sum()
+    if total_val <= 0:
+        plot_df = grouped.copy()
+    else:
+        # Yüzde hesabı
+        grouped["_pct"] = grouped["Değer"] / total_val * 100
+
+        major = grouped[grouped["_pct"] >= 1].copy()
+        minor = grouped[grouped["_pct"] < 1].copy()
+
+        if not minor.empty and not major.empty:
+            other_row = {
+                group_col: "Diğer",
+                "Değer": minor["Değer"].sum(),
+            }
+            if has_pnl:
+                other_row["Top. Kâr/Zarar"] = minor["Top. Kâr/Zarar"].sum()
+
+            major = pd.concat(
+                [major, pd.DataFrame([other_row])], ignore_index=True
+            )
+            plot_df = major.drop(columns=["_pct"], errors="ignore")
+        else:
+            # Hepsi %1 altıysa veya major boşsa -> olduğu gibi kullan
+            plot_df = grouped.drop(columns=["_pct"], errors="ignore")
 
     # Pasta daha geniş, bar daha dar
     c_pie, c_bar = st.columns([4, 3])
@@ -22,7 +56,7 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
     # PIE CHART
     # ====================
     pie_fig = px.pie(
-        df,
+        plot_df,
         values="Değer",
         names=group_col,
         hole=0.40,
@@ -44,9 +78,9 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
     # ====================
     # BAR CHART
     # ====================
-    if "Top. Kâr/Zarar" in df.columns:
+    if has_pnl:
         bar_fig = px.bar(
-            df.sort_values("Değer"),
+            plot_df.sort_values("Değer"),
             x=group_col,
             y="Değer",
             color="Top. Kâr/Zarar",
@@ -54,7 +88,7 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
         )
     else:
         bar_fig = px.bar(
-            df.sort_values("Değer"),
+            plot_df.sort_values("Değer"),
             x=group_col,
             y="Değer",
             text="Değer",
