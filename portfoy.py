@@ -676,4 +676,5 @@ def run_analysis(df, usd_try_rate, view_currency):
        
 
 
-::contentReference[oaicite:0]{index=0}
+
+
