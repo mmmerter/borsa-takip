@@ -77,33 +77,15 @@ st.markdown("""
 
 # --- YARDIMCI FONKSİYONLAR ---
 def get_yahoo_symbol(kod, pazar):
-    kod_str = str(kod).upper()
-    
-    # 1) Özel eşleşmeler (TRMET vs KOZAA.IS gibi)
-    if kod_str in SPECIAL_YF_MAP:
-        return SPECIAL_YF_MAP[kod_str]
-
-    # 2) Normal mantık
-    if pazar == "FON":
-        return kod_str
-    if "BIST" in str(pazar):
-        return f"{kod_str}.IS" if not kod_str.endswith(".IS") else kod_str
-    elif "KRIPTO" in str(pazar):
-        return f"{kod_str}-USD" if not kod_str.endswith("-USD") else kod_str
-    elif "EMTIA" in str(pazar):
-        map_emtia = {
-            "Altın ONS": "GC=F",
-            "Gümüş ONS": "SI=F",
-            "Petrol": "BZ=F",
-            "Doğalgaz": "NG=F",
-            "Bakır": "HG=F",
-        }
+    if pazar == "FON": return kod 
+    if "BIST" in pazar: return f"{kod}.IS" if not kod.endswith(".IS") else kod
+    elif "KRIPTO" in pazar: return f"{kod}-USD" if not kod.endswith("-USD") else kod
+    elif "EMTIA" in pazar:
+        map_emtia = {"Altın ONS": "GC=F", "Gümüş ONS": "SI=F", "Petrol": "BZ=F", "Doğalgaz": "NG=F", "Bakır": "HG=F"}
         for k, v in map_emtia.items():
-            if k in kod_str:
-                return v
-        return kod_str
-    return kod_str
-
+            if k in kod: return v
+        return kod
+    return kod 
 
 def smart_parse(text_val):
     if text_val is None: return 0.0
@@ -865,4 +847,3 @@ elif selected == "Ekle/Çıkar":
                         time.sleep(1)
                         st.rerun()
         else: st.info("İşlem yapılacak varlık yok.")
-
