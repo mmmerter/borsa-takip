@@ -11,7 +11,7 @@ from streamlit_option_menu import option_menu
 from tefas import Crawler 
 import feedparser
 import requests
-import re # Regex kütüphanesi (Sayı temizliği için)
+import re 
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
@@ -25,7 +25,6 @@ st.set_page_config(
 st.markdown("""
 <style>
     .block-container {padding-top: 1rem;}
-    
     div[data-testid="stMetric"] {
         background-color: #262730;
         border: 1px solid #464b5f;
@@ -93,20 +92,26 @@ def get_yahoo_symbol(kod, pazar):
         return kod
     return kod 
 
-# --- GELİŞMİŞ SAYI TEMİZLEYİCİ (ZIRHLI) ---
+# --- ZIRHLI SAYI ÇEVİRİCİ (30.26.0 -> 30.26 DÜZELTMESİ) ---
 def smart_parse(text_val):
     if text_val is None: return 0.0
     val = str(text_val).strip()
     if not val: return 0.0
     
-    # Sadece sayı, nokta ve virgül bırak, gerisini sil (TL, $ vs temizle)
+    # 1. Adım: Harfleri temizle, sadece sayı ve ayırıcılar kalsın
     val = re.sub(r"[^\d.,]", "", val)
     
-    # 1. Durum: Hem nokta hem virgül var (1.500,50) -> Noktayı sil, virgülü nokta yap
-    if "." in val and "," in val:
+    # 2. Adım: Hatalı çift nokta temizliği (30.26.0 -> 30.26)
+    # Eğer birden fazla nokta varsa ve virgül yoksa, sonuncusu hariç diğerlerini silmek riskli olabilir.
+    # En güvenlisi: Eğer nokta sayısı > 1 ise, sadece ilk noktayı tut, gerisini sil.
+    if val.count('.') > 1 and ',' not in val:
+        parts = val.split('.')
+        val = f"{parts[0]}.{''.join(parts[1:])}"
+    
+    # 3. Adım: Binlik/Ondalık Ayrımı
+    if "." in val and "," in val: # 1.500,50 -> 1500.50
         val = val.replace(".", "").replace(",", ".")
-    # 2. Durum: Sadece virgül var (30,26) -> Nokta yap
-    elif "," in val:
+    elif "," in val: # 30,26 -> 30.26
         val = val.replace(",", ".")
     
     try:
@@ -432,7 +437,6 @@ def render_detail_view(symbol, pazar):
     except Exception as e:
         st.error(f"Veri çekilemedi: {e}")
 
-# --- HESAPLAMA MOTORU (AKILLI ÇEVİRİCİ ENTEGRE EDİLDİ) ---
 def run_analysis(df, usd_try_rate, view_currency):
     results = []
     if df.empty: return pd.DataFrame(columns=ANALYSIS_COLS)
@@ -440,7 +444,7 @@ def run_analysis(df, usd_try_rate, view_currency):
         kod = row.get("Kod", "")
         pazar = row.get("Pazar", "")
         
-        # VERİTABANINDAN OKURKEN DE DÜZELT
+        # GÜVENLİ VERİ OKUMA (VERİTABANINDAN GELEN)
         adet = smart_parse(row.get("Adet", 0))
         maliyet = smart_parse(row.get("Maliyet", 0))
         
@@ -706,15 +710,24 @@ elif selected == "Ekle/Çıkar":
             c1, c2 = st.columns(2)
             adet_str = c1.text_input("Adet (Örn: 119)", value="0")
             maliyet_str = c2.text_input("Maliyet (Örn: 30,26)", value="0")
-            not_inp = st.text_input("Not")
-
-            # Önizleme
+            
             try:
                 a_v = smart_parse(adet_str)
                 m_v = smart_parse(maliyet_str)
                 t_v = a_v * m_v
-                st.markdown(f"📝 **Gireceğiniz:** {a_v} Adet x {m_v} Fiyat = **{t_v:,.2f}**")
+                # ÖNİZLEME KUTUSU (GÜVENLİK İÇİN)
+                if t_v > 0:
+                    st.markdown(f"""
+                    <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                        <b>✅ KONTROL:</b> <br>
+                        Adet: <b>{a_v:g}</b> <br>
+                        Birim Maliyet: <b>{m_v:g}</b> <br>
+                        Toplam Tutar: <b>{t_v:,.2f}</b>
+                    </div>
+                    """, unsafe_allow_html=True)
             except: pass
+
+            not_inp = st.text_input("Not")
             
             if st.form_submit_button("Kaydet", type="primary", use_container_width=True):
                 adet_inp = smart_parse(adet_str)
@@ -722,18 +735,22 @@ elif selected == "Ekle/Çıkar":
                 final_kod = manuel_kod if manuel_kod else yeni_kod
                 
                 if final_kod and adet_inp > 0:
-                    portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod]
-                    tip_str = "Portfoy" if islem_tipi == "Portföy" else "Takip"
-                    yeni_satir = pd.DataFrame({
-                        "Kod": [final_kod], "Pazar": [yeni_pazar], 
-                        "Adet": [adet_inp], "Maliyet": [maliyet_inp],
-                        "Tip": [tip_str], "Notlar": [not_inp]
-                    })
-                    portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
-                    save_data_to_sheet(portfoy_df)
-                    st.success(f"{final_kod} eklendi!")
-                    time.sleep(1)
-                    st.rerun()
+                    # KAYDET BUTONUNA BASINCA 0 MALİYET KONTROLÜ
+                    if maliyet_inp == 0 and "Fiziki" not in yeni_pazar:
+                        st.error("⚠️ HATA: Maliyet 0 olamaz! Lütfen fiyatı kontrol edin.")
+                    else:
+                        portfoy_df = portfoy_df[portfoy_df["Kod"] != final_kod]
+                        tip_str = "Portfoy" if islem_tipi == "Portföy" else "Takip"
+                        yeni_satir = pd.DataFrame({
+                            "Kod": [final_kod], "Pazar": [yeni_pazar], 
+                            "Adet": [adet_inp], "Maliyet": [maliyet_inp],
+                            "Tip": [tip_str], "Notlar": [not_inp]
+                        })
+                        portfoy_df = pd.concat([portfoy_df, yeni_satir], ignore_index=True)
+                        save_data_to_sheet(portfoy_df)
+                        st.success(f"{final_kod} eklendi!")
+                        time.sleep(1)
+                        st.rerun()
                 else:
                     st.error("Lütfen geçerli değerler girin.")
 
@@ -747,18 +764,19 @@ elif selected == "Ekle/Çıkar":
             if secilen_duz:
                 # Mevcut verileri getir
                 mevcut_row = portfoy_df[portfoy_df["Kod"] == secilen_duz].iloc[0]
-                curr_adet = float(smart_parse(mevcut_row["Adet"]))
-                curr_maliyet = float(smart_parse(mevcut_row["Maliyet"]))
+                # Burada smart_parse kullanarak ham veriyi temizliyoruz
+                curr_adet = smart_parse(mevcut_row["Adet"])
+                curr_maliyet = smart_parse(mevcut_row["Maliyet"])
                 curr_pazar = mevcut_row["Pazar"]
                 curr_tip = mevcut_row["Tip"]
                 
-                st.info(f"Şu anki: {curr_adet} Adet | {curr_maliyet} Maliyet")
+                st.info(f"Mevcut Kayıt: **{curr_adet:g}** Adet | **{curr_maliyet:g}** Maliyet")
                 
                 c1, c2 = st.columns(2)
-                yeni_adet_str = c1.text_input("Yeni Adet", value=str(curr_adet))
-                yeni_maliyet_str = c2.text_input("Yeni Maliyet", value=str(curr_maliyet))
+                yeni_adet_str = c1.text_input("Yeni Adet", value=f"{curr_adet:g}")
+                yeni_maliyet_str = c2.text_input("Yeni Maliyet", value=f"{curr_maliyet:g}")
                 
-                if st.button("Güncelle"):
+                if st.button("Güncelle", type="primary"):
                     y_adet = smart_parse(yeni_adet_str)
                     y_maliyet = smart_parse(yeni_maliyet_str)
                     
@@ -837,5 +855,23 @@ elif selected == "Ekle/Çıkar":
                         st.warning(f"{silinecek_kod} listeden silindi!")
                         time.sleep(1)
                         st.rerun()
+            
+            # --- ACİL SİLME (HAYALET AVCISI) ---
+            st.markdown("---")
+            st.markdown("#### 🔥 Acil Silme (Manuel İsimle)")
+            with st.form("force_delete"):
+                hedef_isim = st.text_input("Silinecek Kod (Örn: MEGMT)").upper().strip()
+                if st.form_submit_button("Tüm Kayıtları Sil"):
+                    if hedef_isim:
+                        eski_len = len(portfoy_df)
+                        portfoy_df = portfoy_df[portfoy_df["Kod"] != hedef_isim]
+                        yeni_len = len(portfoy_df)
+                        if eski_len > yeni_len:
+                            save_data_to_sheet(portfoy_df)
+                            st.success(f"{hedef_isim} temizlendi!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.warning("Bu isimde kayıt bulunamadı.")
         else:
             st.info("İşlem yapılacak varlık yok.")
