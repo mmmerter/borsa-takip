@@ -195,7 +195,6 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     - Seçilen para birimine (pb: TRY / USD) göre çevrilir.
     - Hepsi toplanıp tek zaman serisi olarak çizilir.
     """
-
     if df is None or df.empty:
         return None
 
@@ -212,7 +211,7 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
         pazar_upper = pazar.upper()
         kod_upper = kod.upper()
 
-        # Basit varlık para birimi belirleme
+        # TRY mi USD mi?
         if (
             "BIST" in pazar_upper
             or "TL" in kod_upper
@@ -227,7 +226,7 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
         prices = None
 
         try:
-            # Nakit için sabit değerler (sadece bugüne nokta)
+            # Nakitler
             if "NAKIT" in pazar_upper:
                 today = pd.Timestamp.today().normalize()
                 if kod_upper == "TL":
@@ -237,7 +236,7 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
                 else:
                     prices = pd.Series([1.0], index=[today])
 
-            # Fonlar: şimdilik sabit fiyatlı seri
+            # Fonlar: sabit seri
             elif "FON" in pazar_upper:
                 price, _ = get_tefas_data(kod)
                 if price and price > 0:
@@ -250,31 +249,33 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
             elif "GRAM GÜMÜŞ" in kod_upper:
                 h = yf.Ticker("SI=F").history(period="60d", interval="1d")
                 if not h.empty:
-                    s = h["Close"]
-                    s = (s * usd_try_rate) / 31.1035  # TL/gram
+                    s = (h["Close"] * usd_try_rate) / 31.1035
                     prices = s
 
             # Gram Altın
             elif "GRAM ALTIN" in kod_upper:
                 h = yf.Ticker("GC=F").history(period="60d", interval="1d")
                 if not h.empty:
-                    s = h["Close"]
-                    s = (s * usd_try_rate) / 31.1035  # TL/gram
+                    s = (h["Close"] * usd_try_rate) / 31.1035
                     prices = s
 
-            # Hisse / Kripto vb.
+            # Hisse / Kripto
             else:
                 symbol = get_yahoo_symbol(kod, pazar)
                 h = yf.Ticker(symbol).history(period="60d", interval="1d")
                 if not h.empty:
                     prices = h["Close"]
+
         except Exception:
             prices = None
 
         if prices is None or prices.empty:
             continue
 
-        # Seçilen para birimine çevir
+        # 🔧 TZ-FIX: timezone'lu index varsa timezone'u sıfırla
+        prices.index = pd.to_datetime(prices.index).tz_localize(None)
+
+        # TRY / USD çevirisi
         if pb == "TRY":
             if asset_currency == "USD":
                 values = prices * adet * usd_try_rate
@@ -286,30 +287,28 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
             else:
                 values = prices * adet
 
-        series = values.rename("Değer")
-        all_series.append(series)
+        all_series.append(values.rename("Değer"))
 
     if not all_series:
         return None
 
     # Tüm serileri hizalayıp topla
-    portfolio_series = pd.concat(all_series, axis=1).sum(axis=1).dropna()
+    portfolio_series = pd.concat(all_series, axis=1).sum(axis=1)
     portfolio_series = portfolio_series.sort_index()
     portfolio_series = portfolio_series[-60:]  # son 60 gün
 
     hist_df = portfolio_series.reset_index()
     hist_df.columns = ["Tarih", "ToplamDeğer"]
 
-    y_title = f"Portföy Değeri ({'₺' if pb == 'TRY' else '$'})"
-
     fig = px.line(
         hist_df,
         x="Tarih",
         y="ToplamDeğer",
+        title="Portföy Değeri (60 Gün)",
     )
     fig.update_layout(
-        margin=dict(t=10, b=0, l=0, r=0),
+        margin=dict(t=30, b=0, l=0, r=0),
         xaxis_title="Tarih",
-        yaxis_title=y_title,
+        yaxis_title=f"Portföy ({'₺' if pb == 'TRY' else '$'})",
     )
     return fig
