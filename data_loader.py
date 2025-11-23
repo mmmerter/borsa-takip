@@ -308,3 +308,108 @@ def get_timeframe_changes(history_df):
         "spark_month": m_spark,
         "spark_ytd": y_spark,
     }
+# ==========================================================
+#   Pazar Bazlı Tarihsel Log (BIST / ABD / FON / EMTIA / NAKIT)
+#   Sheet isimleri:
+#   history_bist, history_abd, history_fon, history_emtia, history_nakit
+# ==========================================================
+
+def _get_market_history_sheet(ws_name: str):
+    """Belirli bir pazar için sheet'e erişim helper'ı."""
+    try:
+        scope = [
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(
+            st.secrets["gcp_service_account"], scope
+        )
+        client = gspread.authorize(creds)
+        sheet = client.open(SHEET_NAME).worksheet(ws_name)
+        return sheet
+    except Exception:
+        return None
+
+
+def _read_market_history(ws_name: str):
+    sheet = _get_market_history_sheet(ws_name)
+    if sheet is None:
+        return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
+
+    try:
+        data = sheet.get_all_records()
+        if not data:
+            return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
+        df = pd.DataFrame(data)
+        if "Tarih" in df.columns:
+            df["Tarih"] = pd.to_datetime(df["Tarih"])
+        else:
+            df["Tarih"] = pd.to_datetime(datetime.now().strftime("%Y-%m-%d"))
+        if "Değer_TRY" not in df.columns:
+            df["Değer_TRY"] = 0.0
+        if "Değer_USD" not in df.columns:
+            df["Değer_USD"] = 0.0
+        return df.sort_values("Tarih")
+    except Exception:
+        return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
+
+
+def _write_market_history(ws_name: str, value_try: float, value_usd: float):
+    sheet = _get_market_history_sheet(ws_name)
+    if sheet is None:
+        return
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    try:
+        data = sheet.get_all_records()
+        for row in data:
+            if str(row.get("Tarih", ""))[:10] == today_str:
+                # Bugünün kaydı zaten varsa tekrar ekleme
+                return
+        new_row = [today_str, float(value_try), float(value_usd)]
+        sheet.append_row(new_row)
+    except Exception:
+        # Hata olursa sessiz geç; uygulamayı kilitlemesin
+        pass
+
+
+# --- Pazar bazlı public helper'lar ---
+
+def read_history_bist():
+    return _read_market_history("history_bist")
+
+
+def write_history_bist(value_try, value_usd):
+    _write_market_history("history_bist", value_try, value_usd)
+
+
+def read_history_abd():
+    return _read_market_history("history_abd")
+
+
+def write_history_abd(value_try, value_usd):
+    _write_market_history("history_abd", value_try, value_usd)
+
+
+def read_history_fon():
+    return _read_market_history("history_fon")
+
+
+def write_history_fon(value_try, value_usd):
+    _write_market_history("history_fon", value_try, value_usd)
+
+
+def read_history_emtia():
+    return _read_market_history("history_emtia")
+
+
+def write_history_emtia(value_try, value_usd):
+    _write_market_history("history_emtia", value_try, value_usd)
+
+
+def read_history_nakit():
+    return _read_market_history("history_nakit")
+
+
+def write_history_nakit(value_try, value_usd):
+    _write_market_history("history_nakit", value_try, value_usd)
