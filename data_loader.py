@@ -14,7 +14,6 @@ from utils import get_yahoo_symbol # <-- Burası kritik!
 
 SHEET_NAME = "PortfoyData"
 
-
 # --- GOOGLE SHEETS ---
 def get_data_from_sheet():
 # ... (get_data_from_sheet içeriği değişmedi)
