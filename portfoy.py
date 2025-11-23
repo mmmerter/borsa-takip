@@ -126,6 +126,59 @@ st.markdown(
     }
     a { text-decoration: none !important; }
     a:hover { text-decoration: underline !important; }
+
+    /* KRAL HEADER (B Şıkkı – hafif renkli kart) */
+    .kral-header {
+        background: linear-gradient(135deg, #232837, #171b24);
+        border-radius: 14px;
+        padding: 14px 20px 10px 20px;
+        margin-bottom: 14px;
+        border: 1px solid #2f3440;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+    }
+    .kral-header-title {
+        font-size: 26px;
+        font-weight: 900;
+        color: #ffffff;
+        margin-bottom: 4px;
+    }
+    .kral-header-sub {
+        font-size: 13px;
+        color: #b3b7c6;
+    }
+
+    /* Mini Info Bar */
+    .kral-infobar {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+        margin-bottom: 10px;
+    }
+    .kral-infobox {
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 10px;
+        padding: 8px 14px;
+        border: 1px solid #303542;
+        min-width: 180px;
+    }
+    .kral-infobox-label {
+        font-size: 11px;
+        color: #b0b3c0;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .kral-infobox-value {
+        display: block;
+        margin-top: 2px;
+        font-size: 18px;
+        font-weight: 800;
+        color: #ffffff;
+    }
+    .kral-infobox-sub {
+        font-size: 11px;
+        color: #9da1b3;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -155,12 +208,23 @@ def render_news_section(name, key):
 # --- ANA DATA ---
 portfoy_df = get_data_from_sheet()
 
-c_title, c_toggle = st.columns([3, 1])
-with c_title:
-    st.title("🏦 Merter'in Varlık Yönetim Terminali")
-with c_toggle:
-    st.write("")
-    GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True)
+# --- HEADER (B ŞIKKI – Hafif renkli kart + Para Birimi) ---
+with st.container():
+    st.markdown('<div class="kral-header">', unsafe_allow_html=True)
+    c_title, c_toggle = st.columns([3, 1])
+    with c_title:
+        st.markdown(
+            "<div class='kral-header-title'>🏦 Merter'in Varlık Yönetim Terminali</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<div class='kral-header-sub'>Toplam portföyünü tek ekranda izlemek için kişisel kontrol panelin.</div>",
+            unsafe_allow_html=True,
+        )
+    with c_toggle:
+        st.write("")
+        GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 USD_TRY = get_usd_try()
 sym = "₺" if GORUNUM_PB == "TRY" else "$"
@@ -366,6 +430,29 @@ st.markdown("---")
 # --- MENÜLER ---
 if selected == "Dashboard":
     if not portfoy_only.empty:
+        # Mini Info Bar (Toplam Varlık + Son 24 Saat K/Z)
+        total_value = portfoy_only["Değer"].sum()
+        daily_pnl = portfoy_only["Gün. Kâr/Zarar"].sum()
+        daily_sign = "🟢" if daily_pnl > 0 else "🔴" if daily_pnl < 0 else "⚪"
+
+        st.markdown(
+            f"""
+            <div class="kral-infobar">
+                <div class="kral-infobox">
+                    <div class="kral-infobox-label">Toplam Varlık</div>
+                    <span class="kral-infobox-value">{sym}{total_value:,.0f}</span>
+                    <div class="kral-infobox-sub">Tüm portföy (seçili para birimi)</div>
+                </div>
+                <div class="kral-infobox">
+                    <div class="kral-infobox-label">Son 24 Saat K/Z</div>
+                    <span class="kral-infobox-value">{daily_sign} {sym}{daily_pnl:,.0f}</span>
+                    <div class="kral-infobox-sub">Günlük toplam portföy hareketi</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
         spot_only = portfoy_only
         t_v = spot_only["Değer"].sum()
         t_p = spot_only["Top. Kâr/Zarar"].sum()
@@ -574,7 +661,7 @@ elif selected == "Ekle/Çıkar":
                         "Pazar": [pazar],
                         "Adet": [a],
                         "Maliyet": [m],
-                        "Tip": ["Portfoy"],
+                        "Tip": ["Portföy"],
                         "Notlar": [""],
                     }
                 )
