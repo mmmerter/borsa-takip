@@ -40,37 +40,57 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# --- CSS (DEĞİŞİKLİK BURADA BAŞLIYOR) ---
+# --- CSS (ÖZEL KARTLAR İÇİN GÜNCELLENDİ) ---
 st.markdown(
     """
 <style>
     .block-container {padding-top: 1rem;}
 
-    /* Base Metric Styling remains */
-    div[data-testid="stMetric"] {
-        background-color: #262730 !important;
-        border: 1px solid #464b5f;
+    /* Custom Metric Box Base Styles */
+    .custom-metric-box {
+        background-color: #262730;
         border-radius: 10px;
         padding: 15px;
-        color: #ffffff !important;
-        /* Default Shadow (subtle depth) */
-        box-shadow: 0 0 5px rgba(0, 0, 0, 0.4); 
-        transition: box-shadow 0.3s ease-in-out; /* Smooth transition for glow */
+        border: 1px solid #464b5f;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.4);
+        transition: box-shadow 0.3s ease-in-out, border 0.3s ease-in-out;
+        min-height: 100px;
+        height: 100%; /* Sütunlar arasında düzgün yayılma için */
     }
-    div[data-testid="stMetricValue"] { color: #ffffff !important; }
-    div[data-testid="stMetricLabel"] { color: #bfbfbf !important; }
-
-    /* Dynamic Glow Classes (YENİ EKLENDİ) */
-    /* Target the stMetric container inside a specific custom class */
-    .metric-container-glow-pos > div > div[data-testid="stMetric"] {
-        box-shadow: 0 0 10px #00e676, 0 0 15px #00e676, 0 0 20px rgba(0, 230, 118, 0.5); /* Neon Green Glow */
-        border: 1px solid #00e676;
+    .custom-metric-box .label { 
+        color: #bfbfbf; 
+        font-size: 15px; 
+        font-weight: bold; 
+    }
+    .custom-metric-box .value { 
+        color: #ffffff; 
+        font-size: 30px; 
+        font-weight: 900; 
+        margin-top: 5px; 
+    }
+    .custom-metric-box .delta-pos { 
+        color: #00e676; 
+        font-size: 18px; 
+        font-weight: bold; 
+        margin-top: 10px; 
+    }
+    .custom-metric-box .delta-neg { 
+        color: #ff5252; 
+        font-size: 18px; 
+        font-weight: bold; 
+        margin-top: 10px; 
     }
     
-    .metric-container-glow-neg > div > div[data-testid="stMetric"] {
-        box-shadow: 0 0 10px #ff5252, 0 0 15px #ff5252, 0 0 20px rgba(255, 82, 82, 0.5); /* Neon Red Glow */
+    /* Neon Glow Dynamic Classes (GARANTİLİ PARLAMA) */
+    .metric-glow-pos {
+        box-shadow: 0 0 10px #00e676, 0 0 15px #00e676, 0 0 20px rgba(0, 230, 118, 0.4);
+        border: 1px solid #00e676;
+    }
+    .metric-glow-neg {
+        box-shadow: 0 0 10px #ff5252, 0 0 15px #ff5252, 0 0 20px rgba(255, 82, 82, 0.4);
         border: 1px solid #ff5252;
     }
+
 
     /* Ticker CSS remains unchanged */
     .ticker-container {
@@ -131,6 +151,16 @@ st.markdown(
     }
     a { text-decoration: none !important; }
     a:hover { text-decoration: underline !important; }
+    
+    /* Eski st.metric override'larını kaldırıyoruz */
+    div[data-testid="stMetric"] {
+        /* Bu stil, yukarıdaki .custom-metric-box ile değiştirildi */
+        background-color: #262730 !important;
+        border: 1px solid #464b5f;
+        border-radius: 10px;
+        padding: 15px;
+        color: #ffffff !important;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -420,24 +450,40 @@ if selected == "Dashboard":
         total_cost = (spot_only["Değer"] - spot_only["Top. Kâr/Zarar"]).sum()
         pct = (t_p / total_cost * 100) if total_cost != 0 else 0
 
-        # Kâr durumuna göre CSS sınıfını belirle (YENİ KISIM BURADA BAŞLIYOR)
-        glow_class = "metric-container-glow-pos" if t_p >= 0 else "metric-container-glow-neg"
+        # Kâr durumuna göre CSS sınıfını belirle (YENİ KISIM BURADA)
+        glow_class = "metric-glow-pos" if t_p >= 0 else "metric-glow-neg"
+        delta_class = "delta-pos" if t_p >= 0 else "delta-neg"
+        
+        # Değer ve yüzde formatı
+        value_fmt = f"{sym}{t_v:,.0f}"
+        pnl_fmt = f"{sym}{t_p:,.0f}"
+        pct_fmt = f"{pct:.2f}%"
 
         c1, c2 = st.columns(2)
         
-        # --- Metric 1: Toplam Spot Varlık ---
-        c1.markdown(f'<div class="{glow_class}">', unsafe_allow_html=True)
-        c1.metric("Toplam Spot Varlık", f"{sym}{t_v:,.0f}")
-        c1.markdown('</div>', unsafe_allow_html=True)
-
-        # --- Metric 2: Genel Kâr/Zarar ---
-        c2.markdown(f'<div class="{glow_class}">', unsafe_allow_html=True)
-        c2.metric(
-            "Genel Kâr/Zarar",
-            f"{sym}{t_p:,.0f}",
-            delta=f"{pct:.2f}%"
+        # --- Metric 1: Toplam Spot Varlık (HTML ENJEKSİYONU) ---
+        c1.markdown(
+            f"""
+            <div class="custom-metric-box {glow_class}">
+                <div class="label">Toplam Spot Varlık</div>
+                <div class="value">{value_fmt}</div>
+                <div class="{delta_class}">{pnl_fmt}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-        c2.markdown('</div>', unsafe_allow_html=True)
+
+        # --- Metric 2: Genel Kâr/Zarar (HTML ENJEKSİYONU) ---
+        c2.markdown(
+            f"""
+            <div class="custom-metric-box {glow_class}">
+                <div class="label">Genel Kâr/Zarar</div>
+                <div class="value">{pnl_fmt}</div>
+                <div class="{delta_class}">{pct_fmt}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         st.divider()
 
