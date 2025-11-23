@@ -17,6 +17,7 @@ SHEET_NAME = "PortfoyData"
 
 # --- GOOGLE SHEETS ---
 def get_data_from_sheet():
+# ... (get_data_from_sheet içeriği değişmedi)
     try:
         scope = [
             "https://spreadsheets.google.com/feeds",
@@ -56,6 +57,7 @@ def get_data_from_sheet():
 
 
 def save_data_to_sheet(df):
+# ... (save_data_to_sheet içeriği değişmedi)
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive",
@@ -70,6 +72,7 @@ def save_data_to_sheet(df):
 
 
 def get_sales_history():
+# ... (get_sales_history içeriği değişmedi)
     try:
         scope = [
             "https://spreadsheets.google.com/feeds",
@@ -109,6 +112,7 @@ def get_sales_history():
 
 
 def add_sale_record(date, code, market, qty, price, cost, profit):
+# ... (add_sale_record içeriği değişmedi)
     try:
         scope = [
             "https://spreadsheets.google.com/feeds",
@@ -137,6 +141,7 @@ def add_sale_record(date, code, market, qty, price, cost, profit):
 # --- TEFAS ---
 @st.cache_data(ttl=14400)  # 4 saat – KRAL ile aynı
 def get_tefas_data(fund_code):
+# ... (get_tefas_data içeriği değişmedi)
     # Önce TEFAS HTML parse denemesi
     try:
         url = f"https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod={fund_code}"
@@ -170,6 +175,7 @@ def get_tefas_data(fund_code):
 # --- COINGECKO ---
 @st.cache_data(ttl=300)  # 5 dk – KRAL’daki gibi
 def get_crypto_globals():
+# ... (get_crypto_globals içeriği değişmedi)
     try:
         d = requests.get(
             "https://api.coingecko.com/api/v3/global", timeout=5
@@ -188,6 +194,7 @@ def get_crypto_globals():
 # --- USD/TRY ---
 @st.cache_data(ttl=300)  # 5 dk – KRAL ile aynı
 def get_usd_try():
+# ... (get_usd_try içeriği değişmedi)
     try:
         return yf.Ticker("TRY=X").history(period="1d")["Close"].iloc[-1]
     except Exception:
@@ -197,6 +204,7 @@ def get_usd_try():
 # --- HABERLER ---
 @st.cache_data(ttl=300)
 def get_financial_news(topic="finance"):
+# ... (get_financial_news içeriği değişmedi)
     urls = {
         "BIST": "https://news.google.com/rss/search?q=Borsa+Istanbul+Hisseler&hl=tr&gl=TR&ceid=TR:tr",
         "KRIPTO": "https://news.google.com/rss/search?q=Kripto+Para+Bitcoin&hl=tr&gl=TR&ceid=TR:tr",
@@ -213,7 +221,7 @@ def get_financial_news(topic="finance"):
         return []
 
 
-# --- TAPE ---
+# --- TAPE (INLINE STİL ENJEKSİYONLU) ---
 @st.cache_data(ttl=45)  # KRAL’daki gibi 45 sn
 def get_tickers_data(df_portfolio, usd_try):
     # HATA VEREN relative import SİLİNDİ
@@ -249,8 +257,8 @@ def get_tickers_data(df_portfolio, usd_try):
         set([s[1] for s in market_symbols] + list(portfolio_symbols.values()))
     )
 
-    market_html = '<span style="color:#aaa">🌍 PİYASA:</span> &nbsp;'
-    portfolio_html = '<span style="color:#aaa">💼 PORTFÖY:</span> &nbsp;'
+    market_html = '<span style="color:#aaa; font-size: 22px; font-weight: 900;">🌍 PİYASA:</span> &nbsp;'
+    portfolio_html = '<span style="color:#aaa; font-size: 22px; font-weight: 900;">💼 PORTFÖY:</span> &nbsp;'
 
     try:
         yahoo_data = yf.Tickers(" ".join(all_fetch))
@@ -273,10 +281,11 @@ def get_tickers_data(df_portfolio, usd_try):
                     if "XU100" in symbol or "^" in symbol:
                         fmt = f"{p:,.0f}"
 
+                    # YENİ: Inline stil enjeksiyonu (garantili büyüklük ve renk)
                     return (
-                        f'{label if label else symbol}: '
-                        f'<span style="color:white">{fmt}</span> '
-                        f'<span style="color:{col}">{arrow}%{chg:.2f}</span>'
+                        f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">{label if label else symbol}: </span>'
+                        f'<span style="color:white; font-size: 22px; font-weight: 900;">{fmt}</span> '
+                        f'<span style="color:{col}; font-size: 22px; font-weight: 900;">{arrow}%{chg:.2f}</span>'
                     )
             except Exception:
                 return ""
@@ -296,9 +305,10 @@ def get_tickers_data(df_portfolio, usd_try):
                         .history(period="1d")["Close"]
                         .iloc[-1]
                     )
+                    # YENİ: Inline stil enjeksiyonu
                     market_html += (
-                        f'Gr Altın: <span style="color:white">'
-                        f"{(ons * usd_try) / 31.1035:.2f}</span> &nbsp;|&nbsp; "
+                        f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">Gr Altın: </span>'
+                        f'<span style="color:white; font-size: 22px; font-weight: 900;">{(ons * usd_try) / 31.1035:.2f}</span> &nbsp;|&nbsp; '
                     )
                 except Exception:
                     pass
@@ -309,20 +319,26 @@ def get_tickers_data(df_portfolio, usd_try):
                         .history(period="1d")["Close"]
                         .iloc[-1]
                     )
+                    # YENİ: Inline stil enjeksiyonu
                     market_html += (
-                        f'Gr Gümüş: <span style="color:white">'
-                        f"{(ons * usd_try) / 31.1035:.2f}</span> &nbsp;|&nbsp; "
+                        f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">Gr Gümüş: </span>'
+                        f'<span style="color:white; font-size: 22px; font-weight: 900;">{(ons * usd_try) / 31.1035:.2f}</span> &nbsp;|&nbsp; '
                     )
                 except Exception:
                     pass
 
         # Kripto global
         if total_cap > 0:
+            # YENİ: Inline stil enjeksiyonu (kripto global değerler için)
             market_html += (
-                f'BTC.D: <span style="color:#f2a900">% {btc_d:.2f}</span> &nbsp;|&nbsp; '
-                f'TOTAL: <span style="color:#00e676">${(total_cap/1e12):.2f}T</span> &nbsp;|&nbsp; '
-                f'TOTAL 3: <span style="color:#627eea">${(total_3/1e9):.0f}B</span> &nbsp;|&nbsp; '
-                f'OTHERS.D: <span style="color:#627eea">% {others_d:.2f}</span> &nbsp;|&nbsp; '
+                f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">BTC.D: </span>'
+                f'<span style="color:#f2a900; font-size: 22px; font-weight: 900;">% {btc_d:.2f}</span> &nbsp;|&nbsp; '
+                f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">TOTAL: </span>'
+                f'<span style="color:#00e676; font-size: 22px; font-weight: 900;">${(total_cap/1e12):.2f}T</span> &nbsp;|&nbsp; '
+                f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">TOTAL 3: </span>'
+                f'<span style="color:#627eea; font-size: 22px; font-weight: 900;">${(total_3/1e9):.0f}B</span> &nbsp;|&nbsp; '
+                f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">OTHERS.D: </span>'
+                f'<span style="color:#627eea; font-size: 22px; font-weight: 900;">% {others_d:.2f}</span> &nbsp;|&nbsp; '
             )
 
         # Portföy
@@ -344,6 +360,7 @@ def get_tickers_data(df_portfolio, usd_try):
 
 # --- BINANCE VADELİ ---
 def get_binance_pnl_stats(exchange):
+# ... (get_binance_pnl_stats içeriği değişmedi)
     try:
         income = exchange.fetch_income(params={"limit": 1000})
         now = datetime.now().timestamp() * 1000
@@ -372,6 +389,7 @@ def get_binance_pnl_stats(exchange):
 
 
 def get_binance_positions(api_key, api_secret):
+# ... (get_binance_positions içeriği değişmedi)
     try:
         exchange = ccxt.binance(
             {
