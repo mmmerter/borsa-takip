@@ -1,6 +1,5 @@
 import re
 import pandas as pd
-import streamlit as st
 
 ANALYSIS_COLS = [
     "Kod",
@@ -110,64 +109,62 @@ def smart_parse(text_val):
 
 
 def styled_dataframe(df: pd.DataFrame):
-    """Placeholder – artık tablolarda render_table kullanıyoruz."""
-    return df
-
-
-def render_table(df: pd.DataFrame):
     """
-    Tüm sekmelerde tablo gösterimi:
-    - Yazılar büyük ve kalın
-    - Kâr/Zarar kolonları: pozitif yeşil, negatif kırmızı
+    Tüm sekmeler için tablo görünümü:
+    - Font daha büyük ve kalın
+    - Kâr/Zarar kolonları yeşil/kırmızı
     """
     if df.empty:
-        st.info("Veri yok.")
-        return
+        return df
 
-    # Gösterim için kopya
-    display_df = df.copy()
+    # Sayısal kolonları 2 hane formatla
+    format_dict = {}
+    for col in df.columns:
+        if df[col].dtype in ["float64", "float32", "int64", "int32"]:
+            format_dict[col] = "{:,.2f}"
 
-    # Sayısal kolonları formatla
-    num_cols = [
-        col for col in display_df.columns
-        if pd.api.types.is_numeric_dtype(display_df[col])
+    # Kâr/Zarar kolonları
+    pnl_cols = [
+        c
+        for c in ["Top. Kâr/Zarar", "Top. %", "Gün. Kâr/Zarar", "Kâr/Zarar"]
+        if c in df.columns
     ]
-    for col in num_cols:
-        display_df[col] = display_df[col].apply(
-            lambda x: "" if pd.isna(x) else f"{x:,.2f}"
-        )
 
-    cols = list(display_df.columns)
+    def pnl_style(val):
+        try:
+            v = float(val)
+        except Exception:
+            return ""
+        if v > 0:
+            return "color:#00e676; font-weight:bold;"
+        elif v < 0:
+            return "color:#ff5252; font-weight:bold;"
+        else:
+            return "font-weight:bold;"
 
-    html = '<table class="custom-table"><thead><tr>'
-    for c in cols:
-        html += f"<th>{c}</th>"
-    html += "</tr></thead><tbody>"
+    # Genel font büyüklüğü
+    table_styles = [
+        {
+            "selector": "th",
+            "props": [
+                ("font-size", "13px"),
+                ("font-weight", "600"),
+            ],
+        },
+        {
+            "selector": "td",
+            "props": [
+                ("font-size", "13px"),
+                ("font-weight", "600"),
+            ],
+        },
+    ]
 
-    for idx, row in display_df.iterrows():
-        html += "<tr>"
-        for c in cols:
-            val = row[c]
-            raw = df.loc[idx, c] if c in df.columns else None
-            style = ""
+    styler = df.style.format(format_dict)
 
-            if c in ["Top. Kâr/Zarar", "Top. %", "Gün. Kâr/Zarar", "Kâr/Zarar"]:
-                try:
-                    v = float(raw)
-                    if v > 0:
-                        style = ' style="color:#00e676; font-weight:bold;"'
-                    elif v < 0:
-                        style = ' style="color:#ff5252; font-weight:bold;"'
-                    else:
-                        style = ' style="color:#cccccc; font-weight:bold;"'
-                except Exception:
-                    style = ' style="color:#cccccc; font-weight:bold;"'
-            else:
-                style = ' style="color:#ffffff; font-weight:600;"'
+    if pnl_cols:
+        styler = styler.applymap(pnl_style, subset=pd.IndexSlice[:, pnl_cols])
 
-            html += f"<td{style}>{val}</td>"
-        html += "</tr>"
+    styler = styler.set_table_styles(table_styles)
 
-    html += "</tbody></table>"
-
-    st.markdown(html, unsafe_allow_html=True)
+    return styler
