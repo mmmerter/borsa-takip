@@ -123,7 +123,7 @@ def styled_dataframe(df: pd.DataFrame):
 def render_table(df: pd.DataFrame, height: int = 420):
     """
     Tüm sekmelerde tablo gösterimi:
-    - Büyük ve kalın font (CSS ile)
+    - Büyük ve kalın font (CSS ile portfoy.py içinde ayarlı)
     - Kâr/Zarar kolonlarında pozitif yeşil, negatif kırmızı
     """
     if df.empty:
@@ -187,10 +187,9 @@ def render_table(df: pd.DataFrame, height: int = 420):
 
     grid_options = gb.build()
 
+    # Basit çağrı: sorun çıkaran ekstra parametre yok
     AgGrid(
         df,
         gridOptions=grid_options,
-        theme="streamlit",
         height=height,
-        fit_columns_on_grid_load=True,
     )
