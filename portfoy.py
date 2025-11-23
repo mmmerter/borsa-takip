@@ -1,14 +1,10 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
-import time
-import plotly.express as px
 from streamlit_option_menu import option_menu
 
 # --- IMPORTS ---
 from utils import ANALYSIS_COLS, KNOWN_FUNDS, MARKET_DATA, smart_parse, styled_dataframe, get_yahoo_symbol
-from data_loader import get_data_from_sheet, save_data_to_sheet, get_sales_history, add_sale_record, get_usd_try, get_tickers_data, get_financial_news, get_tefas_data, get_binance_positions
-# SADECE BU 3 FONKSIYON IMPORT EDILIYOR
+from data_loader import get_data_from_sheet, save_data_to_sheet, get_sales_history, get_usd_try, get_tickers_data, get_financial_news, get_tefas_data, get_binance_positions
 from charts import render_pie_bar_charts, render_pazar_tab, get_historical_chart
 
 st.set_page_config(page_title="Merter’in Terminali", layout="wide", page_icon="🏦", initial_sidebar_state="collapsed")
@@ -59,19 +55,17 @@ def run_analysis(df, usd_try_rate, view_currency):
         symbol = get_yahoo_symbol(kod, pazar)
         curr = maliyet # Default
         
+        # Basit Fiyat Çekme
         try:
             if "NAKIT" in pazar: curr = 1 if kod == "TL" else usd_try_rate
             elif "VADELI" in pazar: pass 
             elif "FON" in pazar: curr, _ = get_tefas_data(kod)
-            elif "Gram" in kod:
+            elif "Gram" in kod: # Basit Gram hesabı (daha detaylısı charts'ta)
                  import yfinance as yf
-                 # Gram icin ons fiyatini cekip try ye ceviriyoruz
-                 t_sym = "GC=F" if "Altın" in kod else "SI=F"
-                 ons = yf.Ticker(t_sym).history(period="5d")["Close"].iloc[-1]
+                 ons = yf.Ticker("GC=F" if "Altın" in kod else "SI=F").history(period="1d")["Close"].iloc[-1]
                  curr = (ons * usd_try_rate) / 31.1035
             else:
                  import yfinance as yf
-                 # Hisse senedi (BIST veya ABD)
                  curr = yf.Ticker(symbol).history(period="1d")["Close"].iloc[-1]
         except: pass
         
@@ -80,6 +74,7 @@ def run_analysis(df, usd_try_rate, view_currency):
         val_native = curr * adet
         cost_native = maliyet * adet
         
+        # PB Çevrimi
         is_try = "BIST" in pazar or "FON" in pazar or "TL" in kod or "Gram" in kod
         if view_currency == "USD":
             f_g = curr / usd_try_rate if is_try else curr
@@ -109,23 +104,15 @@ if selected == "Dashboard":
         tp = spot["Top. Kâr/Zarar"].sum()
         c1, c2 = st.columns(2)
         c1.metric("Toplam", f"{sym}{tv:,.0f}")
+        c2.metric("K/Z", f"{sym}{tp:,.0f}")
         
-        # Yüzde hesabı
-        tm = tv - tp
-        pc = (tp / tm * 100) if tm != 0 else 0
-        c2.metric("K/Z", f"{sym}{tp:,.0f}", delta=f"{pc:.2f}%")
-        
-        st.divider()
-        st.subheader("Dağılım")
-        dash_pazar = spot.groupby("Pazar", as_index=False).agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
-        render_pie_bar_charts(dash_pazar, "Pazar", False, VARLIK_GORUNUMU, TOTAL_SPOT)
-        
-        st.divider()
         st.subheader("📈 Tarihsel Değer")
         hc = get_historical_chart(spot, USD_TRY, GORUNUM_PB)
         if hc: st.plotly_chart(hc, use_container_width=True)
-        else: st.info("Tarihsel veri hazırlanıyor...")
         
+        st.subheader("Dağılım")
+        dash_pazar = spot.groupby("Pazar", as_index=False).agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
+        render_pie_bar_charts(dash_pazar, "Pazar", False, VARLIK_GORUNUMU, TOTAL_SPOT)
     else: st.info("Boş")
 
 elif selected == "Tümü":
