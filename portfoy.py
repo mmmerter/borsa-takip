@@ -24,7 +24,6 @@ from data_loader import (
     get_financial_news,
     get_tefas_data,
     get_binance_positions,
-    get_sector,  # 👈 yeni
 )
 from charts import (
     render_pie_bar_charts,
@@ -146,7 +145,7 @@ portfoy_df = get_data_from_sheet()
 
 c_title, c_toggle = st.columns([3, 1])
 with c_title:
-    st.title("🏦 MERTER KRAL TERMINAL v999 TEST")
+    st.title("🏦 Merter'in Varlık Yönetim Terminali")
 with c_toggle:
     st.write("")
     GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True)
@@ -242,7 +241,6 @@ def run_analysis(df, usd_try_rate, view_currency):
 
         symbol = get_yahoo_symbol(kod, pazar)
 
-        # Varlık hangi para biriminde?
         asset_currency = (
             "TRY"
             if (
@@ -254,16 +252,6 @@ def run_analysis(df, usd_try_rate, view_currency):
             )
             else "USD"
         )
-
-        # --- SEKTÖR BELİRLEME ---
-        sektor = ""
-        pazar_upper = str(pazar).upper()
-        if "VADELI" in pazar_upper or "NAKIT" in pazar_upper or "KRIPTO" in pazar_upper:
-            sektor = ""
-        elif "EMTIA" in pazar_upper:
-            sektor = "Emtia"
-        elif "FON" in pazar_upper or "BIST" in pazar_upper or "ABD" in pazar_upper:
-            sektor = get_sector(kod, pazar)
 
         curr = 0
         prev = 0
@@ -373,7 +361,6 @@ def run_analysis(df, usd_try_rate, view_currency):
                 "Top. Kâr/Zarar": pnl,
                 "Top. %": pnl_pct,
                 "Gün. Kâr/Zarar": d_g,
-                "Sektör": sektor,
                 "Notlar": row.get("Notlar", ""),
             }
         )
@@ -397,45 +384,30 @@ if selected == "Dashboard":
         t_v = spot_only["Değer"].sum()
         t_p = spot_only["Top. Kâr/Zarar"].sum()
 
+        # Dashboard için yüzde hesapla
+        total_cost = (spot_only["Değer"] - spot_only["Top. Kâr/Zarar"]).sum()
+        pct = (t_p / total_cost * 100) if total_cost != 0 else 0
+
         c1, c2 = st.columns(2)
         c1.metric("Toplam Spot Varlık", f"{sym}{t_v:,.0f}")
-        c2.metric("Genel Kâr/Zarar", f"{sym}{t_p:,.0f}", delta=f"{t_p:,.0f}")
+        c2.metric(
+            "Genel Kâr/Zarar",
+            f"{sym}{t_p:,.0f}",
+            delta=f"{pct:.2f}%"
+        )
 
         st.divider()
 
-        # --- Dashboard: BIST / ABD / FON / EMTIA / NAKIT dağılımı ---
-        st.subheader("📊 Piyasa Bazında Dağılım (BIST / ABD / FON / EMTIA / NAKIT)")
-
-        def map_kategori(pazar):
-            p = str(pazar).upper()
-            if "BIST" in p:
-                return "BIST"
-            if "ABD" in p:
-                return "ABD"
-            if "FON" in p:
-                return "FON"
-            if "EMTIA" in p:
-                return "EMTIA"
-            if "NAKIT" in p:
-                return "NAKIT"
-            return "Diğer"
-
-        spot_only = spot_only.copy()
-        spot_only["Kategori"] = spot_only["Pazar"].apply(map_kategori)
-
+        st.subheader("📊 Pazarlara Göre Dağılım")
         dash_pazar = (
-            spot_only.groupby("Kategori", as_index=False)
+            spot_only.groupby("Pazar", as_index=False)
             .agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
         )
-        dash_pazar = dash_pazar[
-            dash_pazar["Kategori"].isin(["BIST", "ABD", "FON", "EMTIA", "NAKIT"])
-        ]
-
-        render_pie_bar_charts(dash_pazar, "Kategori")
+        # Dashboard → tüm dilimler yazılı (all_tab=False)
+        render_pie_bar_charts(dash_pazar, "Pazar", all_tab=False)
 
         st.divider()
 
-        # Isı haritası
         c_tree_1, c_tree_2 = st.columns([3, 1])
         with c_tree_1:
             st.subheader("🗺️ Portföy Isı Haritası")
@@ -447,17 +419,17 @@ if selected == "Dashboard":
             )
 
         color_col = "Top. %"
-        spot_heat = spot_only.copy()
-        spot_heat["Gün. %"] = (
-            spot_heat["Gün. Kâr/Zarar"]
-            / (spot_heat["Değer"] - spot_heat["Gün. Kâr/Zarar"]).replace(0, pd.NA)
+        spot_only = spot_only.copy()
+        spot_only["Gün. %"] = (
+            spot_only["Gün. Kâr/Zarar"] /
+            (spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"])
         ) * 100
 
         if map_mode == "Günlük Değişim %":
             color_col = "Gün. %"
 
         fig = px.treemap(
-            spot_heat,
+            spot_only,
             path=[px.Constant("Portföy"), "Kod"],
             values="Değer",
             color=color_col,
@@ -480,7 +452,8 @@ if selected == "Dashboard":
 elif selected == "Tümü":
     if not portfoy_only.empty:
         st.subheader("📊 Varlık Bazlı Dağılım (Tümü)")
-        render_pie_bar_charts(portfoy_only, "Kod")
+        # SADECE TÜMÜ sekmesinde -> %5 üstü yazılı
+        render_pie_bar_charts(portfoy_only, "Kod", all_tab=True)
 
         st.divider()
 
@@ -640,4 +613,3 @@ elif selected == "Ekle/Çıkar":
                 st.success("Silindi!")
                 time.sleep(1)
                 st.rerun()
-

@@ -8,49 +8,142 @@ from utils import styled_dataframe
 from data_loader import get_tefas_data
 
 
-def render_pie_bar_charts(df: pd.DataFrame, group_col: str):
-    """Pastayı ve bar chart'ı tek yerden üretir."""
+# --------------------------------------------------------------------
+#  ORTAK PIE + BAR CHART
+#  - %1 altını "Diğer" altında toplar
+#  - all_tab=True ise (Tümü sekmesi) sadece %5 üzeri dilimlerde yazı gösterir
+#  - diğer sekmelerde tüm dilimlerde yazı + yüzde gösterilir (kalın font)
+# --------------------------------------------------------------------
+def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = False):
     if df.empty or "Değer" not in df.columns:
         return
 
-    c_p, c_b = st.columns(2)
+    # Aynı grup isimlerini birleştir (Kod/Pazar bazlı toplam)
+    agg_cols = {"Değer": "sum"}
+    has_pnl = "Top. Kâr/Zarar" in df.columns
+    if has_pnl:
+        agg_cols["Top. Kâr/Zarar"] = "sum"
 
-    # Pasta: yüzdelik dağılım
+    grouped = df.groupby(group_col, as_index=False).agg(agg_cols)
+
+    total_val = grouped["Değer"].sum()
+    if total_val <= 0:
+        plot_df = grouped.copy()
+    else:
+        # Yüzde hesabı
+        grouped["_pct"] = grouped["Değer"] / total_val * 100
+
+        major = grouped[grouped["_pct"] >= 1].copy()
+        minor = grouped[grouped["_pct"] < 1].copy()
+
+        if not minor.empty and not major.empty:
+            other_row = {
+                group_col: "Diğer",
+                "Değer": minor["Değer"].sum(),
+            }
+            if has_pnl:
+                other_row["Top. Kâr/Zarar"] = minor["Top. Kâr/Zarar"].sum()
+
+            major = pd.concat(
+                [major, pd.DataFrame([other_row])], ignore_index=True
+            )
+            plot_df = major.drop(columns=["_pct"], errors="ignore")
+        else:
+            plot_df = grouped.drop(columns=["_pct"], errors="ignore")
+
+    # Plot df üzerinde tekrar yüzde hesapla (Diğer dahil)
+    total_plot_val = plot_df["Değer"].sum()
+    if total_plot_val > 0:
+        plot_df["_pct"] = plot_df["Değer"] / total_plot_val * 100
+    else:
+        plot_df["_pct"] = 0
+
+    # Yazı eşiği:
+    # - Tümü sekmesi (all_tab=True)          -> sadece %5 ve üstü
+    # - Diğer sekmeler (all_tab=False)       -> hepsi
+    threshold = 5.0 if all_tab else 0.0
+
+    texts = []
+    for _, r in plot_df.iterrows():
+        if r["_pct"] >= threshold:
+            texts.append(f"{r[group_col]} {r['_pct']:.1f}%")
+        else:
+            texts.append("")  # küçük dilimde yazı yok
+
+    # Pasta daha geniş, bar biraz daha dar
+    c_pie, c_bar = st.columns([4, 3])
+
+    # ====================
+    # PIE CHART
+    # ====================
     pie_fig = px.pie(
-        df,
+        plot_df,
         values="Değer",
         names=group_col,
-        hole=0.4,
+        hole=0.40,
     )
-    pie_fig.update_traces(textfont=dict(size=16))
-    c_p.plotly_chart(pie_fig, use_container_width=True)
+    pie_fig.update_traces(
+        text=texts,
+        textinfo="text",
+        textfont=dict(
+            size=18,
+            color="white",
+            family="Arial Black",
+        ),
+    )
+    pie_fig.update_layout(
+        legend=dict(font=dict(size=14)),
+        margin=dict(t=40, l=0, r=0, b=80),
+    )
+    c_pie.plotly_chart(pie_fig, use_container_width=True)
 
-    # Bar: kâr/zarar renklendirmeli
-    if "Top. Kâr/Zarar" in df.columns:
+    # ====================
+    # BAR CHART
+    # ====================
+    if has_pnl:
         bar_fig = px.bar(
-            df.sort_values("Değer"),
+            plot_df.sort_values("Değer"),
             x=group_col,
             y="Değer",
             color="Top. Kâr/Zarar",
+            text="Değer",
         )
     else:
         bar_fig = px.bar(
-            df.sort_values("Değer"),
+            plot_df.sort_values("Değer"),
             x=group_col,
             y="Değer",
+            text="Değer",
         )
-    bar_fig.update_layout(xaxis_tickfont=dict(size=14), yaxis_tickfont=dict(size=14))
-    c_b.plotly_chart(bar_fig, use_container_width=True)
+
+    bar_fig.update_traces(
+        texttemplate="%{text:,.0f}",
+        textposition="outside",
+        textfont=dict(
+            size=14,
+            color="white",
+            family="Arial Black",
+        ),
+    )
+    bar_fig.update_layout(
+        xaxis=dict(tickfont=dict(size=14)),
+        yaxis=dict(tickfont=dict(size=14)),
+        legend=dict(font=dict(size=14)),
+        margin=dict(t=40, l=20, r=20, b=40),
+    )
+    c_bar.plotly_chart(bar_fig, use_container_width=True)
 
 
+# --------------------------------------------------------------------
+#  TARİHSEL GRAFİK (Şimdilik Stub)
+# --------------------------------------------------------------------
 def get_historical_chart(df_portfolio: pd.DataFrame, usd_try: float):
-    """
-    Şimdilik stub: Hata vermemesi için None dönüyor.
-    Eski KRAL'da da böyleydi.
-    """
     return None
 
 
+# --------------------------------------------------------------------
+#  SEKME BAZLI PAZAR EKRANI
+# --------------------------------------------------------------------
 def render_pazar_tab(df, filter_key, symb, usd_try):
     if df.empty:
         return st.info("Veri yok.")
@@ -63,49 +156,35 @@ def render_pazar_tab(df, filter_key, symb, usd_try):
     if sub.empty:
         return st.info(f"{filter_key} yok.")
 
-    t_val = sub["Değer"].sum()
-    t_pl = sub["Top. Kâr/Zarar"].sum()
+    total_val = sub["Değer"].sum()
+    total_pnl = sub["Top. Kâr/Zarar"].sum()
 
-    c1, c2 = st.columns(2)
-    lbl = "Toplam PNL" if filter_key == "VADELI" else "Toplam Varlık"
-    c1.metric(lbl, f"{symb}{t_val:,.0f}")
-    c2.metric(
-        "Toplam Kâr/Zarar",
-        f"{symb}{t_pl:,.0f}",
-        delta=f"{t_pl:,.0f}",
-    )
+    col1, col2 = st.columns(2)
+
+    label = "Toplam PNL" if filter_key == "VADELI" else "Toplam Varlık"
+    col1.metric(label, f"{symb}{total_val:,.0f}")
+
+    if filter_key == "VADELI":
+        col2.metric(
+            "Toplam Kâr/Zarar",
+            f"{symb}{total_pnl:,.0f}",
+            delta=f"{symb}{total_pnl:,.0f}",
+        )
+    else:
+        total_cost = (sub["Değer"] - sub["Top. Kâr/Zarar"]).sum()
+        pct = (total_pnl / total_cost * 100) if total_cost != 0 else 0
+        # ÖNEMLİ DEĞİŞİKLİK: işaret önce gelsin ki zarar kırmızı olsun
+        col2.metric(
+            "Toplam Kâr/Zarar",
+            f"{symb}{total_pnl:,.0f}",
+            delta=f"{pct:.2f}%",
+        )
 
     st.divider()
 
     if filter_key != "VADELI":
-        # 1) BIST / ABD / FON sekmeleri için SEKTÖR pastası
-        if "Sektör" in sub.columns and filter_key in ["BIST", "ABD", "FON"]:
-            st.subheader("🏭 Sektörlere Göre Dağılım")
-            sec_df = sub.copy()
-            sec_df = sec_df[
-                sec_df["Sektör"].notna()
-                & (sec_df["Sektör"] != "")
-            ]
-            if not sec_df.empty:
-                sec_group = (
-                    sec_df.groupby("Sektör", as_index=False)
-                    .agg({"Değer": "sum"})
-                )
-                render_pie_bar_charts(sec_group, "Sektör")
-            st.divider()
-
-        # 2) Her sekmede varlık bazlı grafik
-        st.subheader("📊 Varlık Bazlı Dağılım")
-        render_pie_bar_charts(sub, "Kod")
-
-        # 3) (Opsiyonel) tarihsel grafik
-        if filter_key not in ["FON", "EMTIA", "NAKIT"]:
-            try:
-                h = get_historical_chart(sub, usd_try)
-                if h is not None:
-                    st.line_chart(h)
-            except Exception:
-                st.warning("Tarihsel grafik yüklenemedi.")
+        # BIST / ABD / FON / Emtia / Kripto / Nakit -> all_tab=False (tümü yazılı)
+        render_pie_bar_charts(sub, "Kod", all_tab=False)
 
     st.dataframe(
         styled_dataframe(sub),
@@ -114,95 +193,45 @@ def render_pazar_tab(df, filter_key, symb, usd_try):
     )
 
 
+# --------------------------------------------------------------------
+#  DETAY SAYFASI
+# --------------------------------------------------------------------
 def render_detail_view(symbol, pazar):
     st.markdown(f"### 🔎 {symbol} Detaylı Analizi")
 
     if "FON" in pazar:
         price, _ = get_tefas_data(symbol)
         st.metric(f"{symbol} Son Fiyat", f"₺{price:,.6f}")
-        st.info("Yatırım fonları için anlık grafik desteği TEFAS kaynaklı sınırlıdır.")
+        st.info("Yatırım fonu grafik desteği kısıtlıdır.")
         return
 
     try:
         ticker = yf.Ticker(symbol)
         hist = ticker.history(period="2y")
 
-        if not hist.empty:
-            fig = go.Figure(
-                data=[
-                    go.Candlestick(
-                        x=hist.index,
-                        open=hist["Open"],
-                        high=hist["High"],
-                        low=hist["Low"],
-                        close=hist["Close"],
-                        name=symbol,
-                    )
-                ]
-            )
-            fig.update_layout(
-                title=f"{symbol} Fiyat Grafiği",
-                yaxis_title="Fiyat",
-                template="plotly_dark",
-                height=600,
-                xaxis=dict(
-                    rangeselector=dict(
-                        buttons=list(
-                            [
-                                dict(
-                                    count=1,
-                                    label="1A",
-                                    step="month",
-                                    stepmode="backward",
-                                ),
-                                dict(
-                                    count=3,
-                                    label="3A",
-                                    step="month",
-                                    stepmode="backward",
-                                ),
-                                dict(
-                                    count=6,
-                                    label="6A",
-                                    step="month",
-                                    stepmode="backward",
-                                ),
-                                dict(
-                                    count=1,
-                                    label="YTD",
-                                    step="year",
-                                    stepmode="todate",
-                                ),
-                                dict(
-                                    count=1,
-                                    label="1Y",
-                                    step="year",
-                                    stepmode="backward",
-                                ),
-                                dict(step="all", label="TÜMÜ"),
-                            ]
-                        ),
-                        bgcolor="#262730",
-                        font=dict(color="white"),
-                    ),
-                    rangeslider=dict(visible=False),
-                    type="date",
-                ),
-            )
-            st.plotly_chart(fig, use_container_width=True)
+        if hist.empty:
+            st.warning("Grafik verisi yok.")
+            return
 
-            info = ticker.info
-            market_cap = info.get("marketCap", "N/A")
-            if isinstance(market_cap, int):
-                market_cap = f"{market_cap:,.0f}"
+        fig = go.Figure(
+            data=[
+                go.Candlestick(
+                    x=hist.index,
+                    open=hist["Open"],
+                    high=hist["High"],
+                    low=hist["Low"],
+                    close=hist["Close"],
+                )
+            ]
+        )
 
-            c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Sektör", info.get("sector", "-"))
-            c2.metric("F/K", info.get("trailingPE", "-"))
-            c3.metric("Piyasa Değeri", market_cap)
-            c4.metric("52H Yüksek", info.get("fiftyTwoWeekHigh", "-"))
-            c5.metric("52H Düşük", info.get("fiftyTwoWeekLow", "-"))
-        else:
-            st.warning("Grafik verisi bulunamadı.")
+        fig.update_layout(
+            title=f"{symbol} Fiyat Grafiği",
+            template="plotly_dark",
+            yaxis_title="Fiyat",
+            height=600,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
     except Exception as e:
         st.error(f"Veri çekilemedi: {e}")

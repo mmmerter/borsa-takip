@@ -13,7 +13,6 @@ ANALYSIS_COLS = [
     "Top. Kâr/Zarar",
     "Top. %",
     "Gün. Kâr/Zarar",
-    "Sektör",   # 👈 yeni kolon
     "Notlar",
 ]
 
@@ -110,17 +109,76 @@ def smart_parse(text_val):
 
 
 def styled_dataframe(df: pd.DataFrame):
-    """Dataframe için basit formatlama."""
+    """
+    Dataframe için ortak stil:
+    - Yazılar daha büyük ve kalın
+    - Kâr / Zarar kolonları: pozitif yeşil, negatif kırmızı
+    """
     if df.empty:
         return df
 
+    # Sayısal kolon formatı
     format_dict = {}
     for col in df.columns:
         if df[col].dtype in ["float64", "float32", "int64", "int32"]:
             format_dict[col] = "{:,.2f}"
 
-    try:
-        return df.style.format(format_dict)
-    except Exception:
-        # Bir sorun olursa normal df dön
-        return df
+    styler = df.style.format(format_dict)
+
+    # Genel font boyutu & kalınlık
+    styler = styler.set_table_styles(
+        [
+            {
+                "selector": "th",
+                "props": [
+                    ("font-size", "15px"),
+                    ("font-weight", "bold"),
+                    ("text-align", "center"),
+                ],
+            },
+            {
+                "selector": "td",
+                "props": [
+                    ("font-size", "14px"),
+                    ("font-weight", "bold"),
+                ],
+            },
+        ]
+    )
+
+    # Sayısal kolonları sağa hizala
+    num_cols = [
+        col
+        for col in df.columns
+        if df[col].dtype in ["float64", "float32", "int64", "int32"]
+    ]
+    if num_cols:
+        styler = styler.set_properties(
+            subset=num_cols,
+            **{"text-align": "right"},
+        )
+
+    # Kâr / Zarar ve yüzde kolonlarını renklendir
+    def color_pnl(val):
+        try:
+            v = float(val)
+        except Exception:
+            return ""
+        if v > 0:
+            return "color: #00e676;"  # yeşil
+        elif v < 0:
+            return "color: #ff5252;"  # kırmızı
+        else:
+            return "color: #cccccc;"  # nötr gri
+
+    pnl_cols = [
+        "Top. Kâr/Zarar",
+        "Top. %",
+        "Gün. Kâr/Zarar",
+        "Kâr/Zarar",  # Satışlar sekmesi için
+    ]
+    for col in pnl_cols:
+        if col in df.columns:
+            styler = styler.applymap(color_pnl, subset=[col])
+
+    return styler
