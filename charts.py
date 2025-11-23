@@ -9,22 +9,32 @@ from data_loader import get_tefas_data
 
 
 # --------------------------------------------------------------------
-#  ORTAK PIE + BAR CHART
-#  - %1 altını "Diğer" altında toplar
-#  - all_tab=True ise (Tümü sekmesi) sadece %5 üzeri dilimlerde yazı gösterir
-#  - diğer sekmelerde tüm dilimlerde yazı + yüzde gösterilir (kalın font)
+#  ORTAK PIE + BAR CHART (Updated)
 # --------------------------------------------------------------------
-def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = False):
+def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = False, varlik_gorunumu: str = "YÜZDE (%)", total_spot_deger: float = 0):
     if df.empty or "Değer" not in df.columns:
         return
 
-    # Aynı grup isimlerini birleştir (Kod/Pazar bazlı toplam)
+    # Gösterilecek değer sütununu oluştur (Yüzde veya Tutar)
+    if varlik_gorunumu == "YÜZDE (%)":
+        df_plot = df.copy()
+        if total_spot_deger > 0:
+            df_plot["Değer"] = (df_plot["Değer"] / total_spot_deger * 100)
+            df_plot["_pct"] = df_plot["Değer"] # Yüzde hesaplamasında artık bu "Değer" kolonu yüzdedir.
+        else:
+            df_plot["_pct"] = 0
+    else:
+        df_plot = df.copy()
+        total_plot_val = df_plot["Değer"].sum()
+        df_plot["_pct"] = (df_plot["Değer"] / total_plot_val * 100) if total_plot_val > 0 else 0
+
+
     agg_cols = {"Değer": "sum"}
-    has_pnl = "Top. Kâr/Zarar" in df.columns
+    has_pnl = "Top. Kâr/Zarar" in df_plot.columns
     if has_pnl:
         agg_cols["Top. Kâr/Zarar"] = "sum"
 
-    grouped = df.groupby(group_col, as_index=False).agg(agg_cols)
+    grouped = df_plot.groupby(group_col, as_index=False).agg(agg_cols)
 
     total_val = grouped["Değer"].sum()
     if total_val <= 0:
@@ -53,22 +63,23 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
 
     # Plot df üzerinde tekrar yüzde hesapla (Diğer dahil)
     total_plot_val = plot_df["Değer"].sum()
-    if total_plot_val > 0:
-        plot_df["_pct"] = plot_df["Değer"] / total_plot_val * 100
-    else:
-        plot_df["_pct"] = 0
+    plot_df["_pct"] = (plot_df["Değer"] / total_plot_val * 100) if total_plot_val > 0 else 0
+
 
     # Yazı eşiği:
-    # - Tümü sekmesi (all_tab=True)          -> sadece %5 ve üstü
-    # - Diğer sekmeler (all_tab=False)       -> hepsi
     threshold = 5.0 if all_tab else 0.0
 
     texts = []
     for _, r in plot_df.iterrows():
+        # Görünüm YÜZDE ise % simgesi ekle
+        value_fmt = f"{r['Değer']:,.1f}" if varlik_gorunumu == "TUTAR (₺/$)" else f"{r['Değer']:,.1f}%"
+        
         if r["_pct"] >= threshold:
-            texts.append(f"{r[group_col]} {r['_pct']:.1f}%")
+            # Grafikte gösterilecek değer: Yüzde seçildiyse %'li değer, Tutar seçildiyse Tutar değeri
+            texts.append(f"{r[group_col]} {value_fmt}")
         else:
-            texts.append("")  # küçük dilimde yazı yok
+            texts.append("") # küçük dilimde yazı yok
+
 
     # Pasta daha geniş, bar biraz daha dar
     c_pie, c_bar = st.columns([4, 3])
@@ -81,6 +92,7 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
         values="Değer",
         names=group_col,
         hole=0.40,
+        title=f"Portföy Dağılımı ({varlik_gorunumu})"
     )
     pie_fig.update_traces(
         text=texts,
@@ -107,6 +119,7 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
             y="Değer",
             color="Top. Kâr/Zarar",
             text="Değer",
+            title=f"Varlık Değerleri ({varlik_gorunumu})"
         )
     else:
         bar_fig = px.bar(
@@ -114,10 +127,14 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
             x=group_col,
             y="Değer",
             text="Değer",
+            title=f"Varlık Değerleri ({varlik_gorunumu})"
         )
 
+    # Bar chart metin formatı da görünüme göre değişmeli
+    bar_text_template = "%{text:,.0f}" if varlik_gorunumu == "TUTAR (₺/$)" else "%{text:,.2f}%"
+
     bar_fig.update_traces(
-        texttemplate="%{text:,.0f}",
+        texttemplate=bar_text_template,
         textposition="outside",
         textfont=dict(
             size=14,
@@ -142,16 +159,23 @@ def get_historical_chart(df_portfolio: pd.DataFrame, usd_try: float):
 
 
 # --------------------------------------------------------------------
-#  SEKME BAZLI PAZAR EKRANI
+#  SEKME BAZLI PAZAR EKRANI (Updated)
 # --------------------------------------------------------------------
-def render_pazar_tab(df, filter_key, symb, usd_try):
+def render_pazar_tab(df, filter_key, symb, usd_try, varlik_gorunumu, total_spot_deger):
     if df.empty:
         return st.info("Veri yok.")
 
+    # 1. Filtreleme
     if filter_key == "VADELI":
         sub = df[df["Pazar"].str.contains("VADELI", na=False)]
+        is_vadeli = True
+    elif filter_key == "Tümü":
+        sub = df.copy()
+        is_vadeli = False
     else:
         sub = df[df["Pazar"].str.contains(filter_key, na=False)]
+        is_vadeli = False
+
 
     if sub.empty:
         return st.info(f"{filter_key} yok.")
@@ -161,19 +185,19 @@ def render_pazar_tab(df, filter_key, symb, usd_try):
 
     col1, col2 = st.columns(2)
 
-    label = "Toplam PNL" if filter_key == "VADELI" else "Toplam Varlık"
+    label = "Toplam PNL" if is_vadeli else "Toplam Varlık"
     col1.metric(label, f"{symb}{total_val:,.0f}")
 
-    if filter_key == "VADELI":
+    # Metrikte Yüzde Hesaplama (Sadece spot varlıklar için)
+    if is_vadeli:
         col2.metric(
             "Toplam Kâr/Zarar",
             f"{symb}{total_pnl:,.0f}",
             delta=f"{symb}{total_pnl:,.0f}",
         )
     else:
-        total_cost = (sub["Değer"] - sub["Top. Kâr/Zarar"]).sum()
+        total_cost = (total_val - total_pnl)
         pct = (total_pnl / total_cost * 100) if total_cost != 0 else 0
-        # ÖNEMLİ DEĞİŞİKLİK: işaret önce gelsin ki zarar kırmızı olsun
         col2.metric(
             "Toplam Kâr/Zarar",
             f"{symb}{total_pnl:,.0f}",
@@ -182,12 +206,26 @@ def render_pazar_tab(df, filter_key, symb, usd_try):
 
     st.divider()
 
-    if filter_key != "VADELI":
-        # BIST / ABD / FON / Emtia / Kripto / Nakit -> all_tab=False (tümü yazılı)
-        render_pie_bar_charts(sub, "Kod", all_tab=False)
+    # 2. Grafik Gösterimi (Sadece spot varlıklar için)
+    if not is_vadeli:
+        is_all_tab = filter_key == "Tümü"
+        render_pie_bar_charts(sub, "Kod", all_tab=is_all_tab, varlik_gorunumu=varlik_gorunumu, total_spot_deger=total_spot_deger)
+
+    # 3. Tablo Gösterimi (Yüzde veya Tutar)
+    df_display = sub.copy()
+    
+    if varlik_gorunumu == "YÜZDE (%)" and not is_vadeli:
+        # Tutar kolonu ismini 'Değer'den 'Tutar'a çeviriyoruz
+        df_display.rename(columns={"Değer": "Tutar"}, inplace=True)
+        
+        # Yüzdeyi hesaplayıp yeni 'Değer' kolonu olarak atıyoruz (Styler'ın algılaması için)
+        if total_spot_deger > 0:
+            df_display["Değer"] = (df_display["Tutar"] / total_spot_deger * 100)
+        else:
+            df_display["Değer"] = 0
 
     st.dataframe(
-        styled_dataframe(sub),
+        styled_dataframe(df_display),
         use_container_width=True,
         hide_index=True,
     )
