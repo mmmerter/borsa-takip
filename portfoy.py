@@ -13,7 +13,6 @@ from utils import (
     smart_parse,
     styled_dataframe,
     get_yahoo_symbol,
-    render_table,
 )
 from data_loader import (
     get_data_from_sheet,
@@ -56,6 +55,12 @@ st.markdown(
     }
     div[data-testid="stMetricValue"] { color: #ffffff !important; }
     div[data-testid="stMetricLabel"] { color: #bfbfbf !important; }
+
+    /* tablo fontları */
+    .stDataFrame table tbody tr td, .stDataFrame table thead tr th {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+    }
 
     .ticker-container {
         width: 100%;
@@ -115,30 +120,6 @@ st.markdown(
     }
     a { text-decoration: none !important; }
     a:hover { text-decoration: underline !important; }
-
-    /* TABLO STİLİ (render_table için) */
-    .custom-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 16px;
-        color: #ffffff;
-    }
-    .custom-table th, .custom-table td {
-        padding: 6px 8px;
-        border-bottom: 1px solid #333;
-    }
-    .custom-table th {
-        font-weight: 700;
-        text-align: center;
-    }
-    .custom-table td {
-        font-weight: 600;
-        text-align: right;
-    }
-    .custom-table td:first-child,
-    .custom-table th:first-child {
-        text-align: left;
-    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -408,10 +389,16 @@ if selected == "Dashboard":
 
         t_v = spot_only["Değer"].sum()
         t_p = spot_only["Top. Kâr/Zarar"].sum()
+        invested_total = (spot_only["Değer"] - spot_only["Top. Kâr/Zarar"]).sum()
+        pct_total = (t_p / invested_total * 100) if invested_total > 0 else 0.0
 
         c1, c2 = st.columns(2)
         c1.metric("Toplam Spot Varlık", f"{sym}{t_v:,.0f}")
-        c2.metric("Genel Kâr/Zarar", f"{sym}{t_p:,.0f}", delta=f"{t_p:,.0f}")
+        c2.metric(
+            "Toplam Kâr/Zarar",
+            f"{sym}{t_p:,.0f}",
+            delta=f"%{pct_total:.2f}",
+        )
 
         st.divider()
 
@@ -420,7 +407,8 @@ if selected == "Dashboard":
             spot_only.groupby("Pazar", as_index=False)
             .agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
         )
-        render_pie_bar_charts(dash_pazar, "Pazar")
+        # Dashboard pastası – pazarlara göre, %1 altı Diğer
+        render_pie_bar_charts(dash_pazar, "Pazar", threshold=0.01)
 
         st.divider()
 
@@ -436,11 +424,9 @@ if selected == "Dashboard":
 
         color_col = "Top. %"
         spot_only = spot_only.copy()
-        safe_val = spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"]
-        spot_only["Gün. %"] = 0
-        spot_only.loc[safe_val != 0, "Gün. %"] = (
-            spot_only.loc[safe_val != 0, "Gün. Kâr/Zarar"]
-            / safe_val[safe_val != 0]
+        spot_only["Gün. %"] = (
+            spot_only["Gün. Kâr/Zarar"]
+            / (spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"]).replace(0, pd.NA)
         ) * 100
 
         if map_mode == "Günlük Değişim %":
@@ -470,10 +456,16 @@ if selected == "Dashboard":
 elif selected == "Tümü":
     if not portfoy_only.empty:
         st.subheader("📊 Varlık Bazlı Dağılım (Tümü)")
-        render_pie_bar_charts(portfoy_only, "Kod")
+        # Sadece Tümü sekmesinde %5 altını Diğer
+        render_pie_bar_charts(portfoy_only, "Kod", threshold=0.05)
 
         st.divider()
-        render_table(portfoy_only)
+
+        st.dataframe(
+            styled_dataframe(portfoy_only),
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
         st.info("Portföy boş.")
 
@@ -488,7 +480,7 @@ elif selected == "Vadeli":
             stats, df_pos = get_binance_positions(ak, ask)
             if stats:
                 st.metric("Cüzdan", f"${stats['wallet']:,.2f}")
-                render_table(df_pos)
+                st.dataframe(df_pos, use_container_width=True)
             else:
                 st.error(df_pos)
 
@@ -527,14 +519,22 @@ elif selected == "Haberler":
 
 elif selected == "İzleme":
     if not takip_only.empty:
-        render_table(takip_only)
+        st.dataframe(
+            styled_dataframe(takip_only),
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
         st.info("İzleme listesi boş.")
 
 elif selected == "Satışlar":
     sales_df = get_sales_history()
     if not sales_df.empty:
-        render_table(sales_df)
+        st.dataframe(
+            styled_dataframe(sales_df),
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
         st.info("Satış kaydı yok.")
 
