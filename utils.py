@@ -110,61 +110,52 @@ def smart_parse(text_val):
 
 def styled_dataframe(df: pd.DataFrame):
     """
-    Tüm sekmeler için tablo görünümü:
-    - Font daha büyük ve kalın
-    - Kâr/Zarar kolonları yeşil/kırmızı
+    Dataframe görünümü:
+    - Daha büyük ve kalın font
+    - Sayısal kolonlar formatlı
+    - Kâr/Zarar kolonları: pozitif yeşil, negatif kırmızı
     """
     if df.empty:
         return df
 
-    # Sayısal kolonları 2 hane formatla
+    # Sayısal kolonları 2 haneli formatla
     format_dict = {}
     for col in df.columns:
-        if df[col].dtype in ["float64", "float32", "int64", "int32"]:
+        if pd.api.types.is_numeric_dtype(df[col]):
             format_dict[col] = "{:,.2f}"
-
-    # Kâr/Zarar kolonları
-    pnl_cols = [
-        c
-        for c in ["Top. Kâr/Zarar", "Top. %", "Gün. Kâr/Zarar", "Kâr/Zarar"]
-        if c in df.columns
-    ]
-
-    def pnl_style(val):
-        try:
-            v = float(val)
-        except Exception:
-            return ""
-        if v > 0:
-            return "color:#00e676; font-weight:bold;"
-        elif v < 0:
-            return "color:#ff5252; font-weight:bold;"
-        else:
-            return "font-weight:bold;"
-
-    # Genel font büyüklüğü
-    table_styles = [
-        {
-            "selector": "th",
-            "props": [
-                ("font-size", "13px"),
-                ("font-weight", "600"),
-            ],
-        },
-        {
-            "selector": "td",
-            "props": [
-                ("font-size", "13px"),
-                ("font-weight", "600"),
-            ],
-        },
-    ]
 
     styler = df.style.format(format_dict)
 
-    if pnl_cols:
-        styler = styler.applymap(pnl_style, subset=pd.IndexSlice[:, pnl_cols])
+    # Genel font boyutu ve kalınlık
+    styler = styler.set_table_styles(
+        [
+            {
+                "selector": "th",
+                "props": [("font-size", "14px"), ("font-weight", "bold")],
+            },
+            {
+                "selector": "td",
+                "props": [("font-size", "13px"), ("font-weight", "bold")],
+            },
+        ]
+    )
 
-    styler = styler.set_table_styles(table_styles)
+    # Kâr/Zarar kolonlarını renklendir
+    def pnl_style(val):
+        try:
+            v = float(val)
+        except (TypeError, ValueError):
+            return ""
+        if v > 0:
+            return "color: #00e676; font-weight: bold;"
+        elif v < 0:
+            return "color: #ff5252; font-weight: bold;"
+        else:
+            return "color: #dddddd; font-weight: bold;"
+
+    pnl_cols = ["Top. Kâr/Zarar", "Top. %", "Gün. Kâr/Zarar", "Kâr/Zarar"]
+    existing = [c for c in pnl_cols if c in df.columns]
+    if existing:
+        styler = styler.applymap(pnl_style, subset=existing)
 
     return styler
