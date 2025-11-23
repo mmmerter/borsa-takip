@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import yfinance as yf
 import pandas as pd
 
-from utils import styled_dataframe
+from utils import styled_dataframe, get_yahoo_symbol
 from data_loader import get_tefas_data
 
 
@@ -103,8 +103,7 @@ def render_pie_bar_charts(
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
-    # Altında özet tablo (BURASI FİX)
-    # Pay (%) kolonunu da alıyoruz ki KeyError olmasın
+    # Altında özet tablo
     disp = grouped[[label_col, "Değer", "Pay (%)"]].copy()
     disp.rename(columns={label_col: group_col}, inplace=True)
     disp["Pay (%)"] = disp["Pay (%)"].round(2)
@@ -190,8 +189,127 @@ def render_detail_view(symbol: str, pazar: str) -> None:
 
 def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     """
-    Tarihsel portföy grafiği henüz uygulanmadı.
-    Portföy ana ekranında 'hazırlanıyor' mesajı çıkacak.
-    İleride günlük log tutan bir yapı üzerine inşa edilebilir.
+    Son 60 güne ait yaklaşık tarihsel portföy değeri grafiği oluşturur.
+    - Her varlık için Yahoo Finance (veya ons altın/gümüş, fon vs.) verisi çekilir.
+    - Lot/adet ile çarpılır.
+    - Seçilen para birimine (pb: TRY / USD) göre çevrilir.
+    - Hepsi toplanıp tek zaman serisi olarak çizilir.
     """
-    return None
+
+    if df is None or df.empty:
+        return None
+
+    all_series = []
+
+    for _, row in df.iterrows():
+        kod = str(row.get("Kod", ""))
+        pazar = str(row.get("Pazar", ""))
+        adet = float(row.get("Adet", 0) or 0)
+
+        if adet == 0 or not kod:
+            continue
+
+        pazar_upper = pazar.upper()
+        kod_upper = kod.upper()
+
+        # Basit varlık para birimi belirleme
+        if (
+            "BIST" in pazar_upper
+            or "TL" in kod_upper
+            or "FON" in pazar_upper
+            or "EMTIA" in pazar_upper
+            or "NAKIT" in pazar_upper
+        ):
+            asset_currency = "TRY"
+        else:
+            asset_currency = "USD"
+
+        prices = None
+
+        try:
+            # Nakit için sabit değerler (sadece bugüne nokta)
+            if "NAKIT" in pazar_upper:
+                today = pd.Timestamp.today().normalize()
+                if kod_upper == "TL":
+                    prices = pd.Series([1.0], index=[today])
+                elif kod_upper == "USD":
+                    prices = pd.Series([usd_try_rate], index=[today])
+                else:
+                    prices = pd.Series([1.0], index=[today])
+
+            # Fonlar: şimdilik sabit fiyatlı seri
+            elif "FON" in pazar_upper:
+                price, _ = get_tefas_data(kod)
+                if price and price > 0:
+                    idx = pd.date_range(
+                        end=pd.Timestamp.today().normalize(), periods=30, freq="D"
+                    )
+                    prices = pd.Series(price, index=idx)
+
+            # Gram Gümüş
+            elif "GRAM GÜMÜŞ" in kod_upper:
+                h = yf.Ticker("SI=F").history(period="60d", interval="1d")
+                if not h.empty:
+                    s = h["Close"]
+                    s = (s * usd_try_rate) / 31.1035  # TL/gram
+                    prices = s
+
+            # Gram Altın
+            elif "GRAM ALTIN" in kod_upper:
+                h = yf.Ticker("GC=F").history(period="60d", interval="1d")
+                if not h.empty:
+                    s = h["Close"]
+                    s = (s * usd_try_rate) / 31.1035  # TL/gram
+                    prices = s
+
+            # Hisse / Kripto vb.
+            else:
+                symbol = get_yahoo_symbol(kod, pazar)
+                h = yf.Ticker(symbol).history(period="60d", interval="1d")
+                if not h.empty:
+                    prices = h["Close"]
+        except Exception:
+            prices = None
+
+        if prices is None or prices.empty:
+            continue
+
+        # Seçilen para birimine çevir
+        if pb == "TRY":
+            if asset_currency == "USD":
+                values = prices * adet * usd_try_rate
+            else:
+                values = prices * adet
+        else:  # pb == "USD"
+            if asset_currency == "TRY":
+                values = prices * adet / usd_try_rate
+            else:
+                values = prices * adet
+
+        series = values.rename("Değer")
+        all_series.append(series)
+
+    if not all_series:
+        return None
+
+    # Tüm serileri hizalayıp topla
+    portfolio_series = pd.concat(all_series, axis=1).sum(axis=1).dropna()
+    portfolio_series = portfolio_series.sort_index()
+    portfolio_series = portfolio_series[-60:]  # son 60 gün
+
+    hist_df = portfolio_series.reset_index()
+    hist_df.columns = ["Tarih", "ToplamDeğer"]
+
+    y_title = f"Portföy Değeri ({'₺' if pb == 'TRY' else '$'})"
+
+    fig = px.line(
+        hist_df,
+        x="Tarih",
+        y="ToplamDeğer",
+    )
+    fig.update_layout(
+        margin=dict(t=10, b=0, l=0, r=0),
+        xaxis_title="Tarih",
+        yaxis_title=y_title,
+    )
+    return fig
