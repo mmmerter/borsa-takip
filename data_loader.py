@@ -10,7 +10,7 @@ import ccxt
 import pandas as pd
 import re
 
-from utils import get_yahoo_symbol
+from utils import get_yahoo_symbol # <-- Burası kritik!
 
 SHEET_NAME = "PortfoyData"
 
