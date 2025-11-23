@@ -4,12 +4,12 @@ import plotly.graph_objects as go
 import yfinance as yf
 import pandas as pd
 
-from utils import styled_dataframe, SECTOR_MAPPING # SECTOR_MAPPING eklendi
+from utils import styled_dataframe
 from data_loader import get_tefas_data
 
 
 # --------------------------------------------------------------------
-#  ORTAK PIE + BAR CHART (Updated: Tooltip eklendi)
+#  ORTAK PIE + BAR CHART (Fixed: Local vs Global Percentage Denominator)
 # --------------------------------------------------------------------
 def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = False, varlik_gorunumu: str = "YÜZDE (%)", total_spot_deger: float = 0):
     if df.empty or "Değer" not in df.columns:
@@ -20,17 +20,9 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
     has_pnl = "Top. Kâr/Zarar" in df.columns
     if has_pnl:
         agg_cols["Top. Kâr/Zarar"] = "sum"
-        
-    # Tooltip için şirket listesini topla (Sadece Sektör grafiği için geçerlidir)
-    if group_col == "Sektör" and "Kod" in df.columns:
-        agg_cols["Kod"] = lambda x: '<br>'.join(x.unique())
-        
+
     grouped = df.groupby(group_col, as_index=False).agg(agg_cols)
-    
-    # Şirket listesi toplanan sütunun adını düzeltme
-    if group_col == "Sektör":
-        grouped.rename(columns={'Kod': 'Şirketler'}, inplace=True)
-        
+
     total_val = grouped["Değer"].sum()
     if total_val <= 0:
         plot_df = grouped.copy()
@@ -40,8 +32,7 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
 
         major = grouped[grouped["_pct"] >= 1].copy()
         minor = grouped[grouped["_pct"] < 1].copy()
-        
-        # 'Diğer' grubunu oluştururken 'Şirketler' sütununu da taşı
+
         if not minor.empty and not major.empty:
             other_row = {
                 group_col: "Diğer",
@@ -49,11 +40,7 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
             }
             if has_pnl:
                 other_row["Top. Kâr/Zarar"] = minor["Top. Kâr/Zarar"].sum()
-            if group_col == "Sektör":
-                # Diğer'e giren şirketleri listele
-                minor_companies = '<br>'.join(minor['Şirketler'].explode().unique().tolist())
-                other_row["Şirketler"] = minor_companies
-                
+
             major = pd.concat(
                 [major, pd.DataFrame([other_row])], ignore_index=True
             )
@@ -74,10 +61,10 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
         
         # Denominatör seçimi: all_tab (Tümü/Dashboard) ise GLOBAL toplam, değilse LOKAL (sekme) toplamı
         if all_tab: 
-            denominator = total_spot_deger 
+            denominator = total_spot_deger # GLOBAL toplamı kullan (Dashboard/Tümü için doğru)
             title_suffix = "(Portföy %)"
         else:
-            denominator = total_plot_val
+            denominator = total_plot_val # LOKAL toplamı kullan (BIST, FON vb. için düzeltildi)
             title_suffix = "(Lokal %)"
             
         if denominator > 0:
@@ -101,9 +88,10 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
             value_fmt = f"{value_to_display:,.1f}"
 
         if r["_pct"] >= threshold:
+            # Buradaki yüzdesel kontrol (r["_pct"]), pastanın dilim büyüklüğüne göre yapılır (Local slice size)
             texts.append(f"{r[group_col]} {value_fmt}")
         else:
-            texts.append("")
+            texts.append("") # küçük dilimde yazı yok
 
 
     # Pasta daha geniş, bar biraz daha dar
@@ -112,29 +100,13 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
     # ====================
     # PIE CHART
     # ====================
-    
-    # Tooltip ayarı
-    hover_cols = ["Değer", "Top. Kâr/Zarar"]
-    if group_col == "Sektör" and "Şirketler" in plot_df.columns:
-        hover_cols.insert(0, 'Şirketler')
-
     pie_fig = px.pie(
         plot_df,
         values="Değer",
         names=group_col,
         hole=0.40,
-        title=f"Portföy Dağılımı {title_suffix}",
-        custom_data=hover_cols,
+        title=f"Portföy Dağılımı {title_suffix}"
     )
-    
-    # Tooltip metnini düzenleme
-    hover_template = '<b>%{label}</b><br>'
-    if 'Şirketler' in hover_cols:
-        hover_template += 'Şirketler: %{customdata[0]}<br>'
-        
-    hover_template += 'Değer: %{customdata[1]:.2f}<br>'
-    hover_template += 'K/Z: %{customdata[2]:.2f}'
-    
     pie_fig.update_traces(
         text=texts,
         textinfo="text",
@@ -143,7 +115,6 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
             color="white",
             family="Arial Black",
         ),
-        hovertemplate=hover_template,
     )
     pie_fig.update_layout(
         legend=dict(font=dict(size=14)),
@@ -153,7 +124,6 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
 
     # ====================
     # BAR CHART
-    # ... (Bar chart kısmı değişmedi)
     # ====================
     if has_pnl:
         bar_fig = px.bar(
@@ -198,7 +168,7 @@ def render_pie_bar_charts(df: pd.DataFrame, group_col: str, all_tab: bool = Fals
 
 
 # --------------------------------------------------------------------
-#  TARİHSEL GRAFİK (UNCHANGED)
+#  TARİHSEL GRAFİK (Şimdilik Stub)
 # --------------------------------------------------------------------
 def get_historical_chart(df_portfolio: pd.DataFrame, usd_try: float):
     """KRAL'daki gibi None dönüyor."""
@@ -206,13 +176,13 @@ def get_historical_chart(df_portfolio: pd.DataFrame, usd_try: float):
 
 
 # --------------------------------------------------------------------
-#  SEKME BAZLI PAZAR EKRANI (SIRASI DEĞİŞTİRİLDİ)
+#  SEKME BAZLI PAZAR EKRANI (SEKTÖR GRAFİĞİ EKLENDİ)
 # --------------------------------------------------------------------
 def render_pazar_tab(df, filter_key, symb, usd_try, varlik_gorunumu, total_spot_deger):
     if df.empty:
         return st.info("Veri yok.")
 
-    # 1. Filtreleme ve Veri Hazırlığı
+    # 1. Filtreleme
     if filter_key == "VADELI":
         sub = df[df["Pazar"].str.contains("VADELI", na=False)]
         is_vadeli = True
@@ -222,7 +192,8 @@ def render_pazar_tab(df, filter_key, symb, usd_try, varlik_gorunumu, total_spot_
     else:
         sub = df[df["Pazar"].str.contains(filter_key, na=False)]
         is_vadeli = False
-        
+
+
     if sub.empty:
         return st.info(f"{filter_key} yok.")
 
@@ -252,44 +223,36 @@ def render_pazar_tab(df, filter_key, symb, usd_try, varlik_gorunumu, total_spot_
 
     st.divider()
     
-    # ----------------------------------------------------------------
-    # 2. KOD BAZLI VARLIK DAĞILIMI GRAFİĞİ (YENİ SIRA: ÜSTTE)
-    # ----------------------------------------------------------------
+    # 2. SEKTÖR DAĞILIMI GRAFİĞİ (YENİ KISIM)
+    if not is_vadeli and filter_key not in ["EMTIA", "KRIPTO"]:
+
+        # Sektörlere göre grupla
+        sector_data = sub[sub["Sektör"] != ""].copy()
+        sector_data_grouped = sector_data.groupby("Sektör", as_index=False).agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
+
+        # Lokal Denominator (Grafiğin Lokal Total'ini kullanmak için)
+        local_total_for_sector = sub["Değer"].sum()
+
+        if not sector_data_grouped.empty:
+            st.subheader(f"📊 {filter_key} Sektör Dağılımı")
+            render_pie_bar_charts(
+                sector_data_grouped, 
+                "Sektör", 
+                all_tab=filter_key == "Tümü", # Tümü sekmesi global, diğerleri lokal yüzdelik için
+                varlik_gorunumu=varlik_gorunumu,
+                total_spot_deger=total_spot_deger # Global total'i geçiriyoruz, all_tab=False olduğunda lokal total kullanılır
+            )
+            st.divider()
+
+
+    # 3. KOD BAZLI VARLIK DAĞILIMI GRAFİĞİ (ESKİ KISIM)
     if not is_vadeli:
         is_all_tab = filter_key == "Tümü"
         
         st.subheader(f"📊 {filter_key} Kod Bazlı Dağılım")
         render_pie_bar_charts(sub, "Kod", all_tab=is_all_tab, varlik_gorunumu=varlik_gorunumu, total_spot_deger=total_spot_deger)
 
-        st.divider() # Grafikleri ayırmak için
-
-    # ----------------------------------------------------------------
-    # 3. SEKTÖR DAĞILIMI GRAFİĞİ (YENİ SIRA: ALTTA)
-    # ----------------------------------------------------------------
-    if not is_vadeli and filter_key not in ["EMTIA", "KRIPTO"]:
-        
-        # Sektörlere göre grupla ve şirket listesini topla
-        sector_data = sub.copy()
-        sector_data = sector_data[sector_data["Sektör"] != ""].copy()
-        
-        # Türkçe çeviri uygula (Plotting öncesi)
-        sector_data["Sektör"] = sector_data["Sektör"].map(SECTOR_MAPPING).fillna(sector_data["Sektör"])
-
-        # Tooltip için şirketleri topla (Aynı isimli şirketleri yoksay)
-        sector_data_grouped = sector_data.groupby("Sektör", as_index=False).agg({"Değer": "sum", "Top. Kâr/Zarar": "sum", "Kod": lambda x: '<br>'.join(x.unique())})
-        sector_data_grouped.rename(columns={'Kod': 'Şirketler'}, inplace=True)
-        
-        if not sector_data_grouped.empty:
-            st.subheader(f"📊 {filter_key} Sektör Dağılımı")
-            render_pie_bar_charts(
-                sector_data_grouped, 
-                "Sektör", 
-                all_tab=filter_key == "Tümü", 
-                varlik_gorunumu=varlik_gorunumu,
-                total_spot_deger=total_spot_deger
-            )
-
-    # 4. Tablo Gösterimi (UNCHANGED)
+    # 4. Tablo Gösterimi (Yüzde veya Tutar)
     df_display = sub.copy()
     
     # Yüzde Görünümü seçiliyse ve Vadeli değilse:
@@ -314,3 +277,47 @@ def render_pazar_tab(df, filter_key, symb, usd_try, varlik_gorunumu, total_spot_
         use_container_width=True,
         hide_index=True,
     )
+
+
+# --------------------------------------------------------------------
+#  DETAY SAYFASI
+# --------------------------------------------------------------------
+def render_detail_view(symbol, pazar):
+    st.markdown(f"### 🔎 {symbol} Detaylı Analizi")
+
+    if "FON" in pazar:
+        price, _ = get_tefas_data(symbol)
+        st.metric(f"{symbol} Son Fiyat", f"₺{price:,.6f}")
+        st.info("Yatırım fonu grafik desteği kısıtlıdır.")
+        return
+
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="2y")
+
+        if hist.empty:
+            st.warning("Grafik verisi yok.")
+            return
+
+        fig = go.Figure(
+            data=[
+                go.Candlestick(
+                    x=hist.index,
+                    open=hist["Open"],
+                    high=hist["High"],
+                    low=hist["Low"],
+                    close=hist["Close"],
+                )
+            ]
+        )
+
+        fig.update_layout(
+            title=f"{symbol} Fiyat Grafiği",
+            template="plotly_dark",
+            yaxis_title="Fiyat",
+            height=600,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Veri çekilemedi: {e}")
