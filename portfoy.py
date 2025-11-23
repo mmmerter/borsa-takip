@@ -70,7 +70,7 @@ st.markdown(
     div[data-testid="stMetricValue"] { color: #ffffff !important; }
     div[data-testid="stMetricLabel"] { color: #bfbfbf !important; }
 
-    /* Ticker CSS (INLINE STİL İLE ÇALIŞAN KRAL HALİ) */
+    /* Ticker CSS (INLINE STİLLE UYUMLU KALDI) */
     .ticker-container {
         width: 100%;
         overflow: hidden;
@@ -234,7 +234,7 @@ selected = option_menu(
 )
 
 
-# --- ANALİZ (GÜMÜŞ/ALTIN İÇİN DÜZELTME YAPILDI) ---
+# --- ANALİZ (SEKTÖR VERİSİ GERİ EKLENDİ) ---
 def run_analysis(df, usd_try_rate, view_currency):
     results = []
 
@@ -258,6 +258,25 @@ def run_analysis(df, usd_try_rate, view_currency):
             continue
 
         symbol = get_yahoo_symbol(kod, pazar)
+
+        # --- SEKTÖR VERİSİ ÇEKME BAŞLANGIÇ (GERİ YÜKLENDİ) ---
+        sector = ""
+        if "BIST" in pazar or "ABD" in pazar:
+            try:
+                # Sektör bilgisini yfinance'dan çek
+                ticker = yf.Ticker(symbol)
+                info = ticker.info
+                sector = info.get("sector", "Bilinmiyor")
+            except Exception:
+                sector = "Bilinmiyor"
+        elif "FON" in pazar:
+             sector = "Yatırım Fonu"
+        elif "NAKIT" in pazar:
+             sector = "Nakit Varlık"
+        elif "EMTIA" in pazar:
+             sector = "Emtia"
+        # --- SEKTÖR VERİSİ ÇEKME SON ---
+
 
         asset_currency = (
             "TRY"
@@ -299,29 +318,18 @@ def run_analysis(df, usd_try_rate, view_currency):
                 curr, prev = get_tefas_data(kod)
 
             elif "Gram Gümüş" in kod:
-                # 5 GÜNLÜK VERİ ÇEKEREK GÜVENLİ HALE GETİRİLDİ
-                h = yf.Ticker("SI=F").history(period="5d")
-                if not h.empty:
-                    c = h["Close"].iloc[-1]
-                    # Eğer önceki gün verisi varsa al, yoksa bugünküyle aynı say
-                    p = h["Close"].iloc[-2] if len(h) > 1 else c
-                    curr = (c * USD_TRY) / 31.1035
-                    prev = (p * USD_TRY) / 31.1035
-                else:
-                    curr = maliyet
-                    prev = maliyet
+                h = yf.Ticker("SI=F").history(period="2d")
+                c = h["Close"].iloc[-1]
+                p = h["Close"].iloc[-2]
+                curr = (c * USD_TRY) / 31.1035
+                prev = (p * USD_TRY) / 31.1035
 
             elif "Gram Altın" in kod:
-                # 5 GÜNLÜK VERİ ÇEKEREK GÜVENLİ HALE GETİRİLDİ
-                h = yf.Ticker("GC=F").history(period="5d")
-                if not h.empty:
-                    c = h["Close"].iloc[-1]
-                    p = h["Close"].iloc[-2] if len(h) > 1 else c
-                    curr = (c * USD_TRY) / 31.1035
-                    prev = (p * USD_TRY) / 31.1035
-                else:
-                    curr = maliyet
-                    prev = maliyet
+                h = yf.Ticker("GC=F").history(period="2d")
+                c = h["Close"].iloc[-1]
+                p = h["Close"].iloc[-2]
+                curr = (c * USD_TRY) / 31.1035
+                prev = (p * USD_TRY) / 31.1035
 
             else:
                 h = yf.Ticker(symbol).history(period="2d")
@@ -391,6 +399,7 @@ def run_analysis(df, usd_try_rate, view_currency):
                 "Top. %": pnl_pct,
                 "Gün. Kâr/Zarar": d_g,
                 "Notlar": row.get("Notlar", ""),
+                "Sektör": sector, # GERİ YÜKLENDİ
             }
         )
 
@@ -458,7 +467,24 @@ if selected == "Dashboard":
         )
 
         st.divider()
+
+        # --- YENİ EKLENEN SEKTÖR DAĞILIMI (KALDIRILMIŞTI) ---
+        # Sektör verisi artık var, dashboard'a tekrar ekleyelim
+        st.subheader("📊 Sektörlere Göre Dağılım (Tüm Spot)")
         
+        dash_sector_data = spot_only[spot_only["Sektör"] != ""].copy()
+        dash_sector_grouped = dash_sector_data.groupby("Sektör", as_index=False).agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
+        
+        render_pie_bar_charts(
+            dash_sector_grouped, "Sektör", 
+            all_tab=False,
+            varlik_gorunumu=VARLIK_GORUNUMU,
+            total_spot_deger=TOTAL_SPOT_DEGER
+        )
+        
+        st.divider()
+        # ... (Rest of Dashboard logic remains) ...
+
         c_tree_1, c_tree_2 = st.columns([3, 1])
         with c_tree_1:
             st.subheader("🗺️ Portföy Isı Haritası")
