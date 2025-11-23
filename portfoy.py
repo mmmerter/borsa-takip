@@ -13,7 +13,6 @@ from utils import (
     smart_parse,
     styled_dataframe,
     get_yahoo_symbol,
-    render_table,
 )
 from data_loader import (
     get_data_from_sheet,
@@ -31,7 +30,6 @@ from charts import (
     render_pazar_tab,
     render_detail_view,
     get_historical_chart,
-    render_sector_pie,
 )
 
 # --- SAYFA AYARLARI ---
@@ -42,40 +40,54 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# --- CSS ---
+# --- CSS (MOBİL UYUM VE STABİLİZASYON) ---
 st.markdown(
     """
 <style>
-    .block-container {padding-top: 1rem;}
-
+    /* Streamlit'in üst header'ını gizler (Mobil uygulama hissi için) */
+    header { visibility: hidden; height: 0px; } 
+    
+    /* Sol ve sağ kenar boşluklarını siler */
+    div.st-emotion-cache-1c9v9c4 { padding: 0 !important; } 
+    
+    /* Varsayılan Streamlit konteyner kenar boşluklarını sıfırlar */
+    .block-container {
+        padding-top: 1rem;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    
+    /* Metric Styling (STABIL VE KRAL'A ÖZEL STİL) */
     div[data-testid="stMetric"] {
         background-color: #262730 !important;
         border: 1px solid #464b5f;
         border-radius: 10px;
         padding: 15px;
         color: #ffffff !important;
+        box-shadow: none; 
+        transition: none;
     }
     div[data-testid="stMetricValue"] { color: #ffffff !important; }
     div[data-testid="stMetricLabel"] { color: #bfbfbf !important; }
 
+    /* Ticker CSS (INLINE STİLLE UYUMLU KALDI) */
     .ticker-container {
         width: 100%;
         overflow: hidden;
-        background-color: #050816;
+        background-color: #161616;
         border-bottom: 1px solid #333;
         margin-bottom: 20px;
         white-space: nowrap;
         position: relative;
-        box-shadow: 0 0 12px rgba(0, 255, 170, 0.35);
     }
     .market-ticker {
-        background: linear-gradient(90deg, #050816, #0f172a);
-        border-bottom: 1px solid #22d3ee;
+        background-color: #0e1117;
+        border-bottom: 1px solid #333;
         padding: 8px 0;
     }
     .portfolio-ticker {
-        background: linear-gradient(90deg, #050816, #1f2937);
-        border-bottom: 2px solid #22c55e;
+        background-color: #1a1c24;
+        border-bottom: 2px solid #FF4B4B;
         padding: 8px 0;
         margin-bottom: 20px;
     }
@@ -85,20 +97,12 @@ st.markdown(
         white-space: nowrap;
         padding-left: 0;
         font-family: 'Courier New', Courier, monospace;
-        font-size: 18px;
         font-weight: 900;
-        text-shadow:
-            0 0 4px rgba(34, 197, 94, 0.8),
-            0 0 8px rgba(56, 189, 248, 0.7);
+        color: #00e676;
     }
-    .animate-market {
-        animation: ticker 65s linear infinite;
-        color: #38bdf8;
-    }
-    .animate-portfolio {
-        animation: ticker 55s linear infinite;
-        color: #bbf7d0;
-    }
+    
+    .animate-market { animation: ticker 65s linear infinite; color: #4da6ff; }
+    .animate-portfolio { animation: ticker 55s linear infinite; color: #ffd700; }
 
     @keyframes ticker {
         0% { transform: translate3d(0, 0, 0); }
@@ -125,12 +129,15 @@ st.markdown(
     }
     a { text-decoration: none !important; }
     a:hover { text-decoration: underline !important; }
+    
 </style>
 """,
     unsafe_allow_html=True,
 )
+# --- CSS SONU ---
 
-# --- HABER UI ---
+
+# --- HABER UI (UNCHANGED) ---
 def render_news_section(name, key):
     st.subheader(f"📰 {name}")
     news = get_financial_news(key)
@@ -151,7 +158,7 @@ def render_news_section(name, key):
         st.info("Haber akışı yüklenemedi.")
 
 
-# --- ANA DATA ---
+# --- ANA DATA (UNCHANGED) ---
 portfoy_df = get_data_from_sheet()
 
 c_title, c_toggle = st.columns([3, 1])
@@ -227,7 +234,7 @@ selected = option_menu(
 )
 
 
-# --- ANALİZ ---
+# --- ANALİZ (SEKTÖR VERİSİ EKLENDİ) ---
 def run_analysis(df, usd_try_rate, view_currency):
     results = []
 
@@ -238,7 +245,6 @@ def run_analysis(df, usd_try_rate, view_currency):
         kod = row.get("Kod", "")
         pazar = row.get("Pazar", "")
         tip = row.get("Tip", "")
-        sektor = row.get("Sektör", "")
 
         if kod in KNOWN_FUNDS:
             pazar = "FON"
@@ -252,6 +258,25 @@ def run_analysis(df, usd_try_rate, view_currency):
             continue
 
         symbol = get_yahoo_symbol(kod, pazar)
+
+        # --- SEKTÖR VERİSİ ÇEKME BAŞLANGIÇ ---
+        sector = ""
+        if "BIST" in pazar or "ABD" in pazar:
+            try:
+                # Sektör bilgisini yfinance'dan çek
+                ticker = yf.Ticker(symbol)
+                info = ticker.info
+                sector = info.get("sector", "Bilinmiyor")
+            except Exception:
+                sector = "Bilinmiyor"
+        elif "FON" in pazar:
+             sector = "Yatırım Fonu"
+        elif "NAKIT" in pazar:
+             sector = "Nakit Varlık"
+        elif "EMTIA" in pazar:
+             sector = "Emtia"
+        # --- SEKTÖR VERİSİ ÇEKME SON ---
+
 
         asset_currency = (
             "TRY"
@@ -273,7 +298,7 @@ def run_analysis(df, usd_try_rate, view_currency):
                 if kod == "TL":
                     curr = 1
                 elif kod == "USD":
-                    curr = usd_try_rate
+                    curr = USD_TRY
                 elif kod == "EUR":
                     try:
                         curr = (
@@ -296,15 +321,15 @@ def run_analysis(df, usd_try_rate, view_currency):
                 h = yf.Ticker("SI=F").history(period="2d")
                 c = h["Close"].iloc[-1]
                 p = h["Close"].iloc[-2]
-                curr = (c * usd_try_rate) / 31.1035
-                prev = (p * usd_try_rate) / 31.1035
+                curr = (c * USD_TRY) / 31.1035
+                prev = (p * USD_TRY) / 31.1035
 
             elif "Gram Altın" in kod:
                 h = yf.Ticker("GC=F").history(period="2d")
                 c = h["Close"].iloc[-1]
                 p = h["Close"].iloc[-2]
-                curr = (c * usd_try_rate) / 31.1035
-                prev = (p * usd_try_rate) / 31.1035
+                curr = (c * USD_TRY) / 31.1035
+                prev = (p * USD_TRY) / 31.1035
 
             else:
                 h = yf.Ticker(symbol).history(period="2d")
@@ -330,12 +355,12 @@ def run_analysis(df, usd_try_rate, view_currency):
 
         daily_chg_native = (curr - prev) * adet if "VADELI" not in pazar else 0
 
-        if view_currency == "TRY":
+        if GORUNUM_PB == "TRY":
             if asset_currency == "USD":
-                f_g = curr * usd_try_rate
-                v_g = val_native * usd_try_rate
-                c_g = cost_native * usd_try_rate
-                d_g = daily_chg_native * usd_try_rate
+                f_g = curr * USD_TRY
+                v_g = val_native * USD_TRY
+                c_g = cost_native * USD_TRY
+                d_g = daily_chg_native * USD_TRY
             else:
                 f_g = curr
                 v_g = val_native
@@ -343,10 +368,10 @@ def run_analysis(df, usd_try_rate, view_currency):
                 d_g = daily_chg_native
         else:
             if asset_currency == "TRY":
-                f_g = curr / usd_try_rate
-                v_g = val_native / usd_try_rate
-                c_g = cost_native / usd_try_rate
-                d_g = daily_chg_native / usd_try_rate
+                f_g = curr / USD_TRY
+                v_g = val_native / USD_TRY
+                c_g = cost_native / USD_TRY
+                d_g = daily_chg_native / USD_TRY
             else:
                 f_g = curr
                 v_g = val_native
@@ -364,17 +389,17 @@ def run_analysis(df, usd_try_rate, view_currency):
             {
                 "Kod": kod,
                 "Pazar": pazar,
-                "Sektör": sektor,
                 "Tip": tip,
                 "Adet": adet,
                 "Maliyet": maliyet,
                 "Fiyat": f_g,
-                "PB": view_currency,
+                "PB": GORUNUM_PB,
                 "Değer": v_g,
                 "Top. Kâr/Zarar": pnl,
                 "Top. %": pnl_pct,
                 "Gün. Kâr/Zarar": d_g,
                 "Notlar": row.get("Notlar", ""),
+                "Sektör": sector, # YENİ SÜTUN
             }
         )
 
@@ -386,6 +411,18 @@ master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
 portfoy_only = master_df[master_df["Tip"] == "Portfoy"]
 takip_only = master_df[master_df["Tip"] == "Takip"]
 
+# --- VARLIK GÖRÜNÜMÜ AYARI VE TOPLAM DEĞER HESABI (UNCHANGED) ---
+TOTAL_SPOT_DEGER = portfoy_only[~portfoy_only["Pazar"].str.contains("VADELI", na=False)]["Değer"].sum()
+
+st.markdown("---")
+VARLIK_GORUNUMU = st.radio(
+    "Varlık Gösterimi:",
+    ["YÜZDE (%)", "TUTAR (₺/$)",],
+    index=0, # Yüzde (%) varsayılan
+    horizontal=True
+)
+st.markdown("---")
+# --------------------------------------------------------------------------
 
 # --- MENÜLER ---
 if selected == "Dashboard":
@@ -396,30 +433,59 @@ if selected == "Dashboard":
 
         t_v = spot_only["Değer"].sum()
         t_p = spot_only["Top. Kâr/Zarar"].sum()
-        t_cost = t_v - t_p
-        t_pct = (t_p / t_cost * 100) if t_cost > 0 else 0
+
+        # Dashboard için yüzde hesapla
+        total_cost = (spot_only["Değer"] - spot_only["Top. Kâr/Zarar"]).sum()
+        pct = (t_p / total_cost * 100) if total_cost != 0 else 0
 
         c1, c2 = st.columns(2)
+        
+        # --- Metric 1: Toplam Spot Varlık (STABIL METRIC ÇAĞRISI) ---
         c1.metric("Toplam Spot Varlık", f"{sym}{t_v:,.0f}")
+
+        # --- Metric 2: Genel Kâr/Zarar (STABIL METRIC ÇAĞRISI) ---
         c2.metric(
             "Genel Kâr/Zarar",
             f"{sym}{t_p:,.0f}",
-            delta=f"%{t_pct:,.2f}",
+            delta=f"{pct:.2f}%"
         )
 
         st.divider()
 
+        # --- PAZAR BAZLI DAĞILIM (ESKİ GRAFİK) ---
         st.subheader("📊 Pazarlara Göre Dağılım")
         dash_pazar = (
             spot_only.groupby("Pazar", as_index=False)
             .agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
         )
-        render_pie_bar_charts(dash_pazar, "Pazar")
-
-        st.subheader("🏭 Sektörlere Göre Dağılım")
-        render_sector_pie(spot_only)
+        # Dashboard grafiği için:
+        render_pie_bar_charts(
+            dash_pazar, "Pazar", 
+            all_tab=False,
+            varlik_gorunumu=VARLIK_GORUNUMU,
+            total_spot_deger=TOTAL_SPOT_DEGER
+        )
 
         st.divider()
+
+        # --- YENİ EKLENEN SEKTÖR DAĞILIMI ---
+        st.subheader("📊 Sektörlere Göre Dağılım (Tüm Spot)")
+        
+        # Sadece sektör bilgisi olan varlıkları kullan (Stocks, Funds, Nakit)
+        dash_sector_data = spot_only[spot_only["Sektör"] != ""].copy()
+        
+        # Sector bazında grupla
+        dash_sector_grouped = dash_sector_data.groupby("Sektör", as_index=False).agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
+        
+        render_pie_bar_charts(
+            dash_sector_grouped, "Sektör", 
+            all_tab=False,
+            varlik_gorunumu=VARLIK_GORUNUMU,
+            total_spot_deger=TOTAL_SPOT_DEGER
+        )
+        
+        st.divider()
+        # ... (Rest of Dashboard logic remains) ...
 
         c_tree_1, c_tree_2 = st.columns([3, 1])
         with c_tree_1:
@@ -433,9 +499,14 @@ if selected == "Dashboard":
 
         color_col = "Top. %"
         spot_only = spot_only.copy()
-        spot_only["Gün. %"] = (
-            spot_only["Gün. Kâr/Zarar"]
-            / (spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"])
+        spot_only["Gün. %"] = 0.0
+        
+        # Sıfıra bölünme koruması
+        safe_val = spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"]
+        non_zero = safe_val != 0
+        
+        spot_only.loc[non_zero, "Gün. %"] = (
+            spot_only.loc[non_zero, "Gün. Kâr/Zarar"] / safe_val[non_zero]
         ) * 100
 
         if map_mode == "Günlük Değişim %":
@@ -459,29 +530,18 @@ if selected == "Dashboard":
         fig.update_layout(margin=dict(t=0, l=0, r=0, b=0))
         st.plotly_chart(fig, use_container_width=True)
 
-        st.subheader("📋 Tüm Varlıklar")
-        render_table(portfoy_only)
-
     else:
         st.info("Boş.")
 
+# Tüm sekmeler artık render_pazar_tab'ı çağıracak şekilde düzenlenmiştir.
+# Tümü sekmesi için filter_key="Tümü" kullanılır.
 elif selected == "Tümü":
-    if not portfoy_only.empty:
-        st.subheader("📊 Varlık Bazlı Dağılım (Tümü)")
-        render_pie_bar_charts(portfoy_only, "Kod")
-
-        st.subheader("🏭 Sektörlere Göre Dağılım (Tümü)")
-        render_sector_pie(portfoy_only)
-
-        st.divider()
-
-        render_table(portfoy_only)
-    else:
-        st.info("Portföy boş.")
+    st.subheader("📊 Varlık Bazlı Dağılım (Tümü)")
+    render_pazar_tab(portfoy_only, "Tümü", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
 
 elif selected == "Vadeli":
     st.subheader("🚀 Vadeli İşlemler")
-
+    # ... (API ve Manuel takip expander'ları buraya taşınmıştır)
     with st.expander("🔑 API ile Otomatik Çek (Opsiyonel)"):
         ak = st.text_input("API Key", type="password")
         ask = st.text_input("Secret", type="password")
@@ -496,25 +556,26 @@ elif selected == "Vadeli":
 
     st.markdown("---")
     st.markdown("### 📝 Manuel Vadeli Takip")
-    render_pazar_tab(portfoy_only, "VADELI", sym, USD_TRY)
+    # Vadeli, yüzdelik gösterimden bağımsızdır.
+    render_pazar_tab(portfoy_only, "VADELI", sym, USD_TRY, "TUTAR (₺/$)", TOTAL_SPOT_DEGER)
 
 elif selected == "Nakit":
-    render_pazar_tab(portfoy_only, "NAKIT", sym, USD_TRY)
+    render_pazar_tab(portfoy_only, "NAKIT", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
 
 elif selected == "BIST":
-    render_pazar_tab(portfoy_only, "BIST", sym, USD_TRY)
+    render_pazar_tab(portfoy_only, "BIST", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
 
 elif selected == "ABD":
-    render_pazar_tab(portfoy_only, "ABD", sym, USD_TRY)
+    render_pazar_tab(portfoy_only, "ABD", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
 
 elif selected == "FON":
-    render_pazar_tab(portfoy_only, "FON", sym, USD_TRY)
+    render_pazar_tab(portfoy_only, "FON", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
 
 elif selected == "Emtia":
-    render_pazar_tab(portfoy_only, "EMTIA", sym, USD_TRY)
+    render_pazar_tab(portfoy_only, "EMTIA", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
 
 elif selected == "Kripto":
-    render_pazar_tab(portfoy_only, "KRIPTO", sym, USD_TRY)
+    render_pazar_tab(portfoy_only, "KRIPTO", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
 
 elif selected == "Haberler":
     tab1, tab2, tab3, tab4 = st.tabs(["BIST", "Kripto", "Global", "Döviz"])
@@ -528,21 +589,33 @@ elif selected == "Haberler":
         render_news_section("Döviz / Altın", "DOVIZ")
 
 elif selected == "İzleme":
+    # ... (İzleme listesi logic)
+    st.subheader("👁️ İzleme Listesi")
     if not takip_only.empty:
-        render_table(takip_only)
+        st.dataframe(
+            styled_dataframe(takip_only),
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
         st.info("İzleme listesi boş.")
 
 elif selected == "Satışlar":
+    # ... (Satışlar logic)
+    st.subheader("🧾 Satış Geçmişi")
     sales_df = get_sales_history()
     if not sales_df.empty:
-        render_table(sales_df)
+        st.dataframe(
+            styled_dataframe(sales_df),
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
         st.info("Satış kaydı yok.")
 
 elif selected == "Ekle/Çıkar":
     st.header("Varlık Yönetimi")
-
+    # ... (Ekle/Çıkar tab logic)
     tab1, tab2, tab3 = st.tabs(["Ekle", "Düzenle", "Sil/Sat"])
 
     # --- EKLE ---
