@@ -213,11 +213,9 @@ def get_financial_news(topic="finance"):
         return []
 
 
-# --- TAPE (INLINE STİL ENJEKSİYONLU) ---
+# --- TAPE (GÜMÜŞ VE ALTIN FİYAT AKIŞI DÜZELTİLDİ) ---
 @st.cache_data(ttl=45)  # KRAL’daki gibi 45 sn
 def get_tickers_data(df_portfolio, usd_try):
-    # HATA VEREN relative import SİLİNDİ
-    # Aynı dosyadaki cache'li fonksiyonu direkt çağırıyoruz
     total_cap, btc_d, total_3, others_d, others_cap = get_crypto_globals()
 
     market_symbols = [
@@ -249,8 +247,8 @@ def get_tickers_data(df_portfolio, usd_try):
         set([s[1] for s in market_symbols] + list(portfolio_symbols.values()))
     )
 
-    market_html = '<span style="color:#aaa; font-size: 22px; font-weight: 900;">🌍 PİYASA:</span> &nbsp;'
-    portfolio_html = '<span style="color:#aaa; font-size: 22px; font-weight: 900;">💼 PORTFÖY:</span> &nbsp;'
+    market_html = '<span style="color:#aaa">🌍 PİYASA:</span> &nbsp;'
+    portfolio_html = '<span style="color:#aaa">💼 PORTFÖY:</span> &nbsp;'
 
     try:
         yahoo_data = yf.Tickers(" ".join(all_fetch))
@@ -273,11 +271,10 @@ def get_tickers_data(df_portfolio, usd_try):
                     if "XU100" in symbol or "^" in symbol:
                         fmt = f"{p:,.0f}"
 
-                    # YENİ: Inline stil enjeksiyonu (garantili büyüklük ve renk)
                     return (
-                        f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">{label if label else symbol}: </span>'
-                        f'<span style="color:white; font-size: 22px; font-weight: 900;">{fmt}</span> '
-                        f'<span style="color:{col}; font-size: 22px; font-weight: 900;">{arrow}%{chg:.2f}</span>'
+                        f'{label if label else symbol}: '
+                        f'<span style="color:white">{fmt}</span> '
+                        f'<span style="color:{col}">{arrow}%{chg:.2f}</span>'
                     )
             except Exception:
                 return ""
@@ -290,47 +287,36 @@ def get_tickers_data(df_portfolio, usd_try):
                 market_html += f"{val} &nbsp;|&nbsp; "
 
             if name == "ETH/USDT":
-                # Gram Altın
+                # Gram Altın (DÜZELTME: 5 Günlük Veri Kontrolü)
                 try:
-                    ons = (
-                        yahoo_data.tickers["GC=F"]
-                        .history(period="1d")["Close"]
-                        .iloc[-1]
-                    )
-                    # YENİ: Inline stil enjeksiyonu
-                    market_html += (
-                        f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">Gr Altın: </span>'
-                        f'<span style="color:white; font-size: 22px; font-weight: 900;">{(ons * usd_try) / 31.1035:.2f}</span> &nbsp;|&nbsp; '
-                    )
+                    hist = yahoo_data.tickers["GC=F"].history(period="5d")
+                    if not hist.empty:
+                        ons = hist["Close"].iloc[-1]
+                        market_html += (
+                            f'Gr Altın: <span style="color:white">'
+                            f"{(ons * usd_try) / 31.1035:.2f}</span> &nbsp;|&nbsp; "
+                        )
                 except Exception:
                     pass
-                # Gram Gümüş
+                # Gram Gümüş (DÜZELTME: 5 Günlük Veri Kontrolü)
                 try:
-                    ons = (
-                        yahoo_data.tickers["SI=F"]
-                        .history(period="1d")["Close"]
-                        .iloc[-1]
-                    )
-                    # YENİ: Inline stil enjeksiyonu
-                    market_html += (
-                        f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">Gr Gümüş: </span>'
-                        f'<span style="color:white; font-size: 22px; font-weight: 900;">{(ons * usd_try) / 31.1035:.2f}</span> &nbsp;|&nbsp; '
-                    )
+                    hist = yahoo_data.tickers["SI=F"].history(period="5d")
+                    if not hist.empty:
+                        ons = hist["Close"].iloc[-1]
+                        market_html += (
+                            f'Gr Gümüş: <span style="color:white">'
+                            f"{(ons * usd_try) / 31.1035:.2f}</span> &nbsp;|&nbsp; "
+                        )
                 except Exception:
                     pass
 
         # Kripto global
         if total_cap > 0:
-            # YENİ: Inline stil enjeksiyonu (kripto global değerler için)
             market_html += (
-                f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">BTC.D: </span>'
-                f'<span style="color:#f2a900; font-size: 22px; font-weight: 900;">% {btc_d:.2f}</span> &nbsp;|&nbsp; '
-                f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">TOTAL: </span>'
-                f'<span style="color:#00e676; font-size: 22px; font-weight: 900;">${(total_cap/1e12):.2f}T</span> &nbsp;|&nbsp; '
-                f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">TOTAL 3: </span>'
-                f'<span style="color:#627eea; font-size: 22px; font-weight: 900;">${(total_3/1e9):.0f}B</span> &nbsp;|&nbsp; '
-                f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">OTHERS.D: </span>'
-                f'<span style="color:#627eea; font-size: 22px; font-weight: 900;">% {others_d:.2f}</span> &nbsp;|&nbsp; '
+                f'BTC.D: <span style="color:#f2a900">% {btc_d:.2f}</span> &nbsp;|&nbsp; '
+                f'TOTAL: <span style="color:#00e676">${(total_cap/1e12):.2f}T</span> &nbsp;|&nbsp; '
+                f'TOTAL 3: <span style="color:#627eea">${(total_3/1e9):.0f}B</span> &nbsp;|&nbsp; '
+                f'OTHERS.D: <span style="color:#627eea">% {others_d:.2f}</span> &nbsp;|&nbsp; '
             )
 
         # Portföy
