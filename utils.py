@@ -48,6 +48,26 @@ MARKET_DATA = {
     "NAKIT": ["TL", "USD", "EUR"],
 }
 
+# --- YENİ EKLENEN KISIM ---
+SECTOR_MAPPING = {
+    "Technology": "Teknoloji",
+    "Consumer Cyclical": "Tüketici Döngüsel",
+    "Communication Services": "Haberleşme Hizmetleri",
+    "Energy": "Enerji",
+    "Utilities": "Hizmet Sektörü",
+    "Basic Materials": "Temel Maddeler",
+    "Healthcare": "Sağlık Hizmetleri",
+    "Financial Services": "Finansal Hizmetler",
+    "Industrials": "Sanayi",
+    "Real Estate": "Gayrimenkul",
+    "Consumer Defensive": "Tüketici Savunma",
+    "Nakit Varlık": "Nakit Varlık",
+    "Yatırım Fonu": "Yatırım Fonu",
+    "Emtia": "Emtia",
+    "Bilinmiyor": "Bilinmiyor",
+    "Others": "Diğer",
+}
+# ---------------------------
 
 def get_yahoo_symbol(kod, pazar):
     kod = str(kod).upper()
