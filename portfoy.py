@@ -24,6 +24,7 @@ from data_loader import (
     get_financial_news,
     get_tefas_data,
     get_binance_positions,
+    get_sector,  # 👈 yeni
 )
 from charts import (
     render_pie_bar_charts,
@@ -40,37 +41,22 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# --- CSS (MOBİL UYUM VE STABİLİZASYON) ---
+# --- CSS ---
 st.markdown(
     """
 <style>
-    /* Streamlit'in üst header'ını gizler (Mobil uygulama hissi için) */
-    header { visibility: hidden; height: 0px; } 
-    
-    /* Sol ve sağ kenar boşluklarını siler */
-    div.st-emotion-cache-1c9v9c4 { padding: 0 !important; } 
-    
-    /* Varsayılan Streamlit konteyner kenar boşluklarını sıfırlar */
-    .block-container {
-        padding-top: 1rem;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
-    
-    /* Metric Styling (STABIL VE KRAL'A ÖZEL STİL) */
+    .block-container {padding-top: 1rem;}
+
     div[data-testid="stMetric"] {
         background-color: #262730 !important;
         border: 1px solid #464b5f;
         border-radius: 10px;
         padding: 15px;
         color: #ffffff !important;
-        box-shadow: none; 
-        transition: none;
     }
     div[data-testid="stMetricValue"] { color: #ffffff !important; }
     div[data-testid="stMetricLabel"] { color: #bfbfbf !important; }
 
-    /* Ticker CSS (INLINE STİLLE UYUMLU KALDI) */
     .ticker-container {
         width: 100%;
         overflow: hidden;
@@ -97,10 +83,10 @@ st.markdown(
         white-space: nowrap;
         padding-left: 0;
         font-family: 'Courier New', Courier, monospace;
+        font-size: 16px;
         font-weight: 900;
         color: #00e676;
     }
-    
     .animate-market { animation: ticker 65s linear infinite; color: #4da6ff; }
     .animate-portfolio { animation: ticker 55s linear infinite; color: #ffd700; }
 
@@ -129,15 +115,12 @@ st.markdown(
     }
     a { text-decoration: none !important; }
     a:hover { text-decoration: underline !important; }
-    
 </style>
 """,
     unsafe_allow_html=True,
 )
-# --- CSS SONU ---
 
-
-# --- HABER UI (UNCHANGED) ---
+# --- HABER UI ---
 def render_news_section(name, key):
     st.subheader(f"📰 {name}")
     news = get_financial_news(key)
@@ -158,7 +141,7 @@ def render_news_section(name, key):
         st.info("Haber akışı yüklenemedi.")
 
 
-# --- ANA DATA (UNCHANGED) ---
+# --- ANA DATA ---
 portfoy_df = get_data_from_sheet()
 
 c_title, c_toggle = st.columns([3, 1])
@@ -234,7 +217,7 @@ selected = option_menu(
 )
 
 
-# --- ANALİZ (SEKTÖR VERİSİ EKLENDİ) ---
+# --- ANALİZ ---
 def run_analysis(df, usd_try_rate, view_currency):
     results = []
 
@@ -259,25 +242,7 @@ def run_analysis(df, usd_try_rate, view_currency):
 
         symbol = get_yahoo_symbol(kod, pazar)
 
-        # --- SEKTÖR VERİSİ ÇEKME BAŞLANGIÇ ---
-        sector = ""
-        if "BIST" in pazar or "ABD" in pazar:
-            try:
-                # Sektör bilgisini yfinance'dan çek
-                ticker = yf.Ticker(symbol)
-                info = ticker.info
-                sector = info.get("sector", "Bilinmiyor")
-            except Exception:
-                sector = "Bilinmiyor"
-        elif "FON" in pazar:
-             sector = "Yatırım Fonu"
-        elif "NAKIT" in pazar:
-             sector = "Nakit Varlık"
-        elif "EMTIA" in pazar:
-             sector = "Emtia"
-        # --- SEKTÖR VERİSİ ÇEKME SON ---
-
-
+        # Varlık hangi para biriminde?
         asset_currency = (
             "TRY"
             if (
@@ -289,6 +254,16 @@ def run_analysis(df, usd_try_rate, view_currency):
             )
             else "USD"
         )
+
+        # --- SEKTÖR BELİRLEME ---
+        sektor = ""
+        pazar_upper = str(pazar).upper()
+        if "VADELI" in pazar_upper or "NAKIT" in pazar_upper or "KRIPTO" in pazar_upper:
+            sektor = ""
+        elif "EMTIA" in pazar_upper:
+            sektor = "Emtia"
+        elif "FON" in pazar_upper or "BIST" in pazar_upper or "ABD" in pazar_upper:
+            sektor = get_sector(kod, pazar)
 
         curr = 0
         prev = 0
@@ -398,8 +373,8 @@ def run_analysis(df, usd_try_rate, view_currency):
                 "Top. Kâr/Zarar": pnl,
                 "Top. %": pnl_pct,
                 "Gün. Kâr/Zarar": d_g,
+                "Sektör": sektor,
                 "Notlar": row.get("Notlar", ""),
-                "Sektör": sector, # YENİ SÜTUN
             }
         )
 
@@ -411,18 +386,6 @@ master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
 portfoy_only = master_df[master_df["Tip"] == "Portfoy"]
 takip_only = master_df[master_df["Tip"] == "Takip"]
 
-# --- VARLIK GÖRÜNÜMÜ AYARI VE TOPLAM DEĞER HESABI (UNCHANGED) ---
-TOTAL_SPOT_DEGER = portfoy_only[~portfoy_only["Pazar"].str.contains("VADELI", na=False)]["Değer"].sum()
-
-st.markdown("---")
-VARLIK_GORUNUMU = st.radio(
-    "Varlık Gösterimi:",
-    ["YÜZDE (%)", "TUTAR (₺/$)",],
-    index=0, # Yüzde (%) varsayılan
-    horizontal=True
-)
-st.markdown("---")
-# --------------------------------------------------------------------------
 
 # --- MENÜLER ---
 if selected == "Dashboard":
@@ -434,59 +397,45 @@ if selected == "Dashboard":
         t_v = spot_only["Değer"].sum()
         t_p = spot_only["Top. Kâr/Zarar"].sum()
 
-        # Dashboard için yüzde hesapla
-        total_cost = (spot_only["Değer"] - spot_only["Top. Kâr/Zarar"]).sum()
-        pct = (t_p / total_cost * 100) if total_cost != 0 else 0
-
         c1, c2 = st.columns(2)
-        
-        # --- Metric 1: Toplam Spot Varlık (STABIL METRIC ÇAĞRISI) ---
         c1.metric("Toplam Spot Varlık", f"{sym}{t_v:,.0f}")
-
-        # --- Metric 2: Genel Kâr/Zarar (STABIL METRIC ÇAĞRISI) ---
-        c2.metric(
-            "Genel Kâr/Zarar",
-            f"{sym}{t_p:,.0f}",
-            delta=f"{pct:.2f}%"
-        )
+        c2.metric("Genel Kâr/Zarar", f"{sym}{t_p:,.0f}", delta=f"{t_p:,.0f}")
 
         st.divider()
 
-        # --- PAZAR BAZLI DAĞILIM (ESKİ GRAFİK) ---
-        st.subheader("📊 Pazarlara Göre Dağılım")
+        # --- Dashboard: BIST / ABD / FON / EMTIA / NAKIT dağılımı ---
+        st.subheader("📊 Piyasa Bazında Dağılım (BIST / ABD / FON / EMTIA / NAKIT)")
+
+        def map_kategori(pazar):
+            p = str(pazar).upper()
+            if "BIST" in p:
+                return "BIST"
+            if "ABD" in p:
+                return "ABD"
+            if "FON" in p:
+                return "FON"
+            if "EMTIA" in p:
+                return "EMTIA"
+            if "NAKIT" in p:
+                return "NAKIT"
+            return "Diğer"
+
+        spot_only = spot_only.copy()
+        spot_only["Kategori"] = spot_only["Pazar"].apply(map_kategori)
+
         dash_pazar = (
-            spot_only.groupby("Pazar", as_index=False)
+            spot_only.groupby("Kategori", as_index=False)
             .agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
         )
-        # Dashboard grafiği için:
-        render_pie_bar_charts(
-            dash_pazar, "Pazar", 
-            all_tab=False,
-            varlik_gorunumu=VARLIK_GORUNUMU,
-            total_spot_deger=TOTAL_SPOT_DEGER
-        )
+        dash_pazar = dash_pazar[
+            dash_pazar["Kategori"].isin(["BIST", "ABD", "FON", "EMTIA", "NAKIT"])
+        ]
+
+        render_pie_bar_charts(dash_pazar, "Kategori")
 
         st.divider()
 
-        # --- YENİ EKLENEN SEKTÖR DAĞILIMI ---
-        st.subheader("📊 Sektörlere Göre Dağılım (Tüm Spot)")
-        
-        # Sadece sektör bilgisi olan varlıkları kullan (Stocks, Funds, Nakit)
-        dash_sector_data = spot_only[spot_only["Sektör"] != ""].copy()
-        
-        # Sector bazında grupla
-        dash_sector_grouped = dash_sector_data.groupby("Sektör", as_index=False).agg({"Değer": "sum", "Top. Kâr/Zarar": "sum"})
-        
-        render_pie_bar_charts(
-            dash_sector_grouped, "Sektör", 
-            all_tab=False,
-            varlik_gorunumu=VARLIK_GORUNUMU,
-            total_spot_deger=TOTAL_SPOT_DEGER
-        )
-        
-        st.divider()
-        # ... (Rest of Dashboard logic remains) ...
-
+        # Isı haritası
         c_tree_1, c_tree_2 = st.columns([3, 1])
         with c_tree_1:
             st.subheader("🗺️ Portföy Isı Haritası")
@@ -498,22 +447,17 @@ if selected == "Dashboard":
             )
 
         color_col = "Top. %"
-        spot_only = spot_only.copy()
-        spot_only["Gün. %"] = 0.0
-        
-        # Sıfıra bölünme koruması
-        safe_val = spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"]
-        non_zero = safe_val != 0
-        
-        spot_only.loc[non_zero, "Gün. %"] = (
-            spot_only.loc[non_zero, "Gün. Kâr/Zarar"] / safe_val[non_zero]
+        spot_heat = spot_only.copy()
+        spot_heat["Gün. %"] = (
+            spot_heat["Gün. Kâr/Zarar"]
+            / (spot_heat["Değer"] - spot_heat["Gün. Kâr/Zarar"]).replace(0, pd.NA)
         ) * 100
 
         if map_mode == "Günlük Değişim %":
             color_col = "Gün. %"
 
         fig = px.treemap(
-            spot_only,
+            spot_heat,
             path=[px.Constant("Portföy"), "Kod"],
             values="Değer",
             color=color_col,
@@ -533,15 +477,24 @@ if selected == "Dashboard":
     else:
         st.info("Boş.")
 
-# Tüm sekmeler artık render_pazar_tab'ı çağıracak şekilde düzenlenmiştir.
-# Tümü sekmesi için filter_key="Tümü" kullanılır.
 elif selected == "Tümü":
-    st.subheader("📊 Varlık Bazlı Dağılım (Tümü)")
-    render_pazar_tab(portfoy_only, "Tümü", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
+    if not portfoy_only.empty:
+        st.subheader("📊 Varlık Bazlı Dağılım (Tümü)")
+        render_pie_bar_charts(portfoy_only, "Kod")
+
+        st.divider()
+
+        st.dataframe(
+            styled_dataframe(portfoy_only),
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("Portföy boş.")
 
 elif selected == "Vadeli":
     st.subheader("🚀 Vadeli İşlemler")
-    # ... (API ve Manuel takip expander'ları buraya taşınmıştır)
+
     with st.expander("🔑 API ile Otomatik Çek (Opsiyonel)"):
         ak = st.text_input("API Key", type="password")
         ask = st.text_input("Secret", type="password")
@@ -556,26 +509,25 @@ elif selected == "Vadeli":
 
     st.markdown("---")
     st.markdown("### 📝 Manuel Vadeli Takip")
-    # Vadeli, yüzdelik gösterimden bağımsızdır.
-    render_pazar_tab(portfoy_only, "VADELI", sym, USD_TRY, "TUTAR (₺/$)", TOTAL_SPOT_DEGER)
+    render_pazar_tab(portfoy_only, "VADELI", sym, USD_TRY)
 
 elif selected == "Nakit":
-    render_pazar_tab(portfoy_only, "NAKIT", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
+    render_pazar_tab(portfoy_only, "NAKIT", sym, USD_TRY)
 
 elif selected == "BIST":
-    render_pazar_tab(portfoy_only, "BIST", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
+    render_pazar_tab(portfoy_only, "BIST", sym, USD_TRY)
 
 elif selected == "ABD":
-    render_pazar_tab(portfoy_only, "ABD", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
+    render_pazar_tab(portfoy_only, "ABD", sym, USD_TRY)
 
 elif selected == "FON":
-    render_pazar_tab(portfoy_only, "FON", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
+    render_pazar_tab(portfoy_only, "FON", sym, USD_TRY)
 
 elif selected == "Emtia":
-    render_pazar_tab(portfoy_only, "EMTIA", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
+    render_pazar_tab(portfoy_only, "EMTIA", sym, USD_TRY)
 
 elif selected == "Kripto":
-    render_pazar_tab(portfoy_only, "KRIPTO", sym, USD_TRY, VARLIK_GORUNUMU, TOTAL_SPOT_DEGER)
+    render_pazar_tab(portfoy_only, "KRIPTO", sym, USD_TRY)
 
 elif selected == "Haberler":
     tab1, tab2, tab3, tab4 = st.tabs(["BIST", "Kripto", "Global", "Döviz"])
@@ -589,8 +541,6 @@ elif selected == "Haberler":
         render_news_section("Döviz / Altın", "DOVIZ")
 
 elif selected == "İzleme":
-    # ... (İzleme listesi logic)
-    st.subheader("👁️ İzleme Listesi")
     if not takip_only.empty:
         st.dataframe(
             styled_dataframe(takip_only),
@@ -601,8 +551,6 @@ elif selected == "İzleme":
         st.info("İzleme listesi boş.")
 
 elif selected == "Satışlar":
-    # ... (Satışlar logic)
-    st.subheader("🧾 Satış Geçmişi")
     sales_df = get_sales_history()
     if not sales_df.empty:
         st.dataframe(
@@ -615,7 +563,7 @@ elif selected == "Satışlar":
 
 elif selected == "Ekle/Çıkar":
     st.header("Varlık Yönetimi")
-    # ... (Ekle/Çıkar tab logic)
+
     tab1, tab2, tab3 = st.tabs(["Ekle", "Düzenle", "Sil/Sat"])
 
     # --- EKLE ---
