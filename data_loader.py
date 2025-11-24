@@ -90,37 +90,92 @@ def add_sale_record(date, code, market, qty, price, cost, profit):
 @st.cache_data(ttl=7200, show_spinner=False)  # 2 saat cache - TEFAS fon fiyatları gün içinde çok değişmez
 def get_tefas_data(fund_code):
     """
-    TEFAS fon fiyatını çeker. Önce tefas-crawler kullanır, başarısız olursa web scraping dener.
+    TEFAS fon fiyatını çeker. Önce TEFAS API'sini kullanır, sonra tefas-crawler, en son web scraping dener.
     """
     fund_code = str(fund_code).upper().strip()
     
-    # Önce tefas-crawler ile dene (daha güvenilir)
+    # ÖNCE TEFAS API'sini dene (en güvenilir yöntem)
+    try:
+        # TEFAS'ın güncel API endpoint'i - fon detay bilgisi
+        api_url = "https://www.tefas.gov.tr/api/DB/BindHistoryInfo"
+        payload = {
+            "fontip": "YAT",
+            "sfontur": "",
+            "kurucukod": "",
+            "fonkod": fund_code
+        }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Referer": "https://www.tefas.gov.tr/"
+        }
+        r = requests.post(api_url, json=payload, headers=headers, timeout=15)
+        if r.status_code == 200:
+            data = r.json()
+            if data and isinstance(data, list) and len(data) > 0:
+                # Son kayıt en güncel fiyat
+                last_record = data[-1]
+                # Farklı field isimlerini dene
+                price_field = None
+                for field in ["birimfiyat", "BirimFiyat", "BIRIMFIYAT", "price", "Price", "fiyat", "Fiyat", "birimFiyat"]:
+                    if field in last_record:
+                        try:
+                            price = float(last_record[field])
+                            if price > 0 and price < 100:  # Makul fiyat kontrolü
+                                price_field = field
+                                break
+                        except (ValueError, TypeError):
+                            continue
+                
+                if price_field:
+                    # Son kapanış fiyatı (bugünün fiyatı yoksa en son geçerli fiyat)
+                    curr_price = float(last_record[price_field])
+                    # Önceki günün kapanış fiyatı (günlük kar/zarar hesaplaması için)
+                    prev_price = curr_price  # Varsayılan: aynı fiyat (eğer önceki gün yoksa)
+                    if len(data) > 1:
+                        # Önceki günün fiyatını bul
+                        for i in range(len(data) - 2, -1, -1):
+                            prev_record = data[i]
+                            if price_field in prev_record:
+                                try:
+                                    candidate_price = float(prev_record[price_field])
+                                    if candidate_price > 0 and candidate_price < 100:
+                                        prev_price = candidate_price
+                                        break
+                                except (ValueError, TypeError):
+                                    continue
+                    return curr_price, prev_price
+    except Exception:
+        pass
+    
+    # İKİNCİ: tefas-crawler ile dene
     try:
         crawler = Crawler()
         end = datetime.now().strftime("%Y-%m-%d")
-        start = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")  # 60 güne çıkar
+        start = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
         res = crawler.fetch(start=start, end=end, name=fund_code, columns=["Price"])
         if not res.empty and len(res) > 0:
             res = res.sort_index()
-            # Son geçerli fiyatı al (NaN değerleri atla)
             valid_prices = res["Price"].dropna()
             if len(valid_prices) > 0:
+                # Son kapanış fiyatı (bugünün fiyatı yoksa en son geçerli fiyat)
                 curr_price = float(valid_prices.iloc[-1])
+                # Önceki günün kapanış fiyatı (günlük kar/zarar hesaplaması için)
                 prev_price = float(valid_prices.iloc[-2]) if len(valid_prices) > 1 else curr_price
-                # Makul fiyat aralığı kontrolü (TEFAS fonları genelde 0.01-100 TL arası)
                 if curr_price > 0 and curr_price < 100:
                     return curr_price, prev_price
-    except Exception as e:
-        # Hata olursa sessizce geç, web scraping'i dene
+    except Exception:
         pass
     
-    # Fallback: Web scraping ile dene
+    # DÖRDÜNCÜ: Web scraping ile dene (son çare)
     try:
         url = f"https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod={fund_code}"
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7"
+            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Referer": "https://www.tefas.gov.tr/"
         }
         r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
@@ -132,54 +187,57 @@ def get_tefas_data(fund_code):
                 r'Birim Fiyatı[^<]*<[^>]*>([\d,]+\.?\d*)',
                 r'"birimFiyat"[^:]*:\s*"?([\d,]+\.?\d*)"?',
                 r'Fiyat[^>]*>([\d,]+\.?\d*)',
+                r'<span[^>]*>([\d,]+\.?\d*)</span>',  # Genel span pattern
             ]
             for pattern in patterns:
-                match = re.search(pattern, r.text, re.IGNORECASE)
-                if match:
-                    price_str = match.group(1).replace(",", ".")
+                matches = re.findall(pattern, r.text, re.IGNORECASE)
+                for match in matches:
                     try:
+                        price_str = str(match).replace(",", ".").replace(" ", "")
                         price = float(price_str)
-                        # Makul fiyat aralığı kontrolü (0.01 - 1000 TL arası)
-                        if price > 0 and price < 1000:
+                        # Makul fiyat aralığı kontrolü (0.01 - 100 TL arası)
+                        if price > 0 and price < 100:
                             return price, price
-                    except ValueError:
+                    except (ValueError, AttributeError):
                         continue
     except Exception:
         pass
     
-    # Son deneme: TEFAS API endpoint'i
+    # ÜÇÜNCÜ: Alternatif TEFAS API endpoint'i dene
     try:
-        # TEFAS'ın güncel API endpoint'i
-        api_url = "https://www.tefas.gov.tr/api/DB/BindHistoryInfo"
-        payload = {
-            "fontip": "YAT",
-            "sfontur": "",
-            "kurucukod": "",
-            "fonkod": fund_code
-        }
+        # TEFAS'ın fon detay API'si
+        detail_url = f"https://www.tefas.gov.tr/api/DB/BindHistoryInfo?fontip=YAT&sfontur=&kurucukod=&fonkod={fund_code}"
         headers = {
-            "User-Agent": "Mozilla/5.0",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json",
+            "Referer": f"https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod={fund_code}"
         }
-        r = requests.post(api_url, json=payload, headers=headers, timeout=15)
+        r = requests.get(detail_url, headers=headers, timeout=15)
         if r.status_code == 200:
             data = r.json()
             if data and isinstance(data, list) and len(data) > 0:
-                # Son kayıt en güncel fiyat
                 last_record = data[-1]
-                # Farklı field isimlerini dene
-                price_field = None
-                for field in ["birimfiyat", "BirimFiyat", "BIRIMFIYAT", "price", "Price", "fiyat"]:
+                for field in ["birimfiyat", "BirimFiyat", "BIRIMFIYAT", "price", "Price", "fiyat", "Fiyat"]:
                     if field in last_record:
-                        price_field = field
-                        break
-                
-                if price_field:
-                    price = float(last_record[price_field])
-                    if price > 0 and price < 1000:  # Makul fiyat kontrolü
-                        prev_price = float(data[-2][price_field]) if len(data) > 1 and price_field in data[-2] else price
-                        return price, prev_price
+                        try:
+                            # Son kapanış fiyatı
+                            price = float(last_record[field])
+                            if price > 0 and price < 100:
+                                # Önceki günün fiyatı (günlük kar/zarar için)
+                                prev_price = price  # Varsayılan
+                                if len(data) > 1:
+                                    for i in range(len(data) - 2, -1, -1):
+                                        if field in data[i]:
+                                            try:
+                                                candidate = float(data[i][field])
+                                                if candidate > 0 and candidate < 100:
+                                                    prev_price = candidate
+                                                    break
+                                            except (ValueError, TypeError):
+                                                continue
+                                return price, prev_price
+                        except (ValueError, TypeError):
+                            continue
     except Exception:
         pass
     
