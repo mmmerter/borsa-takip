@@ -1511,12 +1511,57 @@ elif selected == "İzleme":
         takip_display = takip_only[["Kod", "Pazar", "Maliyet", "Fiyat", "Top. %"]].copy()
         takip_display = takip_display.rename(columns={"Top. %": "Değişim %"})
         
-        # styled_dataframe zaten "Değişim %" kolonunu renklendirecek (utils.py'deki color_pnl fonksiyonu sayesinde)
-        st.dataframe(
-            styled_dataframe(takip_display),
-            use_container_width=True,
-            hide_index=True,
-        )
+        # Tablo başlıkları
+        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6 = st.columns([2, 2, 2, 2, 2, 1])
+        with header_col1:
+            st.markdown("**Kod**")
+        with header_col2:
+            st.markdown("**Pazar**")
+        with header_col3:
+            st.markdown("**Maliyet**")
+        with header_col4:
+            st.markdown("**Fiyat**")
+        with header_col5:
+            st.markdown("**Değişim %**")
+        with header_col6:
+            st.markdown("**İşlem**")
+        
+        st.markdown("<hr style='margin: 5px 0; border-color: #2f3440;'>", unsafe_allow_html=True)
+        
+        # Her satır için silme butonu ekle
+        for idx, row in takip_display.iterrows():
+            col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 2, 2, 2, 1])
+            
+            with col1:
+                st.write(f"**{row['Kod']}**")
+            with col2:
+                st.write(row['Pazar'])
+            with col3:
+                st.write(f"{row['Maliyet']:,.2f}")
+            with col4:
+                st.write(f"{row['Fiyat']:,.2f}")
+            with col5:
+                # Değişim % renklendirilmiş göster
+                pct = row['Değişim %']
+                if pct > 0:
+                    st.markdown(f'<span style="color: #00e676; font-weight: 900;">+{pct:.2f}%</span>', unsafe_allow_html=True)
+                elif pct < 0:
+                    st.markdown(f'<span style="color: #ff5252; font-weight: 900;">{pct:.2f}%</span>', unsafe_allow_html=True)
+                else:
+                    st.markdown(f'<span style="color: #cccccc; font-weight: 900;">{pct:.2f}%</span>', unsafe_allow_html=True)
+            with col6:
+                # Silme butonu
+                if st.button("🗑️", key=f"sil_takip_{row['Kod']}_{idx}", help="Sil"):
+                    # portfoy_df'den bu kodu ve Tip="Takip" olan satırı sil
+                    kod = row['Kod']
+                    portfoy_df = portfoy_df[~((portfoy_df["Kod"] == kod) & (portfoy_df["Tip"] == "Takip"))]
+                    save_data_to_sheet(portfoy_df)
+                    st.success(f"{kod} izleme listesinden silindi!")
+                    time.sleep(1)
+                    st.rerun()
+            
+            # Satırlar arası ayırıcı
+            st.markdown("<hr style='margin: 5px 0; border-color: #2f3440;'>", unsafe_allow_html=True)
     else:
         st.info("İzleme listesi boş.")
 
