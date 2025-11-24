@@ -1022,16 +1022,16 @@ def run_analysis(df, usd_try_rate, view_currency):
                         try:
                             ticker = yf.Ticker(sym_key)
                             h = ticker.history(period="5d")
-                if not h.empty:
+                            if not h.empty:
                                 curr = h["Close"].iloc[-1]
                                 prev = h["Close"].iloc[-2] if len(h) > 1 else curr
                             else:
                                 # Daha uzun period dene
                                 h = ticker.history(period="1mo")
-                if not h.empty:
+                                if not h.empty:
                                     curr = h["Close"].iloc[-1]
                                     prev = h["Close"].iloc[-2] if len(h) > 1 else curr
-            else:
+                                else:
                                     curr = 0
                                     prev = 0
                         except Exception:
@@ -1042,8 +1042,8 @@ def run_analysis(df, usd_try_rate, view_currency):
                     try:
                         ticker = yf.Ticker(symbol)
                         h = ticker.history(period="5d")
-                if not h.empty:
-                    curr = h["Close"].iloc[-1]
+                        if not h.empty:
+                            curr = h["Close"].iloc[-1]
                             prev = h["Close"].iloc[-2] if len(h) > 1 else curr
                         else:
                             # Daha uzun period dene
