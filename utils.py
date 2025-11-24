@@ -40,7 +40,7 @@ KNOWN_FUNDS = [
 ]
 
 MARKET_DATA = {
-    "BIST (Tümü)": ["THYAO", "GARAN", "ASELS", "TRMET"],
+    "BIST (Tümü)": ["THYAO", "GARAN", "ASELS", "TRMET", "TKFEN"],
     "ABD": ["AAPL", "TSLA"],
     "KRIPTO": ["BTC", "ETH"],
     "FON": KNOWN_FUNDS,
@@ -53,8 +53,8 @@ MARKET_DATA = {
 def get_yahoo_symbol(kod, pazar):
     kod = str(kod).upper()
 
-    # Özel mapping
-    if kod == "TRMET":
+    # Özel mapping - TKFEN ve TRMET eski adı KOZAA olduğu için KOZAA.IS kullanıyoruz
+    if kod == "TRMET" or kod == "TKFEN":
         return "KOZAA.IS"
 
     if pazar == "NAKIT":
