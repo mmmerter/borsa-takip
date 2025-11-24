@@ -95,12 +95,12 @@ st.markdown(
     .market-ticker {
         background: linear-gradient(135deg, #0e1117 0%, #1a1c24 100%);
         border-bottom: 1px solid #2f3440;
-        padding: 12px 0;
+        padding: 10px 0;
     }
     .portfolio-ticker {
         background: linear-gradient(135deg, #1a1c24 0%, #0e1117 100%);
         border-bottom: 2px solid #6b7fd7;
-        padding: 12px 0;
+        padding: 10px 0;
         margin-bottom: 20px;
     }
     .ticker-text {

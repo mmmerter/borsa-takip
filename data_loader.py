@@ -318,11 +318,11 @@ def get_tickers_data(df_portfolio, usd_try):
                     fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
                     if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
                     
-                    # Modern ticker kartı - küçültülmüş
-                    return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 6px; padding: 4px 10px; margin: 0 3px; font-family: 'Inter', -apple-system, sans-serif;">
-                        <span style="color: #8b9aff; font-size: 14px; font-weight: 700; letter-spacing: 0.2px;">{label if label else symbol}</span>
-                        <span style="color: #ffffff; font-size: 15px; font-weight: 800; margin: 0 5px;">{fmt}</span>
-                        <span style="color: {col}; font-size: 14px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px;">{arrow} {chg:+.1f}%</span>
+                    # Modern ticker kartı - biraz küçültülmüş
+                    return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 5px; padding: 3px 8px; margin: 0 2px; font-family: 'Inter', -apple-system, sans-serif;">
+                        <span style="color: #8b9aff; font-size: 12px; font-weight: 700; letter-spacing: 0.2px;">{label if label else symbol}</span>
+                        <span style="color: #ffffff; font-size: 13px; font-weight: 800; margin: 0 4px;">{fmt}</span>
+                        <span style="color: {col}; font-size: 12px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;">{arrow} {chg:+.1f}%</span>
                     </span>'''
                 else:
                     # Fallback: daha uzun period dene
@@ -341,10 +341,10 @@ def get_tickers_data(df_portfolio, usd_try):
                             bg_col = "rgba(255, 82, 82, 0.15)"
                         fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
                         if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
-                        return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
-                            <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">{label if label else symbol}</span>
-                            <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{fmt}</span>
-                            <span style="color: {col}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow} {chg:+.1f}%</span>
+                        return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 5px; padding: 3px 8px; margin: 0 2px; font-family: 'Inter', -apple-system, sans-serif;">
+                            <span style="color: #8b9aff; font-size: 12px; font-weight: 700; letter-spacing: 0.2px;">{label if label else symbol}</span>
+                            <span style="color: #ffffff; font-size: 13px; font-weight: 800; margin: 0 4px;">{fmt}</span>
+                            <span style="color: {col}; font-size: 12px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;">{arrow} {chg:+.1f}%</span>
                         </span>'''
             except Exception:
                 # Batch başarısız olursa, tek tek dene
@@ -364,10 +364,10 @@ def get_tickers_data(df_portfolio, usd_try):
                             bg_col = "rgba(255, 82, 82, 0.15)"
                         fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
                         if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
-                        return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
-                            <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">{label if label else symbol}</span>
-                            <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{fmt}</span>
-                            <span style="color: {col}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow} {chg:+.1f}%</span>
+                        return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 5px; padding: 3px 8px; margin: 0 2px; font-family: 'Inter', -apple-system, sans-serif;">
+                            <span style="color: #8b9aff; font-size: 12px; font-weight: 700; letter-spacing: 0.2px;">{label if label else symbol}</span>
+                            <span style="color: #ffffff; font-size: 13px; font-weight: 800; margin: 0 4px;">{fmt}</span>
+                            <span style="color: {col}; font-size: 12px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;">{arrow} {chg:+.1f}%</span>
                         </span>'''
                 except Exception:
                     pass
