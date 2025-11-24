@@ -262,6 +262,158 @@ st.markdown(
             transform: translateY(-3px);
         }
     }
+    
+    /* Mobil Uyumluluk - Responsive Design */
+    @media screen and (max-width: 768px) {
+        /* Genel ayarlar */
+        .block-container {
+            padding: 0.5rem !important;
+        }
+        
+        /* Header küçültme */
+        .kral-header {
+            padding: 10px 12px !important;
+            margin-bottom: 10px !important;
+        }
+        .kral-header-title {
+            font-size: 18px !important;
+        }
+        .kral-header-sub {
+            font-size: 11px !important;
+        }
+        
+        /* Ticker küçültme */
+        .ticker-container {
+            margin-bottom: 12px !important;
+        }
+        .market-ticker, .portfolio-ticker {
+            padding: 8px 0 !important;
+        }
+        .ticker-text span {
+            font-size: 10px !important;
+            padding: 2px 6px !important;
+            margin: 0 1px !important;
+        }
+        
+        /* Menü mobil uyumlu */
+        [data-testid="stHorizontalBlock"] > div > div > div > div > div > a {
+            padding: 8px 10px !important;
+            font-size: 11px !important;
+            margin: 0px 2px !important;
+        }
+        [data-testid="stHorizontalBlock"] > div > div > div > div > div > a i {
+            font-size: 16px !important;
+            margin-right: 4px !important;
+        }
+        
+        /* Info kartları tek sütun */
+        .kral-infobar {
+            flex-direction: column !important;
+            gap: 10px !important;
+        }
+        .kral-infobox {
+            min-width: 100% !important;
+            max-width: 100% !important;
+            padding: 10px 14px !important;
+        }
+        .kral-infobox-value {
+            font-size: 18px !important;
+        }
+        .kral-infobox-label {
+            font-size: 10px !important;
+        }
+        
+        /* Metric kutuları */
+        div[data-testid="stMetric"] {
+            padding: 10px !important;
+        }
+        div[data-testid="stMetricValue"] {
+            font-size: 20px !important;
+        }
+        div[data-testid="stMetricLabel"] {
+            font-size: 12px !important;
+        }
+        
+        /* Tablolar */
+        .styled-table th {
+            font-size: 14px !important;
+            padding: 8px 4px !important;
+        }
+        .styled-table td {
+            font-size: 12px !important;
+            padding: 8px 4px !important;
+        }
+        
+        /* Subheader'lar */
+        h2, h3 {
+            font-size: 18px !important;
+        }
+        
+        /* Radio butonlar */
+        div[data-testid="stRadio"] {
+            font-size: 12px !important;
+        }
+        
+        /* Tabs */
+        button[data-baseweb="tab"] {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+        }
+        
+        /* İzleme listesi kolonları */
+        [data-testid="column"] {
+            padding: 0.25rem !important;
+        }
+        
+        /* Haber kartları */
+        .news-card {
+            padding: 10px !important;
+        }
+        .news-title {
+            font-size: 14px !important;
+        }
+        
+        /* Plotly grafikleri */
+        .js-plotly-plot {
+            height: 300px !important;
+        }
+    }
+    
+    /* Çok küçük ekranlar (telefon) */
+    @media screen and (max-width: 480px) {
+        .kral-header-title {
+            font-size: 16px !important;
+        }
+        .kral-header-sub {
+            font-size: 10px !important;
+        }
+        
+        [data-testid="stHorizontalBlock"] > div > div > div > div > div > a {
+            padding: 6px 8px !important;
+            font-size: 10px !important;
+        }
+        [data-testid="stHorizontalBlock"] > div > div > div > div > div > a i {
+            font-size: 14px !important;
+            margin-right: 3px !important;
+        }
+        
+        .ticker-text span {
+            font-size: 9px !important;
+            padding: 2px 4px !important;
+        }
+        
+        .kral-infobox-value {
+            font-size: 16px !important;
+        }
+        
+        div[data-testid="stMetricValue"] {
+            font-size: 18px !important;
+        }
+        
+        h2, h3 {
+            font-size: 16px !important;
+        }
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -321,7 +473,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- MENÜ (6 Buton) - Ultra Modern & Farklı ---
+# --- MENÜ (6 Buton) - Modern ---
 selected = option_menu(
     menu_title=None,
     options=[
@@ -333,59 +485,51 @@ selected = option_menu(
         "Ekle/Çıkar",
     ],
     icons=[
-        "graph-up-arrow",  # Daha modern dashboard ikonu
-        "wallet2",  # Portföy için cüzdan ikonu
-        "binoculars-fill",  # İzleme için dürbün ikonu
-        "cash-stack",  # Satışlar için para yığını ikonu
-        "megaphone-fill",  # Haberler için megafon ikonu
-        "plus-circle-fill",  # Ekle/Çıkar için artı ikonu
+        "speedometer2",
+        "pie-chart-fill",
+        "eye",
+        "receipt",
+        "newspaper",
+        "gear",
     ],
-    menu_icon="app-indicator",
+    menu_icon="cast",
     default_index=0,
     orientation="horizontal",
     styles={
         "container": {
-            "padding": "8px 12px!important",
-            "background": "linear-gradient(135deg, #0f1419 0%, #1a1f2e 50%, #0f1419 100%)",
-            "border-radius": "16px",
-            "box-shadow": "0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-            "margin-bottom": "24px",
-            "border": "1px solid rgba(139, 154, 255, 0.2)",
+            "padding": "0!important",
+            "background": "linear-gradient(135deg, #1a1c24 0%, #0e1117 100%)",
+            "border-radius": "12px",
+            "box-shadow": "0 4px 20px rgba(0, 0, 0, 0.4)",
+            "margin-bottom": "20px",
         },
         "icon": {
             "color": "#8b9aff",
-            "font-size": "22px",
-            "margin-right": "10px",
-            "transition": "all 0.3s ease",
+            "font-size": "20px",
+            "margin-right": "8px",
         },
         "nav-link": {
             "font-size": "15px",
             "text-align": "center",
-            "margin": "0px 3px",
-            "padding": "14px 24px",
-            "border-radius": "12px",
+            "margin": "0px 4px",
+            "padding": "12px 20px",
+            "border-radius": "10px",
             "font-weight": "700",
-            "color": "#9ca3af",
-            "transition": "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            "color": "#b0b3c0",
+            "transition": "all 0.3s ease",
             "background": "transparent",
-            "border": "1px solid transparent",
-            "position": "relative",
         },
         "nav-link:hover": {
-            "background": "linear-gradient(135deg, rgba(139, 154, 255, 0.15) 0%, rgba(107, 127, 215, 0.1) 100%)",
+            "background": "rgba(139, 154, 255, 0.1)",
             "color": "#8b9aff",
-            "transform": "translateY(-3px) scale(1.02)",
-            "border": "1px solid rgba(139, 154, 255, 0.3)",
-            "box-shadow": "0 4px 12px rgba(139, 154, 255, 0.2)",
+            "transform": "translateY(-2px)",
         },
         "nav-link-selected": {
-            "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 50%, #a8b5ff 100%)",
+            "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
             "color": "#ffffff",
-            "box-shadow": "0 6px 20px rgba(107, 127, 215, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3)",
+            "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.4)",
             "font-weight": "900",
-            "border": "1px solid rgba(255, 255, 255, 0.2)",
-            "transform": "translateY(-2px)",
-            "text-shadow": "0 1px 2px rgba(0, 0, 0, 0.2)",
+            "border": "none",
         },
     },
 )
