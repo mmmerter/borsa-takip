@@ -638,6 +638,21 @@ def _fetch_batch_prices_bist_abd(symbols_list, period="5d"):
         return {}
     prices = {}
     
+    # TRMET için fallback: hem KOZAA.IS hem TRMET.IS dene
+    def _try_fetch_price(symbol_to_try):
+        """Bir sembol için fiyat çekmeyi dener"""
+        try:
+            ticker = yf.Ticker(symbol_to_try)
+            h = ticker.history(period=period)
+            if not h.empty:
+                curr = h["Close"].iloc[-1]
+                prev = h["Close"].iloc[-2] if len(h) > 1 else curr
+                if curr > 0:  # Geçerli fiyat varsa
+                    return {"curr": curr, "prev": prev}
+        except Exception:
+            pass
+        return None
+    
     # Önce batch deneme
     try:
         tickers = yf.Tickers(" ".join(symbols_list))
@@ -661,7 +676,15 @@ def _fetch_batch_prices_bist_abd(symbols_list, period="5d"):
                         prev = h_longer["Close"].iloc[-2] if len(h_longer) > 1 else curr
                         prices[sym] = {"curr": curr, "prev": prev}
                     else:
-                        prices[sym] = {"curr": 0, "prev": 0}
+                        # TRMET için özel fallback: KOZAA.IS'den veri gelmezse TRMET.IS dene
+                        if sym == "KOZAA.IS":
+                            fallback_result = _try_fetch_price("TRMET.IS")
+                            if fallback_result:
+                                prices[sym] = fallback_result
+                            else:
+                                prices[sym] = {"curr": 0, "prev": 0}
+                        else:
+                            prices[sym] = {"curr": 0, "prev": 0}
             except Exception as e:
                 # Batch başarısız olursa, tek tek dene
                 try:
@@ -672,9 +695,25 @@ def _fetch_batch_prices_bist_abd(symbols_list, period="5d"):
                         prev = h["Close"].iloc[-2] if len(h) > 1 else curr
                         prices[sym] = {"curr": curr, "prev": prev}
                     else:
-                        prices[sym] = {"curr": 0, "prev": 0}
+                        # TRMET için özel fallback
+                        if sym == "KOZAA.IS":
+                            fallback_result = _try_fetch_price("TRMET.IS")
+                            if fallback_result:
+                                prices[sym] = fallback_result
+                            else:
+                                prices[sym] = {"curr": 0, "prev": 0}
+                        else:
+                            prices[sym] = {"curr": 0, "prev": 0}
                 except Exception:
-                    prices[sym] = {"curr": 0, "prev": 0}
+                    # TRMET için özel fallback
+                    if sym == "KOZAA.IS":
+                        fallback_result = _try_fetch_price("TRMET.IS")
+                        if fallback_result:
+                            prices[sym] = fallback_result
+                        else:
+                            prices[sym] = {"curr": 0, "prev": 0}
+                    else:
+                        prices[sym] = {"curr": 0, "prev": 0}
     except Exception:
         # Batch tamamen başarısız olursa, her sembolü tek tek çek
         for sym in symbols_list:
@@ -684,11 +723,38 @@ def _fetch_batch_prices_bist_abd(symbols_list, period="5d"):
                 if not h.empty:
                     curr = h["Close"].iloc[-1]
                     prev = h["Close"].iloc[-2] if len(h) > 1 else curr
-                    prices[sym] = {"curr": curr, "prev": prev}
+                    if curr > 0:
+                        prices[sym] = {"curr": curr, "prev": prev}
+                    else:
+                        # TRMET için özel fallback
+                        if sym == "KOZAA.IS":
+                            fallback_result = _try_fetch_price("TRMET.IS")
+                            if fallback_result:
+                                prices[sym] = fallback_result
+                            else:
+                                prices[sym] = {"curr": 0, "prev": 0}
+                        else:
+                            prices[sym] = {"curr": 0, "prev": 0}
+                else:
+                    # TRMET için özel fallback
+                    if sym == "KOZAA.IS":
+                        fallback_result = _try_fetch_price("TRMET.IS")
+                        if fallback_result:
+                            prices[sym] = fallback_result
+                        else:
+                            prices[sym] = {"curr": 0, "prev": 0}
+                    else:
+                        prices[sym] = {"curr": 0, "prev": 0}
+            except Exception:
+                # TRMET için özel fallback
+                if sym == "KOZAA.IS":
+                    fallback_result = _try_fetch_price("TRMET.IS")
+                    if fallback_result:
+                        prices[sym] = fallback_result
+                    else:
+                        prices[sym] = {"curr": 0, "prev": 0}
                 else:
                     prices[sym] = {"curr": 0, "prev": 0}
-            except Exception:
-                prices[sym] = {"curr": 0, "prev": 0}
     
     return prices
 
@@ -1017,6 +1083,20 @@ def run_analysis(df, usd_try_rate, view_currency):
                         p_data = batch_prices[sym_key]
                         curr = p_data["curr"]
                         prev = p_data["prev"]
+                        
+                        # TRMET için özel fallback: KOZAA.IS'den veri gelmezse veya 0 ise TRMET.IS dene
+                        if kod == "TRMET" and (curr == 0 or curr is None):
+                            try:
+                                ticker = yf.Ticker("TRMET.IS")
+                                h = ticker.history(period="5d")
+                                if not h.empty:
+                                    curr_fallback = h["Close"].iloc[-1]
+                                    prev_fallback = h["Close"].iloc[-2] if len(h) > 1 else curr_fallback
+                                    if curr_fallback > 0:
+                                        curr = curr_fallback
+                                        prev = prev_fallback
+                            except Exception:
+                                pass
                     else:
                         # Batch'te yoksa, tek tek dene (borsa kapalıyken fallback)
                         try:
@@ -1034,9 +1114,38 @@ def run_analysis(df, usd_try_rate, view_currency):
                                 else:
                                     curr = 0
                                     prev = 0
+                            
+                            # TRMET için özel fallback: KOZAA.IS'den veri gelmezse veya 0 ise TRMET.IS dene
+                            if kod == "TRMET" and (curr == 0 or curr is None):
+                                try:
+                                    ticker_fallback = yf.Ticker("TRMET.IS")
+                                    h_fallback = ticker_fallback.history(period="5d")
+                                    if not h_fallback.empty:
+                                        curr_fallback = h_fallback["Close"].iloc[-1]
+                                        prev_fallback = h_fallback["Close"].iloc[-2] if len(h_fallback) > 1 else curr_fallback
+                                        if curr_fallback > 0:
+                                            curr = curr_fallback
+                                            prev = prev_fallback
+                                except Exception:
+                                    pass
                         except Exception:
-                            curr = 0
-                            prev = 0
+                            # TRMET için özel fallback: hata olursa da TRMET.IS dene
+                            if kod == "TRMET":
+                                try:
+                                    ticker_fallback = yf.Ticker("TRMET.IS")
+                                    h_fallback = ticker_fallback.history(period="5d")
+                                    if not h_fallback.empty:
+                                        curr = h_fallback["Close"].iloc[-1]
+                                        prev = h_fallback["Close"].iloc[-2] if len(h_fallback) > 1 else curr
+                                    else:
+                                        curr = 0
+                                        prev = 0
+                                except Exception:
+                                    curr = 0
+                                    prev = 0
+                            else:
+                                curr = 0
+                                prev = 0
                 else:
                     # Symbol map'te yoksa, direkt sembol ile dene
                     try:
