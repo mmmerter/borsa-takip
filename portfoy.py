@@ -1583,6 +1583,26 @@ if selected == "Dashboard":
 
         st.divider()
 
+        # --- SEKTÖREL DAĞILIM ---
+        if "Sektör" in spot_only.columns:
+            st.subheader("🏭 Sektörel Dağılım")
+            sektor_df = spot_only[spot_only["Sektör"] != ""].copy()
+            if not sektor_df.empty:
+                sektor_grouped = sektor_df.groupby("Sektör", as_index=False).agg(
+                    {"Değer": "sum", "Top. Kâr/Zarar": "sum"}
+                )
+                render_pie_bar_charts(
+                    sektor_grouped,
+                    "Sektör",
+                    all_tab=False,
+                    varlik_gorunumu=VARLIK_GORUNUMU,
+                    total_spot_deger=TOTAL_SPOT_DEGER,
+                )
+            else:
+                st.info("Sektör bilgisi bulunamadı.")
+        
+        st.divider()
+
         # --- TARİHSEL GRAFİK EN ALTA ---
         st.subheader("📈 Tarihsel Portföy Değeri (60 Gün)")
         hist_chart = get_historical_chart(spot_only, USD_TRY, GORUNUM_PB)
@@ -1657,6 +1677,25 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
+        
+        # --- SEKTÖREL DAĞILIM - BIST ---
+        if "Sektör" in bist_df.columns:
+            st.subheader("🏭 Sektörel Dağılım - BIST")
+            sektor_bist = bist_df[bist_df["Sektör"] != ""].copy()
+            if not sektor_bist.empty:
+                sektor_grouped = sektor_bist.groupby("Sektör", as_index=False).agg(
+                    {"Değer": "sum", "Top. Kâr/Zarar": "sum"}
+                )
+                render_pie_bar_charts(
+                    sektor_grouped,
+                    "Sektör",
+                    all_tab=False,
+                    varlik_gorunumu=VARLIK_GORUNUMU,
+                    total_spot_deger=TOTAL_SPOT_DEGER,
+                )
+            else:
+                st.info("Sektör bilgisi bulunamadı.")
+        
         st.subheader("📈 Tarihsel Değer - BIST (60 Gün)")
         hist_chart = get_historical_chart(bist_df, USD_TRY, GORUNUM_PB)
         if hist_chart:
@@ -1702,6 +1741,25 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
+        
+        # --- SEKTÖREL DAĞILIM - ABD ---
+        if "Sektör" in abd_df.columns:
+            st.subheader("🏭 Sektörel Dağılım - ABD")
+            sektor_abd = abd_df[abd_df["Sektör"] != ""].copy()
+            if not sektor_abd.empty:
+                sektor_grouped = sektor_abd.groupby("Sektör", as_index=False).agg(
+                    {"Değer": "sum", "Top. Kâr/Zarar": "sum"}
+                )
+                render_pie_bar_charts(
+                    sektor_grouped,
+                    "Sektör",
+                    all_tab=False,
+                    varlik_gorunumu=VARLIK_GORUNUMU,
+                    total_spot_deger=TOTAL_SPOT_DEGER,
+                )
+            else:
+                st.info("Sektör bilgisi bulunamadı.")
+        
         st.subheader("📈 Tarihsel Değer - ABD (60 Gün)")
         hist_chart = get_historical_chart(abd_df, USD_TRY, GORUNUM_PB)
         if hist_chart:
