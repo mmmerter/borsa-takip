@@ -1071,7 +1071,7 @@ def run_analysis(df, usd_try_rate, view_currency):
                         curr = h["Close"].iloc[-1]
                         prev = h["Close"].iloc[-2] if len(h) > 1 else curr
                     else:
-            curr = maliyet
+                        curr = maliyet
                         prev = maliyet
                 else:
                     curr = maliyet
