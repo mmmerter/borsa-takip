@@ -926,7 +926,7 @@ def run_analysis(df, usd_try_rate, view_currency):
                 eurtry_price = h["Close"].iloc[-1]
             else:
                 eurtry_price = 36.0
-            except Exception:
+        except Exception:
             try:
                 # Fallback: daha uzun period dene
                 ticker = yf.Ticker("EURTRY=X")
