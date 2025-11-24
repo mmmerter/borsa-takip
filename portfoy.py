@@ -1102,22 +1102,22 @@ if selected == "Dashboard":
                     )
                 )
 
-            # Modern tipografi ve stil
+            # Modern tipografi ve stil - okunabilir yazılar
             fig.update_traces(
                 textinfo="label+value+percent entry",
-                texttemplate="<b style='font-size:16px; font-family:Inter, sans-serif;'>%{label}</b><br>" +
-                            f"<span style='font-size:14px; color:#b0b3c0;'>%{{customdata[0]:,.0f}} {currency_symbol}</span><br>" +
-                            "<b style='font-size:15px; font-family:Inter, sans-serif;'>%{customdata[2]:+.2f}%</b>",
+                texttemplate="<b style='font-size:18px; font-family:Inter, sans-serif; color:#ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8);'>%{label}</b><br>" +
+                            f"<span style='font-size:15px; color:#ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8);'>%{{customdata[0]:,.0f}} {currency_symbol}</span><br>" +
+                            "<b style='font-size:17px; font-family:Inter, sans-serif; color:#ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8);'>%{customdata[2]:+.1f}%</b>",
                 textposition="middle center",
                 textfont=dict(
-                    size=16, 
+                    size=18, 
                     family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                     color="#ffffff"
                 ),
                 hovertemplate="<b style='font-size:16px;'>%{customdata[3]}</b><br>" +
                              f"Değer: %{{customdata[0]:,.0f}} {currency_symbol}<br>" +
                              f"Toplam K/Z: %{{customdata[1]:,.0f}} {currency_symbol}<br>" +
-                             "Performans: %{customdata[2]:+.2f}%<br>" +
+                             "Performans: %{customdata[2]:+.1f}%<br>" +
                              "<extra></extra>",
                 marker=dict(
                     line=dict(
