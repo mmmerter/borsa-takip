@@ -120,8 +120,20 @@ def get_crypto_globals():
 
 @st.cache_data(ttl=300)
 def get_usd_try():
-    try: return yf.Ticker("TRY=X").history(period="1d")["Close"].iloc[-1]
-    except: return 34.0
+    try: 
+        ticker = yf.Ticker("TRY=X")
+        h = ticker.history(period="5d")
+        if not h.empty:
+            return h["Close"].iloc[-1]
+        else:
+            # Fallback: daha uzun period
+            h = ticker.history(period="1mo")
+            if not h.empty:
+                return h["Close"].iloc[-1]
+            else:
+                return 34.0
+    except Exception:
+        return 34.0
 
 @st.cache_data(ttl=300)
 def get_financial_news(topic="finance"):
@@ -154,14 +166,37 @@ def get_tickers_data(df_portfolio, usd_try):
         yahoo_data = yf.Tickers(" ".join(all_fetch))
         def get_val(symbol, label=None):
             try:
-                h = yahoo_data.tickers[symbol].history(period="2d")
+                # Borsa kapalıyken de çalışması için period'u artır
+                h = yahoo_data.tickers[symbol].history(period="5d")
                 if not h.empty:
-                    p, prev = h["Close"].iloc[-1], h["Close"].iloc[-2]
+                    p, prev = h["Close"].iloc[-1], h["Close"].iloc[-2] if len(h) > 1 else h["Close"].iloc[-1]
                     chg, col, arrow = ((p - prev) / prev) * 100, "#00e676" if p >= prev else "#ff5252", "▲" if p >= prev else "▼"
                     fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
                     if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
                     return f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">{label if label else symbol}: </span><span style="color:white; font-size: 22px; font-weight: 900;">{fmt}</span> <span style="color:{col}; font-size: 22px; font-weight: 900;">{arrow}%{chg:.2f}</span>'
-            except: return ""
+                else:
+                    # Fallback: daha uzun period dene
+                    h = yahoo_data.tickers[symbol].history(period="1mo")
+                    if not h.empty:
+                        p = h["Close"].iloc[-1]
+                        prev = h["Close"].iloc[-2] if len(h) > 1 else p
+                        chg, col, arrow = ((p - prev) / prev) * 100, "#00e676" if p >= prev else "#ff5252", "▲" if p >= prev else "▼"
+                        fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
+                        if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
+                        return f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">{label if label else symbol}: </span><span style="color:white; font-size: 22px; font-weight: 900;">{fmt}</span> <span style="color:{col}; font-size: 22px; font-weight: 900;">{arrow}%{chg:.2f}</span>'
+            except Exception:
+                # Batch başarısız olursa, tek tek dene
+                try:
+                    ticker = yf.Ticker(symbol)
+                    h = ticker.history(period="5d")
+                    if not h.empty:
+                        p, prev = h["Close"].iloc[-1], h["Close"].iloc[-2] if len(h) > 1 else h["Close"].iloc[-1]
+                        chg, col, arrow = ((p - prev) / prev) * 100, "#00e676" if p >= prev else "#ff5252", "▲" if p >= prev else "▼"
+                        fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
+                        if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
+                        return f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">{label if label else symbol}: </span><span style="color:white; font-size: 22px; font-weight: 900;">{fmt}</span> <span style="color:{col}; font-size: 22px; font-weight: 900;">{arrow}%{chg:.2f}</span>'
+                except Exception:
+                    pass
             return ""
 
         for name, sym in market_symbols:

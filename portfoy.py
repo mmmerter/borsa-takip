@@ -294,25 +294,64 @@ selected = option_menu(
 # --- ANALİZ ---
 @st.cache_data(ttl=60)
 def _fetch_batch_prices(symbols_list, period="2d"):
-    """Batch olarak fiyat verilerini çeker"""
+    """Batch olarak fiyat verilerini çeker - borsa kapalıyken de son kapanış fiyatını döndürür"""
     if not symbols_list:
         return {}
+    prices = {}
+    
+    # Önce batch deneme
     try:
         tickers = yf.Tickers(" ".join(symbols_list))
-        prices = {}
         for sym in symbols_list:
             try:
                 h = tickers.tickers[sym].history(period=period)
                 if not h.empty:
-                    prices[sym] = {
-                        "curr": h["Close"].iloc[-1],
-                        "prev": h["Close"].iloc[0] if len(h) > 1 else h["Close"].iloc[-1]
-                    }
+                    # Son geçerli fiyatı al (borsa kapalıysa son kapanış)
+                    curr = h["Close"].iloc[-1]
+                    # Önceki günü bul (eğer bugün veri yoksa, son iki günden birini al)
+                    if len(h) > 1:
+                        prev = h["Close"].iloc[-2]
+                    else:
+                        prev = curr
+                    prices[sym] = {"curr": curr, "prev": prev}
+                else:
+                    # Eğer period="2d" ile veri yoksa, daha uzun period dene
+                    h_longer = tickers.tickers[sym].history(period="5d")
+                    if not h_longer.empty:
+                        curr = h_longer["Close"].iloc[-1]
+                        prev = h_longer["Close"].iloc[-2] if len(h_longer) > 1 else curr
+                        prices[sym] = {"curr": curr, "prev": prev}
+                    else:
+                        prices[sym] = {"curr": 0, "prev": 0}
+            except Exception as e:
+                # Batch başarısız olursa, tek tek dene
+                try:
+                    ticker = yf.Ticker(sym)
+                    h = ticker.history(period="5d")
+                    if not h.empty:
+                        curr = h["Close"].iloc[-1]
+                        prev = h["Close"].iloc[-2] if len(h) > 1 else curr
+                        prices[sym] = {"curr": curr, "prev": prev}
+                    else:
+                        prices[sym] = {"curr": 0, "prev": 0}
+                except Exception:
+                    prices[sym] = {"curr": 0, "prev": 0}
+    except Exception:
+        # Batch tamamen başarısız olursa, her sembolü tek tek çek
+        for sym in symbols_list:
+            try:
+                ticker = yf.Ticker(sym)
+                h = ticker.history(period="5d")
+                if not h.empty:
+                    curr = h["Close"].iloc[-1]
+                    prev = h["Close"].iloc[-2] if len(h) > 1 else curr
+                    prices[sym] = {"curr": curr, "prev": prev}
+                else:
+                    prices[sym] = {"curr": 0, "prev": 0}
             except Exception:
                 prices[sym] = {"curr": 0, "prev": 0}
-        return prices
-    except Exception:
-        return {}
+    
+    return prices
 
 @st.cache_data(ttl=300)
 def _fetch_sector_info(symbols_list):
@@ -406,21 +445,35 @@ def run_analysis(df, usd_try_rate, view_currency):
                 yahoo_symbols.append(symbol)
             symbol_map[idx] = symbol
     
-    # Batch fiyat çekme
-    batch_prices = _fetch_batch_prices(yahoo_symbols, period="2d")
+    # Batch fiyat çekme - borsa kapalıyken de çalışması için period'u artır
+    batch_prices = _fetch_batch_prices(yahoo_symbols, period="5d")
     gram_prices_5d = {}
     if "SI=F" in yahoo_symbols or "GC=F" in yahoo_symbols:
         gram_batch = _fetch_batch_prices(["SI=F", "GC=F"], period="5d")
         gram_prices_5d = gram_batch
     
-    # EURTRY için özel
+    # EURTRY için özel - borsa kapalıyken de çalışması için period artır
     eurtry_price = None
     if (df_work["Pazar"].str.contains("NAKIT", case=False, na=False) & 
         (df_work["Kod"] == "EUR")).any():
         try:
-            eurtry_price = yf.Ticker("EURTRY=X").history(period="1d")["Close"].iloc[-1]
+            ticker = yf.Ticker("EURTRY=X")
+            h = ticker.history(period="5d")
+            if not h.empty:
+                eurtry_price = h["Close"].iloc[-1]
+            else:
+                eurtry_price = 36.0
         except Exception:
-            eurtry_price = 36.0
+            try:
+                # Fallback: daha uzun period dene
+                ticker = yf.Ticker("EURTRY=X")
+                h = ticker.history(period="1mo")
+                if not h.empty:
+                    eurtry_price = h["Close"].iloc[-1]
+                else:
+                    eurtry_price = 36.0
+            except Exception:
+                eurtry_price = 36.0
     
     # Fiyatları hesapla
     results = []
@@ -464,11 +517,57 @@ def run_analysis(df, usd_try_rate, view_currency):
                         p_data = batch_prices[sym_key]
                         curr = p_data["curr"]
                         prev = p_data["prev"]
+                    else:
+                        # Batch'te yoksa, tek tek dene (borsa kapalıyken fallback)
+                        try:
+                            ticker = yf.Ticker(sym_key)
+                            h = ticker.history(period="5d")
+                            if not h.empty:
+                                curr = h["Close"].iloc[-1]
+                                prev = h["Close"].iloc[-2] if len(h) > 1 else curr
+                            else:
+                                curr = 0
+                                prev = 0
+                        except Exception:
+                            curr = 0
+                            prev = 0
+                else:
+                    # Symbol map'te yoksa, direkt sembol ile dene
+                    try:
+                        ticker = yf.Ticker(symbol)
+                        h = ticker.history(period="5d")
+                        if not h.empty:
+                            curr = h["Close"].iloc[-1]
+                            prev = h["Close"].iloc[-2] if len(h) > 1 else curr
+                        else:
+                            curr = 0
+                            prev = 0
+                    except Exception:
+                        curr = 0
+                        prev = 0
         except Exception:
             pass
         
+        # Eğer hala fiyat yoksa, maliyet kullan (ama önce bir daha dene)
         if curr == 0:
-            curr = maliyet
+            # Son bir deneme - daha uzun period ile
+            try:
+                if symbol and symbol not in ["TL", "USD", "EUR"]:
+                    ticker = yf.Ticker(symbol)
+                    h = ticker.history(period="1mo")
+                    if not h.empty:
+                        curr = h["Close"].iloc[-1]
+                        prev = h["Close"].iloc[-2] if len(h) > 1 else curr
+                    else:
+                        curr = maliyet
+                        prev = maliyet
+                else:
+                    curr = maliyet
+                    prev = maliyet
+            except Exception:
+                curr = maliyet
+                prev = maliyet
+        
         if prev == 0:
             prev = curr
         if curr > 0 and maliyet > 0 and (maliyet / curr) > 50:
