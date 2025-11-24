@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import yfinance as yf
 import pandas as pd
 
-from utils import styled_dataframe, get_yahoo_symbol, get_pazar_icon, get_label_with_icon, get_logo_html
+from utils import styled_dataframe, get_yahoo_symbol
 from data_loader import get_tefas_data
 
 
@@ -44,22 +44,9 @@ def render_pie_bar_charts(
 
     grouped["Pay (%)"] = grouped["Değer"] / denom * 100 if denom > 0 else 0
 
-    # Metin kolonları - pazar ikonları ve logolar ekle
+    # Metin kolonları
     label_col = group_col
-    if group_col == "Pazar":
-        # Pazar kolonu için ikonlar ekle
-        grouped["Label"] = grouped[label_col].apply(lambda x: get_label_with_icon(str(x), str(x)))
-    else:
-        grouped["Label"] = grouped[label_col].astype(str)
-        # Kod kolonu için logo URL'lerini hazırla (bar chart için)
-        if "Pazar" in df.columns:
-            grouped = grouped.merge(
-                df[[group_col, "Pazar"]].drop_duplicates(),
-                on=group_col,
-                how="left"
-            )
-        else:
-            grouped["Pazar"] = ""
+    grouped["Label"] = grouped[label_col].astype(str)
 
     # Modern renk paleti - profesyonel ve tutarlı
     modern_colors = [
@@ -158,36 +145,6 @@ def render_pie_bar_charts(
     # --- Bar (Dağılım) - Modern ve Profesyonel ---
     with col_bar:
         fig_bar = go.Figure()
-        
-        # Bar chart için logo URL'lerini hazırla (sadece Kod kolonu için)
-        # Plotly'de image annotation'ları için images parametresi kullanılır
-        images = []
-        if group_col == "Kod" and "Pazar" in grouped.columns:
-            from utils import get_stock_logo_url
-            for idx, (_, row) in enumerate(grouped.iterrows()):
-                kod = str(row[group_col])
-                pazar = str(row.get("Pazar", ""))
-                logo_url = get_stock_logo_url(kod, pazar)
-                if logo_url and ("BIST" in pazar.upper() or "ABD" in pazar.upper() or "US" in pazar.upper() or "S&P" in pazar.upper() or "NASDAQ" in pazar.upper()):
-                    # Y pozisyonu: bar'ın y pozisyonu (reversed olduğu için, 0'dan başlar)
-                    # Plotly'de y-axis reversed olduğu için, y değeri label'ın index'i
-                    y_pos = idx
-                    images.append(
-                        dict(
-                            source=logo_url,
-                            xref="paper",
-                            yref="y",
-                            x=0.01,  # Sol tarafta, biraz içeride
-                            y=y_pos,
-                            sizex=0.04,  # Logo boyutu
-                            sizey=0.6,  # Logo yüksekliği
-                            xanchor="left",
-                            yanchor="middle",
-                            sizing="contain",
-                            layer="above",
-                        )
-                    )
-        
         fig_bar.add_trace(
             go.Bar(
                 x=grouped["Değer"],
@@ -212,7 +169,7 @@ def render_pie_bar_charts(
             )
         )
         fig_bar.update_layout(
-            margin=dict(t=20, b=20, l=60, r=40),  # Sol margin artırıldı logo için
+            margin=dict(t=20, b=20, l=20, r=40),
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             xaxis=dict(
@@ -237,7 +194,6 @@ def render_pie_bar_charts(
                     color="#ffffff",
                 ),
             ),
-            images=images if images else None,
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 

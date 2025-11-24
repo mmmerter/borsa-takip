@@ -1493,7 +1493,7 @@ if selected == "Dashboard":
                 path=[px.Constant("Portföy"), "Kod"],
                 values="Değer",
                 color=color_col,
-                custom_data=["Değer", "Top. Kâr/Zarar", color_col_formatted, "Kod", "Pazar"],
+                custom_data=["Değer", "Top. Kâr/Zarar", color_col_formatted, "Kod"],
                 color_continuous_scale="RdYlGn",  # Kırmızı-Sarı-Yeşil
                 color_continuous_midpoint=0,
                 hover_data={"Kod": True, "Değer": ":,.0f", color_col: ":.1f"},
@@ -1521,52 +1521,6 @@ if selected == "Dashboard":
                     )
                 )
 
-            # Treemap için logo işaretleri ekle (BIST ve ABD için)
-            # Plotly'de treemap'e direkt logo eklemek zor, bu yüzden kodun yanına emoji/ikon ekleyeceğiz
-            from utils import get_stock_logo_url
-            heat_df = heat_df.copy()
-            heat_df["KodWithLogo"] = heat_df.apply(
-                lambda row: f"🖼️ {row['Kod']}" if get_stock_logo_url(str(row["Kod"]), str(row.get("Pazar", ""))) and 
-                ("BIST" in str(row.get("Pazar", "")).upper() or "ABD" in str(row.get("Pazar", "")).upper() or 
-                 "US" in str(row.get("Pazar", "")).upper() or "S&P" in str(row.get("Pazar", "")).upper() or 
-                 "NASDAQ" in str(row.get("Pazar", "")).upper()) else str(row["Kod"]),
-                axis=1
-            )
-            
-            # Treemap'i tekrar oluştur (logo işareti ile)
-            fig = px.treemap(
-                heat_df,
-                path=[px.Constant("Portföy"), "KodWithLogo"],
-                values="Değer",
-                color=color_col,
-                custom_data=["Değer", "Top. Kâr/Zarar", color_col_formatted, "Kod", "Pazar"],
-                color_continuous_scale="RdYlGn",
-                color_continuous_midpoint=0,
-                hover_data={"Kod": True, "Değer": ":,.0f", color_col: ":.1f"},
-            )
-            
-            # Renk aralığını tekrar ayarla
-            if abs_max > 0:
-                fig.update_coloraxes(
-                    cmin=-abs_max, 
-                    cmax=abs_max,
-                    colorscale="RdYlGn",
-                    colorbar=dict(
-                        title=dict(
-                            text="Performans %",
-                            font=dict(size=14, color="#ffffff", family="Inter, sans-serif")
-                        ),
-                        tickfont=dict(size=12, color="#ffffff", family="Inter, sans-serif"),
-                        thickness=20,
-                        len=0.8,
-                        x=1.02,
-                        xpad=10,
-                        bgcolor="rgba(0,0,0,0)",
-                        bordercolor="#2f3440",
-                        borderwidth=1,
-                    )
-                )
-            
             # Modern tipografi ve stil - okunabilir yazılar, büyük kodlar, kısa yüzdeler
             # Mobil için CSS ile font boyutları küçültülecek
             fig.update_traces(
@@ -1611,11 +1565,6 @@ if selected == "Dashboard":
                     font=dict(size=18, color="#ffffff")
                 ),
             )
-            
-            # Treemap için logo ekleme - Plotly'de treemap'e logo eklemek zor
-            # Alternatif: JavaScript ile veya custom HTML overlay ile
-            # Şimdilik kodun yanına emoji/ikon ekleyeceğiz (BIST/ABD için)
-            # Bu özellik için daha gelişmiş bir çözüm gerekebilir
             
             st.plotly_chart(fig, use_container_width=True, config={
                 "displayModeBar": True,
