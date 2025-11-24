@@ -48,45 +48,101 @@ def render_pie_bar_charts(
     label_col = group_col
     grouped["Label"] = grouped[label_col].astype(str)
 
+    # Modern renk paleti - profesyonel ve tutarlı
+    modern_colors = [
+        "#6366f1",  # Indigo
+        "#8b5cf6",  # Purple
+        "#ec4899",  # Pink
+        "#f59e0b",  # Amber
+        "#10b981",  # Emerald
+        "#3b82f6",  # Blue
+        "#f97316",  # Orange
+        "#06b6d4",  # Cyan
+        "#84cc16",  # Lime
+        "#ef4444",  # Red
+    ]
+    
     # Donut + Bar layout
     col_pie, col_bar = st.columns([1.2, 1])
 
-    # --- Donut (Pie) ---
+    # --- Donut (Pie) - Modern ve Profesyonel ---
     with col_pie:
         fig_pie = go.Figure(
             data=[
                 go.Pie(
                     labels=grouped["Label"],
                     values=grouped["Değer"],
-                    hole=0.60,
-                    hovertemplate="<b>%{label}</b><br>Değer: %{value:,.0f}<br>Pay: %{percent:.1%}<extra></extra>",
+                    hole=0.65,
+                    marker=dict(
+                        colors=modern_colors[:len(grouped)],
+                        line=dict(color="#0e1117", width=2),
+                    ),
+                    textinfo="percent",
+                    textposition="auto",
+                    textfont=dict(
+                        family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                        size=12,
+                        color="#ffffff",
+                    ),
+                    hovertemplate="<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{label}</b><br>" +
+                                  "<span style='color: #6b7fd7;'>Değer:</span> <b>%{value:,.0f}</b><br>" +
+                                  "<span style='color: #6b7fd7;'>Pay:</span> <b>%{percent:.1%}</b><extra></extra>",
                 )
             ]
         )
         fig_pie.update_layout(
-            margin=dict(t=0, b=0, l=0, r=0),
+            margin=dict(t=20, b=20, l=20, r=20),
             showlegend=True,
-            legend_title=group_col,
+            legend=dict(
+                title=dict(
+                    text=f"<b>{group_col}</b>",
+                    font=dict(
+                        family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                        size=13,
+                        color="#6b7fd7",
+                    ),
+                ),
+                font=dict(
+                    family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    size=12,
+                    color="#b0b3c0",
+                ),
+                bgcolor="rgba(0,0,0,0)",
+                bordercolor="rgba(255,255,255,0.1)",
+                borderwidth=1,
+                itemclick="toggleothers",
+                itemdoubleclick="toggle",
+            ),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
             annotations=[
                 dict(
-                    text="TOPLAM",
+                    text="<b>TOPLAM</b>",
                     x=0.5,
-                    y=0.52,
-                    font=dict(size=11, color="#bfc3d4"),
+                    y=0.55,
+                    font=dict(
+                        family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                        size=11,
+                        color="#9da1b3",
+                    ),
                     showarrow=False,
                 ),
                 dict(
-                    text=f"{grouped['Değer'].sum():,.0f}",
+                    text=f"<b>{grouped['Değer'].sum():,.0f}</b>",
                     x=0.5,
                     y=0.42,
-                    font=dict(size=16, color="#ffffff"),
+                    font=dict(
+                        family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                        size=20,
+                        color="#ffffff",
+                    ),
                     showarrow=False,
                 ),
             ],
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
-    # --- Bar (Dağılım) ---
+    # --- Bar (Dağılım) - Modern ve Profesyonel ---
     with col_bar:
         fig_bar = go.Figure()
         fig_bar.add_trace(
@@ -94,12 +150,50 @@ def render_pie_bar_charts(
                 x=grouped["Değer"],
                 y=grouped["Label"],
                 orientation="h",
-                hovertemplate="<b>%{y}</b><br>Değer: %{x:,.0f}<extra></extra>",
+                marker=dict(
+                    color=modern_colors[:len(grouped)],
+                    line=dict(color="#0e1117", width=1.5),
+                    opacity=0.9,
+                ),
+                text=[f"{val:,.0f}" for val in grouped["Değer"]],
+                textposition="outside",
+                textfont=dict(
+                    family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    size=11,
+                    color="#ffffff",
+                ),
+                hovertemplate="<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{y}</b><br>" +
+                              "<span style='color: #6b7fd7;'>Değer:</span> <b>%{x:,.0f}</b><br>" +
+                              "<span style='color: #6b7fd7;'>Pay:</span> <b>%{customdata:.2f}%</b><extra></extra>",
+                customdata=grouped["Pay (%)"],
             )
         )
         fig_bar.update_layout(
-            margin=dict(t=10, b=0, l=0, r=0),
-            yaxis=dict(autorange="reversed"),
+            margin=dict(t=20, b=20, l=20, r=40),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(
+                title="",
+                showgrid=True,
+                gridcolor="rgba(255,255,255,0.05)",
+                gridwidth=1,
+                zeroline=False,
+                tickfont=dict(
+                    family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    size=11,
+                    color="#9da1b3",
+                ),
+            ),
+            yaxis=dict(
+                title="",
+                autorange="reversed",
+                showgrid=False,
+                tickfont=dict(
+                    family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    size=12,
+                    color="#ffffff",
+                ),
+            ),
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
