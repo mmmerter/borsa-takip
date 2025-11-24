@@ -292,8 +292,8 @@ def get_tickers_data(df_portfolio, usd_try):
                 portfolio_symbols[row["Kod"]] = get_yahoo_symbol(row["Kod"], row["Pazar"])
     
     all_fetch = list(set([s[1] for s in market_symbols] + list(portfolio_symbols.values())))
-    market_html = '<span style="color:#6b7fd7; font-size: 20px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">🌍 PİYASA</span> &nbsp;'
-    portfolio_html = '<span style="color:#6b7fd7; font-size: 20px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">💼 PORTFÖY</span> &nbsp;'
+    market_html = '<span style="color:#6b7fd7; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">🌍 PİYASA</span> &nbsp;'
+    portfolio_html = '<span style="color:#6b7fd7; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">💼 PORTFÖY</span> &nbsp;'
 
     try:
         yahoo_data = yf.Tickers(" ".join(all_fetch))
@@ -318,11 +318,11 @@ def get_tickers_data(df_portfolio, usd_try):
                     fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
                     if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
                     
-                    # Modern ticker kartı
-                    return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
-                        <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">{label if label else symbol}</span>
-                        <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{fmt}</span>
-                        <span style="color: {col}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow} {chg:+.1f}%</span>
+                    # Modern ticker kartı - küçültülmüş
+                    return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 6px; padding: 4px 10px; margin: 0 3px; font-family: 'Inter', -apple-system, sans-serif;">
+                        <span style="color: #8b9aff; font-size: 14px; font-weight: 700; letter-spacing: 0.2px;">{label if label else symbol}</span>
+                        <span style="color: #ffffff; font-size: 15px; font-weight: 800; margin: 0 5px;">{fmt}</span>
+                        <span style="color: {col}; font-size: 14px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px;">{arrow} {chg:+.1f}%</span>
                     </span>'''
                 else:
                     # Fallback: daha uzun period dene
@@ -387,10 +387,10 @@ def get_tickers_data(df_portfolio, usd_try):
                         col_gr = "#00e676" if gr_altin >= prev_gr_altin else "#ff5252"
                         arrow_gr = "▲" if gr_altin >= prev_gr_altin else "▼"
                         bg_gr = "rgba(0, 230, 118, 0.15)" if gr_altin >= prev_gr_altin else "rgba(255, 82, 82, 0.15)"
-                        market_html += f'''<span style="display: inline-block; background: {bg_gr}; border: 1px solid {col_gr}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
-                            <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">Gr Altın</span>
-                            <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{gr_altin:.2f}</span>
-                            <span style="color: {col_gr}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow_gr} {chg_gr:+.1f}%</span>
+                        market_html += f'''<span style="display: inline-block; background: {bg_gr}; border: 1px solid {col_gr}; border-radius: 6px; padding: 4px 10px; margin: 0 3px; font-family: 'Inter', -apple-system, sans-serif;">
+                            <span style="color: #8b9aff; font-size: 14px; font-weight: 700; letter-spacing: 0.2px;">Gr Altın</span>
+                            <span style="color: #ffffff; font-size: 15px; font-weight: 800; margin: 0 5px;">{gr_altin:.2f}</span>
+                            <span style="color: {col_gr}; font-size: 14px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px;">{arrow_gr} {chg_gr:+.1f}%</span>
                         </span> '''
                 except: pass
                 try:
@@ -403,24 +403,25 @@ def get_tickers_data(df_portfolio, usd_try):
                         col_gr = "#00e676" if gr_gumus >= prev_gr_gumus else "#ff5252"
                         arrow_gr = "▲" if gr_gumus >= prev_gr_gumus else "▼"
                         bg_gr = "rgba(0, 230, 118, 0.15)" if gr_gumus >= prev_gr_gumus else "rgba(255, 82, 82, 0.15)"
-                        market_html += f'''<span style="display: inline-block; background: {bg_gr}; border: 1px solid {col_gr}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
-                            <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">Gr Gümüş</span>
-                            <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{gr_gumus:.2f}</span>
-                            <span style="color: {col_gr}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow_gr} {chg_gr:+.1f}%</span>
+                        market_html += f'''<span style="display: inline-block; background: {bg_gr}; border: 1px solid {col_gr}; border-radius: 6px; padding: 4px 10px; margin: 0 3px; font-family: 'Inter', -apple-system, sans-serif;">
+                            <span style="color: #8b9aff; font-size: 14px; font-weight: 700; letter-spacing: 0.2px;">Gr Gümüş</span>
+                            <span style="color: #ffffff; font-size: 15px; font-weight: 800; margin: 0 5px;">{gr_gumus:.2f}</span>
+                            <span style="color: {col_gr}; font-size: 14px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px;">{arrow_gr} {chg_gr:+.1f}%</span>
                         </span> '''
                 except: pass
 
         if total_cap > 0:
-            market_html += f'''<span style="display: inline-block; background: rgba(242, 169, 0, 0.15); border: 1px solid #f2a900; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
-                <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">BTC.D</span>
-                <span style="color: #f2a900; font-size: 19px; font-weight: 800; margin: 0 6px;">{btc_d:.2f}%</span>
+            market_html += f'''<span style="display: inline-block; background: rgba(242, 169, 0, 0.15); border: 1px solid #f2a900; border-radius: 6px; padding: 4px 10px; margin: 0 3px; font-family: 'Inter', -apple-system, sans-serif;">
+                <span style="color: #8b9aff; font-size: 14px; font-weight: 700; letter-spacing: 0.2px;">BTC.D</span>
+                <span style="color: #f2a900; font-size: 15px; font-weight: 800; margin: 0 5px;">{btc_d:.2f}%</span>
             </span> '''
         
+        # Portföydeki BIST, ABD, Kripto varlıkları ikinci banda ekle
         if portfolio_symbols:
             for name, sym in portfolio_symbols.items():
                 val = get_val(sym, name)
                 if val: portfolio_html += f"{val} "
-        else: portfolio_html += '<span style="color: #888; font-size: 18px;">Portföy boş.</span>'
+        else: portfolio_html += '<span style="color: #888; font-size: 14px;">Portföy boş.</span>'
     except: market_html, portfolio_html = "Yükleniyor...", "Yükleniyor..."
     
     return f'<div class="ticker-text animate-market">{market_html}</div>', f'<div class="ticker-text animate-portfolio">{portfolio_html}</div>'

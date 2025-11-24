@@ -112,17 +112,17 @@ st.markdown(
         line-height: 1.6;
     }
     
-    /* Animasyonlar - Daha yumuşak */
+    /* Animasyonlar - Sonsuz döngü, daha hızlı */
     .animate-market { 
-        animation: ticker 75s linear infinite; 
+        animation: ticker-infinite 40s linear infinite; 
     }
     .animate-portfolio { 
-        animation: ticker 65s linear infinite; 
+        animation: ticker-infinite 35s linear infinite; 
     }
 
-    @keyframes ticker {
+    @keyframes ticker-infinite {
         0% { transform: translate3d(0, 0, 0); }
-        100% { transform: translate3d(-50%, 0, 0); }
+        100% { transform: translate3d(-100%, 0, 0); }
     }
 
     /* Haber Kartları */
