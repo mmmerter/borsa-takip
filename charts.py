@@ -33,8 +33,16 @@ def render_pie_bar_charts(
     agg = {"Değer": "sum"}
     if "Top. Kâr/Zarar" in df.columns:
         agg["Top. Kâr/Zarar"] = "sum"
-
-    grouped = df.groupby(group_col, as_index=False).agg(agg)
+    
+    # Eğer "Kod" kolonu varsa (şirket listesi için), onu da koru
+    # Not: "Kod" kolonu zaten birleştirilmiş şirket listesi olmalı (merge sonrası)
+    if "Kod" in df.columns:
+        # "Kod" kolonu zaten birleştirilmiş şirket listesi, her sektör için tek değer var
+        # groupby yaparken "first" kullan (aslında hepsi aynı olmalı)
+        grouped = df.groupby(group_col, as_index=False).agg({**agg, "Kod": "first"})
+    else:
+        grouped = df.groupby(group_col, as_index=False).agg(agg)
+    
     grouped = grouped.sort_values("Değer", ascending=False)
 
     # Yüzde hesaplama
@@ -52,7 +60,13 @@ def render_pie_bar_charts(
     # Şirket listesi için custom_data hazırla (sadece sektör grafikleri için)
     # "Kod" kolonu merge ile eklenmiş olmalı
     if show_companies and "Kod" in grouped.columns:
+        # "Kod" kolonu zaten birleştirilmiş şirket listesi
         grouped["SirketListesi"] = grouped["Kod"].fillna("").astype(str)
+        # Boş string'leri kontrol et
+        grouped["SirketListesi"] = grouped["SirketListesi"].replace("", "Bilinmiyor")
+    elif show_companies:
+        # Eğer "Kod" kolonu yoksa boş string
+        grouped["SirketListesi"] = "Bilinmiyor"
     else:
         grouped["SirketListesi"] = ""
 
@@ -78,39 +92,51 @@ def render_pie_bar_charts(
         # Hover template'i hazırla
         if show_companies and "SirketListesi" in grouped.columns:
             # Şirket listesi varsa hover template'e ekle
-            hover_template = "<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{label}</b><br>" + \
-                            "<span style='color: #6b7fd7;'>Değer:</span> <b>%{value:,.0f}</b><br>" + \
-                            "<span style='color: #6b7fd7;'>Pay:</span> <b>%{percent:.1%}</b><br>" + \
-                            "<span style='color: #6b7fd7;'>Şirketler:</span> <span style='font-size: 12px;'>%{customdata}</span><extra></extra>"
-            customdata_list = grouped["SirketListesi"].tolist()
+            # customdata kontrolü
+            sirket_listesi = grouped["SirketListesi"].fillna("").astype(str)
+            # Boş olmayan değerler varsa göster
+            if not sirket_listesi.empty and sirket_listesi.str.strip().ne("").any():
+                hover_template = "<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{label}</b><br>" + \
+                                "<span style='color: #6b7fd7;'>Değer:</span> <b>%{value:,.0f}</b><br>" + \
+                                "<span style='color: #6b7fd7;'>Pay:</span> <b>%{percent:.1%}</b><br>" + \
+                                "<span style='color: #6b7fd7;'>Şirketler:</span> <span style='font-size: 12px; color: #ffffff;'>%{customdata[0]}</span><extra></extra>"
+                customdata_list = sirket_listesi.tolist()
+            else:
+                hover_template = "<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{label}</b><br>" + \
+                                "<span style='color: #6b7fd7;'>Değer:</span> <b>%{value:,.0f}</b><br>" + \
+                                "<span style='color: #6b7fd7;'>Pay:</span> <b>%{percent:.1%}</b><extra></extra>"
+                customdata_list = None
         else:
             hover_template = "<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{label}</b><br>" + \
                             "<span style='color: #6b7fd7;'>Değer:</span> <b>%{value:,.0f}</b><br>" + \
                             "<span style='color: #6b7fd7;'>Pay:</span> <b>%{percent:.1%}</b><extra></extra>"
             customdata_list = None
         
-        fig_pie = go.Figure(
-            data=[
-                go.Pie(
-                    labels=grouped["Label"],
-                    values=grouped["Değer"],
-                    hole=0.65,
-                    marker=dict(
-                        colors=modern_colors[:len(grouped)],
-                        line=dict(color="#0e1117", width=2),
-                    ),
-                    textinfo="percent",
-                    textposition="auto",
-                    textfont=dict(
-                        family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                        size=12,
-                        color="#ffffff",
-                    ),
-                    hovertemplate=hover_template,
-                    customdata=customdata_list if customdata_list else None,
-                )
-            ]
-        )
+        # Pie chart için data hazırla
+        pie_data = {
+            "labels": grouped["Label"].tolist(),
+            "values": grouped["Değer"].tolist(),
+            "hole": 0.65,
+            "marker": dict(
+                colors=modern_colors[:len(grouped)],
+                line=dict(color="#0e1117", width=2),
+            ),
+            "textinfo": "percent",
+            "textposition": "auto",
+            "textfont": dict(
+                family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                size=12,
+                color="#ffffff",
+            ),
+            "hovertemplate": hover_template,
+        }
+        
+        # customdata varsa ekle (numpy array olarak)
+        if customdata_list is not None and len(customdata_list) > 0:
+            import numpy as np
+            pie_data["customdata"] = np.array(customdata_list)
+        
+        fig_pie = go.Figure(data=[go.Pie(**pie_data)])
         fig_pie.update_layout(
             margin=dict(t=20, b=20, l=20, r=20),
             showlegend=True,

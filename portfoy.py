@@ -1617,11 +1617,13 @@ if selected == "Dashboard":
             st.subheader("🏭 Sektörel Dağılım")
             sektor_df = spot_only[spot_only["Sektör"] != ""].copy()
             if not sektor_df.empty:
+                # Her sektör için şirket listesini hazırla
+                sektor_sirketler = sektor_df.groupby("Sektör")["Kod"].apply(lambda x: ", ".join(x.unique())).reset_index()
+                sektor_sirketler.columns = ["Sektör", "Kod"]
+                # Gruplama yap ve şirket listesini ekle
                 sektor_grouped = sektor_df.groupby("Sektör", as_index=False).agg(
                     {"Değer": "sum", "Top. Kâr/Zarar": "sum"}
                 )
-                # Her sektör için şirket listesini hazırla
-                sektor_sirketler = sektor_df.groupby("Sektör")["Kod"].apply(lambda x: ", ".join(x.unique())).reset_index()
                 sektor_grouped = sektor_grouped.merge(sektor_sirketler, on="Sektör", how="left")
                 render_pie_bar_charts(
                     sektor_grouped,
@@ -1716,11 +1718,13 @@ elif selected == "Portföy":
             st.subheader("🏭 Sektörel Dağılım - BIST")
             sektor_bist = bist_df[bist_df["Sektör"] != ""].copy()
             if not sektor_bist.empty:
+                # Her sektör için şirket listesini hazırla
+                sektor_sirketler = sektor_bist.groupby("Sektör")["Kod"].apply(lambda x: ", ".join(x.unique())).reset_index()
+                sektor_sirketler.columns = ["Sektör", "Kod"]
+                # Gruplama yap ve şirket listesini ekle
                 sektor_grouped = sektor_bist.groupby("Sektör", as_index=False).agg(
                     {"Değer": "sum", "Top. Kâr/Zarar": "sum"}
                 )
-                # Her sektör için şirket listesini hazırla
-                sektor_sirketler = sektor_bist.groupby("Sektör")["Kod"].apply(lambda x: ", ".join(x.unique())).reset_index()
                 sektor_grouped = sektor_grouped.merge(sektor_sirketler, on="Sektör", how="left")
                 render_pie_bar_charts(
                     sektor_grouped,
@@ -1784,11 +1788,13 @@ elif selected == "Portföy":
             st.subheader("🏭 Sektörel Dağılım - ABD")
             sektor_abd = abd_df[abd_df["Sektör"] != ""].copy()
             if not sektor_abd.empty:
+                # Her sektör için şirket listesini hazırla
+                sektor_sirketler = sektor_abd.groupby("Sektör")["Kod"].apply(lambda x: ", ".join(x.unique())).reset_index()
+                sektor_sirketler.columns = ["Sektör", "Kod"]
+                # Gruplama yap ve şirket listesini ekle
                 sektor_grouped = sektor_abd.groupby("Sektör", as_index=False).agg(
                     {"Değer": "sum", "Top. Kâr/Zarar": "sum"}
                 )
-                # Her sektör için şirket listesini hazırla
-                sektor_sirketler = sektor_abd.groupby("Sektör")["Kod"].apply(lambda x: ", ".join(x.unique())).reset_index()
                 sektor_grouped = sektor_grouped.merge(sektor_sirketler, on="Sektör", how="left")
                 render_pie_bar_charts(
                     sektor_grouped,
