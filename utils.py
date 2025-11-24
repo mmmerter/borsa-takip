@@ -214,7 +214,7 @@ def get_pazar_icon(pazar: str) -> str:
         return "⚡"  # Emtia ikonu
     elif "NAKIT" in pazar_upper:
         return "💵"  # Nakit ikonu
-    elif "ABD" in pazar_upper or "US" in pazar_upper:
+    elif "ABD" in pazar_upper or "US" in pazar_upper or "S&P" in pazar_upper or "NASDAQ" in pazar_upper:
         return "🇺🇸"  # ABD bayrağı
     elif "BIST" in pazar_upper:
         return "📈"  # BIST ikonu
