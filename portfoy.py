@@ -210,6 +210,25 @@ st.markdown(
         color: #9da1b3;
         margin-top: 4px;
     }
+    
+    /* Modern Navigation Menu Styling */
+    div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stHorizontalBlock"]) {
+        background: transparent !important;
+    }
+    
+    /* Option Menu Container */
+    .stOptionMenu {
+        background: transparent !important;
+    }
+    
+    /* Menu item hover effects */
+    [data-testid="stHorizontalBlock"] > div > div > div > div > div > a {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    
+    [data-testid="stHorizontalBlock"] > div > div > div > div > div > a:hover {
+        transform: translateY(-2px) !important;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -269,7 +288,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- MENÜ (6 Buton) ---
+# --- MENÜ (6 Buton) - Modern ---
 selected = option_menu(
     menu_title=None,
     options=[
@@ -292,17 +311,41 @@ selected = option_menu(
     default_index=0,
     orientation="horizontal",
     styles={
-        "container": {"padding": "0!important", "background-color": "#161616"},
-        "icon": {"color": "white", "font-size": "18px"},
-        "nav-link": {
-            "font-size": "14px",
-            "text-align": "center",
-            "margin": "0px",
-            "--hover-color": "#333333",
-            "font-weight": "bold",
-            "color": "#bfbfbf",
+        "container": {
+            "padding": "0!important",
+            "background": "linear-gradient(135deg, #1a1c24 0%, #0e1117 100%)",
+            "border-radius": "12px",
+            "box-shadow": "0 4px 20px rgba(0, 0, 0, 0.4)",
+            "margin-bottom": "20px",
         },
-        "nav-link-selected": {"background-color": "#ffffff", "color": "#000"},
+        "icon": {
+            "color": "#8b9aff",
+            "font-size": "20px",
+            "margin-right": "8px",
+        },
+        "nav-link": {
+            "font-size": "15px",
+            "text-align": "center",
+            "margin": "0px 4px",
+            "padding": "12px 20px",
+            "border-radius": "10px",
+            "font-weight": "700",
+            "color": "#b0b3c0",
+            "transition": "all 0.3s ease",
+            "background": "transparent",
+        },
+        "nav-link:hover": {
+            "background": "rgba(139, 154, 255, 0.1)",
+            "color": "#8b9aff",
+            "transform": "translateY(-2px)",
+        },
+        "nav-link-selected": {
+            "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
+            "color": "#ffffff",
+            "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.4)",
+            "font-weight": "900",
+            "border": "none",
+        },
     },
 )
 
