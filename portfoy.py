@@ -792,6 +792,21 @@ def run_analysis(df, usd_try_rate, view_currency):
         pnl = v_g - c_g
         pnl_pct = (pnl / c_g * 100) if c_g > 0 else 0
         
+        # Günlük fiyat değişimi yüzdesi (izleme listesi için)
+        # prev ve curr'ü view_currency'ye çevir
+        if view_currency == "TRY":
+            if asset_currency == "USD":
+                prev_g = prev * usd_try_rate
+            else:
+                prev_g = prev
+        else:  # USD
+            if asset_currency == "TRY":
+                prev_g = prev / usd_try_rate
+            else:
+                prev_g = prev
+        
+        daily_pct_change = ((f_g - prev_g) / prev_g * 100) if prev_g > 0 else 0
+        
         results.append({
             "Kod": kod,
             "Pazar": pazar,
@@ -804,6 +819,7 @@ def run_analysis(df, usd_try_rate, view_currency):
             "Top. Kâr/Zarar": pnl,
             "Top. %": pnl_pct,
             "Gün. Kâr/Zarar": d_g,
+            "Günlük Değişim %": daily_pct_change,  # İzleme listesi için
             "Notlar": row.get("Notlar", ""),
             "Sektör": sector,
         })
@@ -834,12 +850,13 @@ def render_kral_infobar(df, sym, gorunum_pb=None, usd_try_rate=None, timeframe=N
     total_value_view = df["Değer"].sum()
     daily_pnl = df["Gün. Kâr/Zarar"].sum()
 
+    # Görsel işaretler - kırmızı/yeşil
     if daily_pnl > 0:
-        daily_sign = "🟢"
+        daily_sign = '<span style="color: #00e676; font-size: 16px;">🟢</span>'
     elif daily_pnl < 0:
-        daily_sign = "🔴"
+        daily_sign = '<span style="color: #ff5252; font-size: 16px;">🔴</span>'
     else:
-        daily_sign = "⚪"
+        daily_sign = '<span style="color: #888; font-size: 16px;">⚪</span>'
 
     # Haftalık / Aylık / YTD metinleri (varsayılan)
     weekly_txt = "—"
@@ -880,7 +897,7 @@ def render_kral_infobar(df, sym, gorunum_pb=None, usd_try_rate=None, timeframe=N
             </div>
             <div class="kral-infobox">
                 <div class="kral-infobox-label">Son 24 Saat K/Z</div>
-                <span class="kral-infobox-value">{daily_sign} {sym}{daily_pnl:,.0f}</span>
+                <span class="kral-infobox-value">{daily_sign} {sym}{abs(daily_pnl):,.0f}</span>
                 <div class="kral-infobox-sub">Günlük toplam portföy hareketi</div>
             </div>
             <div class="kral-infobox">
@@ -1475,8 +1492,12 @@ elif selected == "Haberler":
 elif selected == "İzleme":
     st.subheader("👁️ İzleme Listesi")
     if not takip_only.empty:
+        # İzleme listesi için sadece: Kod, Pazar, Fiyat, Fiyat Değişimi %
+        takip_display = takip_only[["Kod", "Pazar", "Fiyat", "Günlük Değişim %"]].copy()
+        takip_display = takip_display.rename(columns={"Günlük Değişim %": "Fiyat Değişimi %"})
+        
         st.dataframe(
-            styled_dataframe(takip_only),
+            styled_dataframe(takip_display),
             use_container_width=True,
             hide_index=True,
         )
@@ -1661,7 +1682,7 @@ elif selected == "Ekle/Çıkar":
                     st.rerun()
 
             else:  # Satış Kaydı
-                kodlar = portfoy_df["Kod"].unique()
+                kodlar = sorted(portfoy_df["Kod"].unique())
                 kod_sec = st.selectbox("Satılacak Kod", kodlar, key="sell_code")
 
                 secili = portfoy_df[portfoy_df["Kod"] == kod_sec].iloc[0]

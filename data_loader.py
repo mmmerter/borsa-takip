@@ -309,17 +309,20 @@ def get_tickers_data(df_portfolio, usd_try):
                         col = "#00e676"  # Yeşil
                         arrow = "▲"
                         bg_col = "rgba(0, 230, 118, 0.15)"
+                        indicator = '<span style="color: #00e676; font-size: 12px;">🟢</span>'
                     else:
                         col = "#ff5252"  # Kırmızı
                         arrow = "▼"
                         bg_col = "rgba(255, 82, 82, 0.15)"
+                        indicator = '<span style="color: #ff5252; font-size: 12px;">🔴</span>'
                     
                     # Fiyat formatı
                     fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
                     if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
                     
-                    # Modern ticker kartı - küçültülmüş
+                    # Modern ticker kartı - küçültülmüş, kırmızı/yeşil işaret ile
                     return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 6px; padding: 4px 10px; margin: 0 3px; font-family: 'Inter', -apple-system, sans-serif;">
+                        {indicator}
                         <span style="color: #8b9aff; font-size: 14px; font-weight: 700; letter-spacing: 0.2px;">{label if label else symbol}</span>
                         <span style="color: #ffffff; font-size: 15px; font-weight: 800; margin: 0 5px;">{fmt}</span>
                         <span style="color: {col}; font-size: 14px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px;">{arrow} {chg:+.1f}%</span>
@@ -335,13 +338,16 @@ def get_tickers_data(df_portfolio, usd_try):
                             col = "#00e676"
                             arrow = "▲"
                             bg_col = "rgba(0, 230, 118, 0.15)"
+                            indicator = '<span style="color: #00e676; font-size: 12px;">🟢</span>'
                         else:
                             col = "#ff5252"
                             arrow = "▼"
                             bg_col = "rgba(255, 82, 82, 0.15)"
+                            indicator = '<span style="color: #ff5252; font-size: 12px;">🔴</span>'
                         fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
                         if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
                         return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
+                            {indicator}
                             <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">{label if label else symbol}</span>
                             <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{fmt}</span>
                             <span style="color: {col}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow} {chg:+.1f}%</span>
