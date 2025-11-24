@@ -292,8 +292,8 @@ def get_tickers_data(df_portfolio, usd_try):
                 portfolio_symbols[row["Kod"]] = get_yahoo_symbol(row["Kod"], row["Pazar"])
     
     all_fetch = list(set([s[1] for s in market_symbols] + list(portfolio_symbols.values())))
-    market_html = '<span style="color:#aaa; font-size: 22px; font-weight: 900;">🌍 PİYASA:</span> &nbsp;'
-    portfolio_html = '<span style="color:#aaa; font-size: 22px; font-weight: 900;">💼 PORTFÖY:</span> &nbsp;'
+    market_html = '<span style="color:#6b7fd7; font-size: 20px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">🌍 PİYASA</span> &nbsp;'
+    portfolio_html = '<span style="color:#6b7fd7; font-size: 20px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">💼 PORTFÖY</span> &nbsp;'
 
     try:
         yahoo_data = yf.Tickers(" ".join(all_fetch))
@@ -303,20 +303,49 @@ def get_tickers_data(df_portfolio, usd_try):
                 h = yahoo_data.tickers[symbol].history(period="5d")
                 if not h.empty:
                     p, prev = h["Close"].iloc[-1], h["Close"].iloc[-2] if len(h) > 1 else h["Close"].iloc[-1]
-                    chg, col, arrow = ((p - prev) / prev) * 100, "#00e676" if p >= prev else "#ff5252", "▲" if p >= prev else "▼"
+                    chg = ((p - prev) / prev) * 100
+                    # Modern renkler ve ok işaretleri
+                    if p >= prev:
+                        col = "#00e676"  # Yeşil
+                        arrow = "▲"
+                        bg_col = "rgba(0, 230, 118, 0.15)"
+                    else:
+                        col = "#ff5252"  # Kırmızı
+                        arrow = "▼"
+                        bg_col = "rgba(255, 82, 82, 0.15)"
+                    
+                    # Fiyat formatı
                     fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
                     if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
-                    return f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">{label if label else symbol}: </span><span style="color:white; font-size: 22px; font-weight: 900;">{fmt}</span> <span style="color:{col}; font-size: 22px; font-weight: 900;">{arrow}%{chg:.2f}</span>'
+                    
+                    # Modern ticker kartı
+                    return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
+                        <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">{label if label else symbol}</span>
+                        <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{fmt}</span>
+                        <span style="color: {col}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow} {chg:+.1f}%</span>
+                    </span>'''
                 else:
                     # Fallback: daha uzun period dene
                     h = yahoo_data.tickers[symbol].history(period="1mo")
                     if not h.empty:
                         p = h["Close"].iloc[-1]
                         prev = h["Close"].iloc[-2] if len(h) > 1 else p
-                        chg, col, arrow = ((p - prev) / prev) * 100, "#00e676" if p >= prev else "#ff5252", "▲" if p >= prev else "▼"
+                        chg = ((p - prev) / prev) * 100
+                        if p >= prev:
+                            col = "#00e676"
+                            arrow = "▲"
+                            bg_col = "rgba(0, 230, 118, 0.15)"
+                        else:
+                            col = "#ff5252"
+                            arrow = "▼"
+                            bg_col = "rgba(255, 82, 82, 0.15)"
                         fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
                         if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
-                        return f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">{label if label else symbol}: </span><span style="color:white; font-size: 22px; font-weight: 900;">{fmt}</span> <span style="color:{col}; font-size: 22px; font-weight: 900;">{arrow}%{chg:.2f}</span>'
+                        return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
+                            <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">{label if label else symbol}</span>
+                            <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{fmt}</span>
+                            <span style="color: {col}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow} {chg:+.1f}%</span>
+                        </span>'''
             except Exception:
                 # Batch başarısız olursa, tek tek dene
                 try:
@@ -324,37 +353,74 @@ def get_tickers_data(df_portfolio, usd_try):
                     h = ticker.history(period="5d")
                     if not h.empty:
                         p, prev = h["Close"].iloc[-1], h["Close"].iloc[-2] if len(h) > 1 else h["Close"].iloc[-1]
-                        chg, col, arrow = ((p - prev) / prev) * 100, "#00e676" if p >= prev else "#ff5252", "▲" if p >= prev else "▼"
+                        chg = ((p - prev) / prev) * 100
+                        if p >= prev:
+                            col = "#00e676"
+                            arrow = "▲"
+                            bg_col = "rgba(0, 230, 118, 0.15)"
+                        else:
+                            col = "#ff5252"
+                            arrow = "▼"
+                            bg_col = "rgba(255, 82, 82, 0.15)"
                         fmt = f"{p:,.2f}" if p > 1 else f"{p:,.4f}"
                         if "XU100" in symbol or "^" in symbol: fmt = f"{p:,.0f}"
-                        return f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">{label if label else symbol}: </span><span style="color:white; font-size: 22px; font-weight: 900;">{fmt}</span> <span style="color:{col}; font-size: 22px; font-weight: 900;">{arrow}%{chg:.2f}</span>'
+                        return f'''<span style="display: inline-block; background: {bg_col}; border: 1px solid {col}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
+                            <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">{label if label else symbol}</span>
+                            <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{fmt}</span>
+                            <span style="color: {col}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow} {chg:+.1f}%</span>
+                        </span>'''
                 except Exception:
                     pass
             return ""
 
         for name, sym in market_symbols:
             val = get_val(sym, name)
-            if val: market_html += f"{val} &nbsp;|&nbsp; "
+            if val: market_html += f"{val} "
             if name == "ETH/USDT":
                 try:
-                    # 5d FIX
+                    # Gram Altın
                     h = yahoo_data.tickers["GC=F"].history(period="5d")
-                    if not h.empty: market_html += f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">Gr Altın: </span><span style="color:white; font-size: 22px; font-weight: 900;">{(h["Close"].iloc[-1] * usd_try) / 31.1035:.2f}</span> &nbsp;|&nbsp; '
+                    if not h.empty:
+                        gr_altin = (h["Close"].iloc[-1] * usd_try) / 31.1035
+                        prev_gr_altin = (h["Close"].iloc[-2] * usd_try) / 31.1035 if len(h) > 1 else gr_altin
+                        chg_gr = ((gr_altin - prev_gr_altin) / prev_gr_altin) * 100
+                        col_gr = "#00e676" if gr_altin >= prev_gr_altin else "#ff5252"
+                        arrow_gr = "▲" if gr_altin >= prev_gr_altin else "▼"
+                        bg_gr = "rgba(0, 230, 118, 0.15)" if gr_altin >= prev_gr_altin else "rgba(255, 82, 82, 0.15)"
+                        market_html += f'''<span style="display: inline-block; background: {bg_gr}; border: 1px solid {col_gr}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
+                            <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">Gr Altın</span>
+                            <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{gr_altin:.2f}</span>
+                            <span style="color: {col_gr}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow_gr} {chg_gr:+.1f}%</span>
+                        </span> '''
                 except: pass
                 try:
-                    # 5d FIX
+                    # Gram Gümüş
                     h = yahoo_data.tickers["SI=F"].history(period="5d")
-                    if not h.empty: market_html += f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">Gr Gümüş: </span><span style="color:white; font-size: 22px; font-weight: 900;">{(h["Close"].iloc[-1] * usd_try) / 31.1035:.2f}</span> &nbsp;|&nbsp; '
+                    if not h.empty:
+                        gr_gumus = (h["Close"].iloc[-1] * usd_try) / 31.1035
+                        prev_gr_gumus = (h["Close"].iloc[-2] * usd_try) / 31.1035 if len(h) > 1 else gr_gumus
+                        chg_gr = ((gr_gumus - prev_gr_gumus) / prev_gr_gumus) * 100
+                        col_gr = "#00e676" if gr_gumus >= prev_gr_gumus else "#ff5252"
+                        arrow_gr = "▲" if gr_gumus >= prev_gr_gumus else "▼"
+                        bg_gr = "rgba(0, 230, 118, 0.15)" if gr_gumus >= prev_gr_gumus else "rgba(255, 82, 82, 0.15)"
+                        market_html += f'''<span style="display: inline-block; background: {bg_gr}; border: 1px solid {col_gr}; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
+                            <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">Gr Gümüş</span>
+                            <span style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0 6px;">{gr_gumus:.2f}</span>
+                            <span style="color: {col_gr}; font-size: 18px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">{arrow_gr} {chg_gr:+.1f}%</span>
+                        </span> '''
                 except: pass
 
         if total_cap > 0:
-            market_html += f'<span style="font-size: 22px; font-weight: 900; color: #bbbbff;">BTC.D: </span><span style="color:#f2a900; font-size: 22px; font-weight: 900;">% {btc_d:.2f}</span> &nbsp;|&nbsp; '
+            market_html += f'''<span style="display: inline-block; background: rgba(242, 169, 0, 0.15); border: 1px solid #f2a900; border-radius: 8px; padding: 6px 12px; margin: 0 4px; font-family: 'Inter', -apple-system, sans-serif;">
+                <span style="color: #8b9aff; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;">BTC.D</span>
+                <span style="color: #f2a900; font-size: 19px; font-weight: 800; margin: 0 6px;">{btc_d:.2f}%</span>
+            </span> '''
         
         if portfolio_symbols:
             for name, sym in portfolio_symbols.items():
                 val = get_val(sym, name)
-                if val: portfolio_html += f"{val} &nbsp;&nbsp;&nbsp; "
-        else: portfolio_html += "Portföy boş."
+                if val: portfolio_html += f"{val} "
+        else: portfolio_html += '<span style="color: #888; font-size: 18px;">Portföy boş.</span>'
     except: market_html, portfolio_html = "Yükleniyor...", "Yükleniyor..."
     
     return f'<div class="ticker-text animate-market">{market_html}</div>', f'<div class="ticker-text animate-portfolio">{portfolio_html}</div>'

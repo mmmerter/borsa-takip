@@ -81,39 +81,44 @@ st.markdown(
     div[data-testid="stMetricValue"] { color: #ffffff !important; }
     div[data-testid="stMetricLabel"] { color: #bfbfbf !important; }
 
-    /* Ticker Alanı */
+    /* Ticker Alanı - Modern */
     .ticker-container {
         width: 100%;
         overflow: hidden;
-        background-color: #161616;
-        border-bottom: 1px solid #333;
+        background: linear-gradient(135deg, #1a1c24 0%, #0e1117 100%);
+        border-bottom: 1px solid #2f3440;
         margin-bottom: 20px;
         white-space: nowrap;
         position: relative;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
     .market-ticker {
-        background-color: #0e1117;
-        border-bottom: 1px solid #333;
-        padding: 8px 0;
+        background: linear-gradient(135deg, #0e1117 0%, #1a1c24 100%);
+        border-bottom: 1px solid #2f3440;
+        padding: 12px 0;
     }
     .portfolio-ticker {
-        background-color: #1a1c24;
-        border-bottom: 2px solid #FF4B4B;
-        padding: 8px 0;
+        background: linear-gradient(135deg, #1a1c24 0%, #0e1117 100%);
+        border-bottom: 2px solid #6b7fd7;
+        padding: 12px 0;
         margin-bottom: 20px;
     }
     .ticker-text {
         display: inline-block;
         white-space: nowrap;
         padding-left: 0;
-        font-family: 'Courier New', Courier, monospace;
-        font-weight: 900;
-        color: #00e676;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-weight: 700;
+        line-height: 1.6;
     }
     
-    /* Animasyonlar */
-    .animate-market { animation: ticker 65s linear infinite; color: #4da6ff; }
-    .animate-portfolio { animation: ticker 55s linear infinite; color: #ffd700; }
+    /* Animasyonlar - Daha yumuşak */
+    .animate-market { 
+        animation: ticker 75s linear infinite; 
+    }
+    .animate-portfolio { 
+        animation: ticker 65s linear infinite; 
+    }
 
     @keyframes ticker {
         0% { transform: translate3d(0, 0, 0); }
