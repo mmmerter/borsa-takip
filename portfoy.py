@@ -825,6 +825,33 @@ def _fetch_batch_prices_emtia(symbols_list, period="5d"):
     
     return prices
 
+def _translate_sector(sector_en):
+    """İngilizce sektör isimlerini Türkçe'ye çevirir"""
+    sector_map = {
+        "Technology": "Teknoloji",
+        "Financial Services": "Finansal Hizmetler",
+        "Healthcare": "Sağlık",
+        "Consumer Cyclical": "Tüketim (Döngüsel)",
+        "Consumer Defensive": "Tüketim (Savunmacı)",
+        "Energy": "Enerji",
+        "Industrials": "Sanayi",
+        "Basic Materials": "Temel Malzemeler",
+        "Real Estate": "Gayrimenkul",
+        "Communication Services": "İletişim Hizmetleri",
+        "Utilities": "Kamu Hizmetleri",
+        "Consumer Staples": "Tüketim Malları",
+        "Consumer Discretionary": "Tüketim (İsteğe Bağlı)",
+        "Materials": "Malzemeler",
+        "Information Technology": "Bilgi Teknolojisi",
+        "Financials": "Finans",
+        "Health Care": "Sağlık",
+        "Consumer Services": "Tüketim Hizmetleri",
+        "Telecommunications": "Telekomünikasyon",
+        "Real Estate Investment Trusts": "Gayrimenkul Yatırım Ortaklıkları",
+        "REIT": "Gayrimenkul Yatırım Ortaklıkları",
+    }
+    return sector_map.get(sector_en, sector_en)  # Eğer çeviri yoksa orijinal ismi döndür
+
 @st.cache_data(ttl=300)
 def _fetch_sector_info(symbols_list):
     """Batch olarak sektör bilgilerini çeker"""
@@ -836,7 +863,9 @@ def _fetch_sector_info(symbols_list):
         for sym in symbols_list:
             try:
                 info = tickers.tickers[sym].info
-                sectors[sym] = info.get("sector", "Bilinmiyor")
+                sector_en = info.get("sector", "Bilinmiyor")
+                # Türkçe'ye çevir
+                sectors[sym] = _translate_sector(sector_en) if sector_en != "Bilinmiyor" else "Bilinmiyor"
             except Exception:
                 sectors[sym] = "Bilinmiyor"
     except Exception:
