@@ -665,36 +665,76 @@ if selected == "Dashboard":
                 "Renklendirme:",
                 ["Genel Kâr %", "Günlük Değişim %"],
                 horizontal=True,
+                key="heatmap_color_mode",
+            )
+            heat_scope = st.selectbox(
+                "Kapsam:",
+                ["Tümü", "BIST", "ABD", "FON", "Emtia", "Kripto", "Nakit"],
+                index=0,
+                key="heatmap_scope",
             )
 
-        color_col = "Top. %"
-        spot_only = spot_only.copy()
-        spot_only["Gün. %"] = 0.0
-        safe_val = spot_only["Değer"] - spot_only["Gün. Kâr/Zarar"]
-        non_zero = safe_val != 0
-        spot_only.loc[non_zero, "Gün. %"] = (
-            spot_only.loc[non_zero, "Gün. Kâr/Zarar"] / safe_val[non_zero]
-        ) * 100
-        if map_mode == "Günlük Değişim %":
-            color_col = "Gün. %"
+        # Çalışılacak kopya
+        heat_df = spot_only.copy()
 
-        fig = px.treemap(
-            spot_only,
-            path=[px.Constant("Portföy"), "Kod"],
-            values="Değer",
-            color=color_col,
-            custom_data=["Değer", "Top. Kâr/Zarar", color_col],
-            color_continuous_scale="RdYlGn",
-            color_continuous_midpoint=0,
-        )
-        fig.update_traces(
-            textinfo="label+value+percent entry",
-            texttemplate="<b>%{label}</b><br>%{customdata[0]:,.0f}<br><b>%{customdata[2]:.2f}%</b>",
-            textposition="middle center",
-            textfont=dict(size=20, family="Arial Black"),
-        )
-        fig.update_layout(margin=dict(t=0, l=0, r=0, b=0))
-        st.plotly_chart(fig, use_container_width=True)
+        # Pazar filtresi (sadece görünüm, hesap mantığına karışmaz)
+        if heat_scope != "Tümü":
+            scope_map = {
+                "BIST": "BIST",
+                "ABD": "ABD",
+                "FON": "FON",
+                "Emtia": "EMTIA",
+                "Kripto": "KRIPTO",
+                "Nakit": "NAKIT",
+            }
+            target = scope_map.get(heat_scope, heat_scope).upper()
+            heat_df = heat_df[
+                heat_df["Pazar"].astype(str).str.upper().str.contains(target, na=False)
+            ]
+
+        if heat_df.empty:
+            st.info("Seçilen kapsam için portföyde varlık bulunmuyor.")
+        else:
+            # Renk kolonu: Top. % veya Gün. %
+            color_col = "Top. %"
+            heat_df["Gün. %"] = 0.0
+            safe_val = heat_df["Değer"] - heat_df["Gün. Kâr/Zarar"]
+            non_zero = safe_val != 0
+            heat_df.loc[non_zero, "Gün. %"] = (
+                heat_df.loc[non_zero, "Gün. Kâr/Zarar"] / safe_val[non_zero]
+            ) * 100
+
+            if map_mode == "Günlük Değişim %":
+                color_col = "Gün. %"
+
+            # Daha yumuşak renk skalası için simetrik aralık
+            vmax = float(heat_df[color_col].max())
+            vmin = float(heat_df[color_col].min())
+            abs_max = max(abs(vmax), abs(vmin)) if (vmax or vmin) else 0
+
+            fig = px.treemap(
+                heat_df,
+                path=[px.Constant("Portföy"), "Kod"],
+                values="Değer",
+                color=color_col,
+                custom_data=["Değer", "Top. Kâr/Zarar", color_col],
+                color_continuous_scale="RdYlGn",
+                color_continuous_midpoint=0,
+            )
+            if abs_max > 0:
+                fig.update_coloraxes(cmin=-abs_max, cmax=abs_max)
+
+            fig.update_traces(
+                textinfo="label+value+percent entry",
+                texttemplate="<b>%{label}</b><br>%{customdata[0]:,.0f}<br><b>%{customdata[2]:.2f}%</b>",
+                textposition="middle center",
+                textfont=dict(size=20, family="Arial Black"),
+            )
+            fig.update_layout(
+                margin=dict(t=0, l=0, r=0, b=0),
+                coloraxis_colorbar=dict(title="Top. / Gün. %"),
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
         st.divider()
 
