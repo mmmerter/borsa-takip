@@ -373,9 +373,44 @@ st.markdown(
             font-size: 14px !important;
         }
         
-        /* Plotly grafikleri */
+        /* Plotly grafikleri - mobilde tablolarla karışmasın */
         .js-plotly-plot {
             height: 300px !important;
+            margin-bottom: 30px !important;
+            padding-bottom: 20px !important;
+        }
+        
+        /* Plotly container'ları */
+        div[data-testid="stPlotlyChart"] {
+            margin-bottom: 30px !important;
+            padding-bottom: 20px !important;
+        }
+        
+        /* Treemap ve pasta grafikleri için özel spacing */
+        div[data-testid="stPlotlyChart"]:has(svg) {
+            margin-bottom: 40px !important;
+            padding-bottom: 25px !important;
+        }
+        
+        /* Tabloların üstünde boşluk */
+        div[data-testid="stDataFrame"] {
+            margin-top: 20px !important;
+            padding-top: 15px !important;
+        }
+        
+        /* Subheader'dan sonra boşluk */
+        h2, h3 {
+            margin-bottom: 15px !important;
+        }
+        
+        /* Element'ler arası genel boşluk */
+        .element-container {
+            margin-bottom: 20px !important;
+        }
+        
+        /* Streamlit column'lar arası boşluk */
+        [data-testid="column"] {
+            margin-bottom: 20px !important;
         }
     }
     
@@ -412,6 +447,23 @@ st.markdown(
         
         h2, h3 {
             font-size: 16px !important;
+            margin-bottom: 15px !important;
+        }
+        
+        /* Küçük ekranlarda grafikler için daha fazla boşluk */
+        .js-plotly-plot {
+            margin-bottom: 35px !important;
+            padding-bottom: 25px !important;
+        }
+        
+        div[data-testid="stPlotlyChart"] {
+            margin-bottom: 35px !important;
+            padding-bottom: 25px !important;
+        }
+        
+        div[data-testid="stDataFrame"] {
+            margin-top: 25px !important;
+            padding-top: 20px !important;
         }
     }
 </style>
