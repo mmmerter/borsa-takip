@@ -392,6 +392,36 @@ st.markdown(
             padding-bottom: 25px !important;
         }
         
+        /* Treemap içindeki text boyutları mobilde küçült */
+        .js-plotly-plot text,
+        .js-plotly-plot .treemap-label,
+        .js-plotly-plot .treemap-value,
+        .js-plotly-plot .treemap-pct {
+            font-size: 12px !important;
+        }
+        
+        /* Treemap yüksekliği mobilde küçült */
+        div[data-testid="stPlotlyChart"] .js-plotly-plot {
+            height: 400px !important;
+            max-height: 400px !important;
+        }
+        
+        /* Donut chart ve pie chart için mobil optimizasyon */
+        .js-plotly-plot .pie {
+            transform: scale(0.9) !important;
+        }
+        
+        /* Grafik container'ları mobilde daha kompakt */
+        div[data-testid="stPlotlyChart"] {
+            max-height: 450px !important;
+            overflow: hidden !important;
+        }
+        
+        /* Treemap içindeki tspan elementleri mobilde küçült */
+        .js-plotly-plot tspan {
+            font-size: 11px !important;
+        }
+        
         /* Tabloların üstünde boşluk */
         div[data-testid="stDataFrame"] {
             margin-top: 20px !important;
@@ -454,16 +484,29 @@ st.markdown(
         .js-plotly-plot {
             margin-bottom: 35px !important;
             padding-bottom: 25px !important;
+            height: 350px !important;
+            max-height: 350px !important;
         }
         
         div[data-testid="stPlotlyChart"] {
             margin-bottom: 35px !important;
             padding-bottom: 25px !important;
+            max-height: 400px !important;
+        }
+        
+        div[data-testid="stPlotlyChart"] .js-plotly-plot {
+            height: 350px !important;
+            max-height: 350px !important;
         }
         
         div[data-testid="stDataFrame"] {
             margin-top: 25px !important;
             padding-top: 20px !important;
+        }
+        
+        /* Donut chart font boyutları küçük ekranlarda */
+        .js-plotly-plot text[class*="annotation"] {
+            font-size: 10px !important;
         }
     }
 </style>
@@ -1438,11 +1481,12 @@ if selected == "Dashboard":
                 )
 
             # Modern tipografi ve stil - okunabilir yazılar, büyük kodlar, kısa yüzdeler
+            # Mobil için CSS ile font boyutları küçültülecek
             fig.update_traces(
                 textinfo="label+value+percent entry",
-                texttemplate="<b style='font-size:22px; font-family:Inter, sans-serif; color:#ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.9); font-weight:900;'>%{label}</b><br>" +
-                            f"<span style='font-size:14px; color:#ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8);'>%{{customdata[0]:,.0f}} {currency_symbol}</span><br>" +
-                            "<b style='font-size:16px; font-family:Inter, sans-serif; color:#ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.9); font-weight:700;'>%{customdata[2]:+.1f}%</b>",
+                texttemplate="<b class='treemap-label' style='font-size:22px; font-family:Inter, sans-serif; color:#ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.9); font-weight:900;'>%{label}</b><br>" +
+                            f"<span class='treemap-value' style='font-size:14px; color:#ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8);'>%{{customdata[0]:,.0f}} {currency_symbol}</span><br>" +
+                            "<b class='treemap-pct' style='font-size:16px; font-family:Inter, sans-serif; color:#ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.9); font-weight:700;'>%{customdata[2]:+.1f}%</b>",
                 textposition="middle center",
                 textfont=dict(
                     size=22, 
@@ -1464,7 +1508,7 @@ if selected == "Dashboard":
                 ),
             )
             
-            # Modern layout
+            # Modern layout - mobilde CSS ile yükseklik ayarlanacak
             fig.update_layout(
                 margin=dict(t=10, l=10, r=10, b=10),
                 paper_bgcolor="rgba(0,0,0,0)",
