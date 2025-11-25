@@ -438,6 +438,61 @@ def get_tickers_data(df_portfolio, usd_try):
 def get_binance_pnl_stats(exchange):
     return 0,0,0,0 # Stub
 
+@st.cache_data(ttl=30)  # 30 saniye cache - futures fiyatları sık değişir
+def get_binance_futures_price(symbol):
+    """
+    Binance USDT-M futures için public fiyat verisi çeker.
+    Symbol formatı: BTCUSDT, ETHUSDT, vb.
+    Returns: (current_price, price_change_24h, price_change_pct_24h) veya (None, None, None) hata durumunda
+    """
+    try:
+        # Binance Futures public API endpoint
+        url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
+        params = {"symbol": symbol.upper()}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json"
+        }
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            current_price = float(data.get("lastPrice", 0))
+            price_change = float(data.get("priceChange", 0))
+            price_change_pct = float(data.get("priceChangePercent", 0))
+            return current_price, price_change, price_change_pct
+        else:
+            return None, None, None
+    except Exception as e:
+        # Hata durumunda None döndür
+        return None, None, None
+
+@st.cache_data(ttl=300)  # 5 dakika cache - sembol listesi çok sık değişmez
+def get_binance_futures_symbols():
+    """
+    Binance USDT-M futures için tüm aktif sembolleri çeker.
+    Returns: List of symbols (e.g., ['BTCUSDT', 'ETHUSDT', ...])
+    """
+    try:
+        url = "https://fapi.binance.com/fapi/v1/exchangeInfo"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json"
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            symbols = []
+            for s in data.get("symbols", []):
+                if s.get("status") == "TRADING" and s.get("contractType") == "PERPETUAL":
+                    symbols.append(s.get("symbol"))
+            return sorted(symbols)
+        else:
+            return []
+    except Exception:
+        return []
+
 def get_binance_positions(api_key, api_secret):
     try:
         exchange = ccxt.binance({"apiKey": api_key, "secret": api_secret, "options": {"defaultType": "future"}})

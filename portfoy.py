@@ -25,6 +25,7 @@ from data_loader import (
     get_financial_news,
     get_tefas_data,
     get_binance_positions,
+    get_binance_futures_price,
     read_portfolio_history,
     write_portfolio_history,
     get_timeframe_changes,
@@ -1080,6 +1081,7 @@ def run_analysis(df, usd_try_rate, view_currency):
     df_work.loc[df_work["Pazar"].str.contains("FON", case=False, na=False), "Sektör"] = "Yatırım Fonu"
     df_work.loc[df_work["Pazar"].str.contains("NAKIT", case=False, na=False), "Sektör"] = "Nakit Varlık"
     df_work.loc[df_work["Pazar"].str.contains("EMTIA", case=False, na=False), "Sektör"] = "Emtia"
+    df_work.loc[df_work["Pazar"].str.contains("VADELI|BINANCE|FUTURES", case=False, na=False), "Sektör"] = "Kripto Vadeli"
     
     # Batch sektör bilgisi çekme
     if bist_abd_mask.any():
@@ -1091,6 +1093,7 @@ def run_analysis(df, usd_try_rate, view_currency):
     bist_abd_symbols = []
     crypto_symbols = []
     emtia_symbols = []
+    binance_futures_symbols = []  # Binance USDT-M futures için
     symbol_map = {}  # idx -> (symbol, asset_type) mapping
     
     for idx, row in df_work.iterrows():
@@ -1110,6 +1113,11 @@ def run_analysis(df, usd_try_rate, view_currency):
             if "GC=F" not in emtia_symbols:
                 emtia_symbols.append("GC=F")
             symbol_map[idx] = ("GC=F", "EMTIA")
+        elif "VADELI" in pazar.upper() or "BINANCE" in pazar.upper() or "FUTURES" in pazar.upper():
+            # Binance USDT-M futures
+            if symbol not in binance_futures_symbols:
+                binance_futures_symbols.append(symbol)
+            symbol_map[idx] = (symbol, "BINANCE_FUTURES")
         elif "KRIPTO" in pazar.upper():
             if symbol not in crypto_symbols:
                 crypto_symbols.append(symbol)
@@ -1130,6 +1138,18 @@ def run_analysis(df, usd_try_rate, view_currency):
     
     # Varlık türüne göre farklı cache süreleri ile fiyat çekme
     batch_prices = {}
+    
+    # Binance USDT-M Futures: 30 saniye cache (get_binance_futures_price içinde)
+    if binance_futures_symbols:
+        for sym in binance_futures_symbols:
+            try:
+                curr_price, price_change, price_change_pct = get_binance_futures_price(sym)
+                if curr_price is not None and curr_price > 0:
+                    # Önceki gün fiyatını hesapla (24 saatlik değişimden)
+                    prev_price = curr_price - price_change if price_change else curr_price
+                    batch_prices[sym] = {"curr": curr_price, "prev": prev_price}
+            except Exception:
+                pass
     
     # BIST ve ABD: 5 dakika cache, borsa kapalıyken de çalışır
     if bist_abd_symbols:
@@ -1250,7 +1270,26 @@ def run_analysis(df, usd_try_rate, view_currency):
             else:
                 if idx in symbol_map:
                     sym_key, asset_type = symbol_map[idx]
-                    if sym_key in batch_prices:
+                    if asset_type == "BINANCE_FUTURES":
+                        # Binance USDT-M futures için özel işleme
+                        if sym_key in batch_prices:
+                            p_data = batch_prices[sym_key]
+                            curr = p_data["curr"]
+                            prev = p_data["prev"]
+                        else:
+                            # Batch'te yoksa, tekrar dene
+                            try:
+                                curr_price, price_change, price_change_pct = get_binance_futures_price(sym_key)
+                                if curr_price is not None and curr_price > 0:
+                                    curr = curr_price
+                                    prev = curr_price - price_change if price_change else curr_price
+                                else:
+                                    curr = maliyet if maliyet > 0 else 0
+                                    prev = curr
+                            except Exception:
+                                curr = maliyet if maliyet > 0 else 0
+                                prev = curr
+                    elif sym_key in batch_prices:
                         p_data = batch_prices[sym_key]
                         curr = p_data["curr"]
                         prev = p_data["prev"]
