@@ -40,6 +40,8 @@ from data_loader import (
     write_history_nakit,
 )
 
+import pandas as pd
+
 # Fon getirilerinin yeniden dahil edilme tarihi (varsayılan: yarın)
 def _init_fon_reset_date():
     tomorrow = (pd.Timestamp.today().normalize() + pd.Timedelta(days=1))
@@ -55,41 +57,7 @@ def _init_fon_reset_date():
 
 FON_METRIC_RESET_DATE = _init_fon_reset_date()
 
-from charts import (
-    render_pie_bar_charts,
-    render_pazar_tab,
-    render_detail_view,
-    get_historical_chart,
-)
-
-# --- SAYFA AYARLARI ---
-st.set_page_config(
-    page_title="Merter’in Terminali",
-    layout="wide",
-    page_icon="🏦",
-    initial_sidebar_state="collapsed",
-    theme={
-        "base": "dark",
-        "primaryColor": "#6b7fd7",
-        "secondaryBackgroundColor": "#1a1c24",
-        "backgroundColor": "#0e1117",
-        "textColor": "#ffffff",
-    },
-)
-
-if "ui_theme" not in st.session_state:
-    st.session_state["ui_theme"] = "dark"
-
-theme_selector_cols = st.columns([0.82, 0.18])
-with theme_selector_cols[1]:
-    toggle_label = "🌞 Açık Tema" if st.session_state["ui_theme"] == "dark" else "🌙 Koyu Tema"
-    if st.button(toggle_label, key="theme_toggle_button"):
-        st.session_state["ui_theme"] = "light" if st.session_state["ui_theme"] == "dark" else "dark"
-        st.experimental_rerun()
-
-# --- CSS ---
-st.markdown(
-    """
+BASE_CSS = """
 <style>
     :root {
         color-scheme: dark;
@@ -528,216 +496,44 @@ st.markdown(
         }
         [data-testid="stHorizontalBlock"] > div > div > div > div > div > a i {
             font-size: 14px !important;
-            margin-right: 3px !important;
-        }
-        
-        .ticker-label {
-            padding: 6px 8px !important;
-            font-size: 10px !important;
-        }
-        .ticker-content-wrapper {
-            padding: 6px 0 !important;
-        }
-        .ticker-text span {
-            font-size: 9px !important;
-            padding: 2px 4px !important;
-        }
-        
-        .kral-infobox-value {
-            font-size: 16px !important;
-        }
-        
-        div[data-testid="stMetricValue"] {
-            font-size: 18px !important;
-        }
-        
-        h2, h3 {
-            font-size: 16px !important;
-            margin-bottom: 15px !important;
-        }
-        
-        /* Küçük ekranlarda grafikler için daha fazla boşluk */
-        .js-plotly-plot {
-            margin-bottom: 35px !important;
-            padding-bottom: 25px !important;
-            height: 350px !important;
-            max-height: 350px !important;
-        }
-        
-        div[data-testid="stPlotlyChart"] {
-            margin-bottom: 35px !important;
-            padding-bottom: 25px !important;
-            max-height: 400px !important;
-        }
-        
-        div[data-testid="stPlotlyChart"] .js-plotly-plot {
-            height: 350px !important;
-            max-height: 350px !important;
-        }
-        
-        div[data-testid="stDataFrame"] {
-            margin-top: 25px !important;
-            padding-top: 20px !important;
-        }
-        
-        /* Donut chart font boyutları küçük ekranlarda */
-        .js-plotly-plot text[class*="annotation"] {
-            font-size: 10px !important;
-        }
-    }
-</style>
-""",
-    unsafe_allow_html=True,
+from charts import (
+    render_pie_bar_charts,
+    render_pazar_tab,
+    render_detail_view,
+    get_historical_chart,
 )
 
-LIGHT_OVERRIDE_CSS = """
-<style>
-    :root {
-        color-scheme: light;
-    }
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stAppBody"] {
-        background-color: #f5f7fb !important;
-        color: #1f2937 !important;
-    }
-    .kral-header {
-        background: linear-gradient(135deg, #ffffff, #edf1fb);
-        border: 1px solid #d5d9ea;
-        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-    }
-    .kral-header-title {
-        color: #111827;
-    }
-    .kral-header-sub {
-        color: #4b5563;
-    }
-    .ticker-container {
-        background: linear-gradient(135deg, #ffffff 0%, #e8edfb 100%);
-        border-bottom: 1px solid #d5d9ea;
-        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
-    }
-    .ticker-label {
-        background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%);
-        color: #405bbb;
-        border-right: 1px solid #d5d9ea;
-    }
-    .ticker-text span {
-        color: #111827 !important;
-    }
-    .kral-infobox {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-    }
-    .kral-infobox-label,
-    .kral-infobox-sub {
-        color: #4b5563;
-    }
-    .kral-infobox-value {
-        color: #111827;
-    }
-    div[data-testid="stMetric"] {
-        background-color: #ffffff !important;
-        border: 1px solid #e5e7eb !important;
-        color: #111827 !important;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-    }
-    div[data-testid="stMetricValue"],
-    div[data-testid="stMetricLabel"] {
-        color: #111827 !important;
-    }
-    .news-card {
-        background-color: #ffffff;
-        color: #1f2937;
-        border-left-color: #f97316;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
-    }
-    .news-title {
-        color: #1f2937;
-    }
-    .news-meta {
-        color: #6b7280;
-    }
-</style>
-"""
+# --- SAYFA AYARLARI ---
+st.set_page_config(
+    page_title="Merter’in Terminali",
+    layout="wide",
+    page_icon="🏦",
+    initial_sidebar_state="collapsed",
+    theme={
+        "base": "dark",
+        "primaryColor": "#6b7fd7",
+        "secondaryBackgroundColor": "#1a1c24",
+        "backgroundColor": "#0e1117",
+        "textColor": "#ffffff",
+    },
+)
 
-if st.session_state["ui_theme"] == "light":
-    st.markdown(LIGHT_OVERRIDE_CSS, unsafe_allow_html=True)
+if "ui_theme" not in st.session_state:
+    st.session_state["ui_theme"] = "dark"
 
-def get_menu_styles(theme: str):
+def inject_theme_css(theme: str):
+    st.markdown(BASE_CSS, unsafe_allow_html=True)
     if theme == "light":
-        return {
-            "container": {
-                "padding": "0!important",
-                "background": "linear-gradient(135deg, #ffffff 0%, #eef2ff 100%)",
-                "border-radius": "12px",
-                "box-shadow": "0 4px 20px rgba(15, 23, 42, 0.08)",
-                "margin-bottom": "20px",
-            },
-            "icon": {
-                "color": "#405bbb",
-                "font-size": "20px",
-                "margin-right": "8px",
-            },
-            "nav-link": {
-                "font-size": "15px",
-                "text-align": "center",
-                "margin": "0px 4px",
-                "padding": "12px 20px",
-                "border-radius": "10px",
-                "font-weight": "700",
-                "color": "#4b5563",
-                "transition": "all 0.3s ease",
-                "background": "transparent",
-            },
-            "nav-link:hover": {
-                "background": "rgba(64, 91, 187, 0.12)",
-                "color": "#405bbb",
-                "transform": "translateY(-2px)",
-            },
-            "nav-link-selected": {
-                "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
-                "color": "#ffffff",
-                "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.35)",
-                "font-weight": "900",
-                "border": "none",
-            },
-        }
-    return {
-        "container": {
-            "padding": "0!important",
-            "background": "linear-gradient(135deg, #1a1c24 0%, #0e1117 100%)",
-            "border-radius": "12px",
-            "box-shadow": "0 4px 20px rgba(0, 0, 0, 0.4)",
-            "margin-bottom": "20px",
-        },
-        "icon": {
-            "color": "#8b9aff",
-            "font-size": "20px",
-            "margin-right": "8px",
-        },
-        "nav-link": {
-            "font-size": "15px",
-            "text-align": "center",
-            "margin": "0px 4px",
-            "padding": "12px 20px",
-            "border-radius": "10px",
-            "font-weight": "700",
-            "color": "#b0b3c0",
-            "transition": "all 0.3s ease",
-            "background": "transparent",
-        },
-        "nav-link:hover": {
-            "background": "rgba(139, 154, 255, 0.1)",
-            "color": "#8b9aff",
-            "transform": "translateY(-2px)",
-        },
-        "nav-link-selected": {
-            "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
-            "color": "#ffffff",
-            "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.4)",
-            "font-weight": "900",
-            "border": "none",
-        },
-    }
+        st.markdown(LIGHT_OVERRIDE_CSS, unsafe_allow_html=True)
+
+theme_selector_cols = st.columns([0.82, 0.18])
+with theme_selector_cols[1]:
+    toggle_label = "🌞 Açık Tema" if st.session_state["ui_theme"] == "dark" else "🌙 Koyu Tema"
+    if st.button(toggle_label, key="theme_toggle_button"):
+        st.session_state["ui_theme"] = "light" if st.session_state["ui_theme"] == "dark" else "dark"
+        st.experimental_rerun()
+
+inject_theme_css(st.session_state["ui_theme"])
 
 # --- HABER UI ---
 def render_news_section(name, key):
@@ -821,7 +617,43 @@ selected = option_menu(
     menu_icon="cast",
     default_index=0,
     orientation="horizontal",
-    styles=get_menu_styles(st.session_state["ui_theme"]),
+    styles={
+        "container": {
+            "padding": "0!important",
+            "background": "linear-gradient(135deg, #1a1c24 0%, #0e1117 100%)",
+            "border-radius": "12px",
+            "box-shadow": "0 4px 20px rgba(0, 0, 0, 0.4)",
+            "margin-bottom": "20px",
+        },
+        "icon": {
+            "color": "#8b9aff",
+            "font-size": "20px",
+            "margin-right": "8px",
+        },
+        "nav-link": {
+            "font-size": "15px",
+            "text-align": "center",
+            "margin": "0px 4px",
+            "padding": "12px 20px",
+            "border-radius": "10px",
+            "font-weight": "700",
+            "color": "#b0b3c0",
+            "transition": "all 0.3s ease",
+            "background": "transparent",
+        },
+        "nav-link:hover": {
+            "background": "rgba(139, 154, 255, 0.1)",
+            "color": "#8b9aff",
+            "transform": "translateY(-2px)",
+        },
+        "nav-link-selected": {
+            "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
+            "color": "#ffffff",
+            "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.4)",
+            "font-weight": "900",
+            "border": "none",
+        },
+    },
 )
 
 
