@@ -40,19 +40,6 @@ from data_loader import (
     write_history_nakit,
 )
 
-# Fon getirilerinin yeniden dahil edilme tarihi (varsayılan: yarın)
-def _init_fon_reset_date():
-    tomorrow = (pd.Timestamp.today().normalize() + pd.Timedelta(days=1))
-    default_date = tomorrow.strftime("%Y-%m-%d")
-    try:
-        raw = st.secrets.get("fon_metric_reset_date", default_date)
-    except Exception:
-        raw = default_date
-    try:
-        return pd.to_datetime(raw).tz_localize(None)
-    except Exception:
-        return pd.to_datetime(default_date).tz_localize(None)
-
 from charts import (
     render_pie_bar_charts,
     render_pazar_tab,
@@ -61,58 +48,17 @@ from charts import (
 )
 
 # --- SAYFA AYARLARI ---
-_PAGE_CONFIG = {
-    "page_title": "Merter’in Terminali",
-    "layout": "wide",
-    "page_icon": "🏦",
-    "initial_sidebar_state": "collapsed",
-}
-_THEME_CONFIG = {
-    "base": "dark",
-    "primaryColor": "#6b7fd7",
-    "secondaryBackgroundColor": "#1a1c24",
-    "backgroundColor": "#0e1117",
-    "textColor": "#ffffff",
-}
-
-
-def _configure_page():
-    """Apply page config, gracefully skipping theme on old Streamlit versions."""
-    try:
-        st.set_page_config(**_PAGE_CONFIG, theme=_THEME_CONFIG)
-    except TypeError as exc:
-        if "theme" not in str(exc):
-            raise
-        st.set_page_config(**_PAGE_CONFIG)
-
-
-_configure_page()
-
-FON_METRIC_RESET_DATE = _init_fon_reset_date()
-
-if "ui_theme" not in st.session_state:
-    st.session_state["ui_theme"] = "dark"
-
-theme_selector_cols = st.columns([0.82, 0.18])
-with theme_selector_cols[1]:
-    toggle_label = "🌞 Açık Tema" if st.session_state["ui_theme"] == "dark" else "🌙 Koyu Tema"
-    if st.button(toggle_label, key="theme_toggle_button"):
-        st.session_state["ui_theme"] = "light" if st.session_state["ui_theme"] == "dark" else "dark"
-        st.rerun()
+st.set_page_config(
+    page_title="Merter’in Terminali",
+    layout="wide",
+    page_icon="🏦",
+    initial_sidebar_state="collapsed",
+)
 
 # --- CSS ---
 st.markdown(
     """
 <style>
-    :root {
-        color-scheme: dark;
-    }
-
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stAppBody"] {
-        background-color: #0e1117 !important;
-        color: #ffffff !important;
-    }
-
     /* Streamlit Header Gizle */
     header { visibility: hidden; height: 0px; }
     
@@ -603,155 +549,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-LIGHT_OVERRIDE_CSS = """
-<style>
-    :root {
-        color-scheme: light;
-    }
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stAppBody"] {
-        background-color: #f5f7fb !important;
-        color: #1f2937 !important;
-    }
-    .kral-header {
-        background: linear-gradient(135deg, #ffffff, #edf1fb);
-        border: 1px solid #d5d9ea;
-        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-    }
-    .kral-header-title {
-        color: #111827;
-    }
-    .kral-header-sub {
-        color: #4b5563;
-    }
-    .ticker-container {
-        background: linear-gradient(135deg, #ffffff 0%, #e8edfb 100%);
-        border-bottom: 1px solid #d5d9ea;
-        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
-    }
-    .ticker-label {
-        background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%);
-        color: #405bbb;
-        border-right: 1px solid #d5d9ea;
-    }
-    .ticker-text span {
-        color: #111827 !important;
-    }
-    .kral-infobox {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-    }
-    .kral-infobox-label,
-    .kral-infobox-sub {
-        color: #4b5563;
-    }
-    .kral-infobox-value {
-        color: #111827;
-    }
-    div[data-testid="stMetric"] {
-        background-color: #ffffff !important;
-        border: 1px solid #e5e7eb !important;
-        color: #111827 !important;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-    }
-    div[data-testid="stMetricValue"],
-    div[data-testid="stMetricLabel"] {
-        color: #111827 !important;
-    }
-    .news-card {
-        background-color: #ffffff;
-        color: #1f2937;
-        border-left-color: #f97316;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
-    }
-    .news-title {
-        color: #1f2937;
-    }
-    .news-meta {
-        color: #6b7280;
-    }
-</style>
-"""
-
-if st.session_state["ui_theme"] == "light":
-    st.markdown(LIGHT_OVERRIDE_CSS, unsafe_allow_html=True)
-
-def get_menu_styles(theme: str):
-    if theme == "light":
-        return {
-            "container": {
-                "padding": "0!important",
-                "background": "linear-gradient(135deg, #ffffff 0%, #eef2ff 100%)",
-                "border-radius": "12px",
-                "box-shadow": "0 4px 20px rgba(15, 23, 42, 0.08)",
-                "margin-bottom": "20px",
-            },
-            "icon": {
-                "color": "#405bbb",
-                "font-size": "20px",
-                "margin-right": "8px",
-            },
-            "nav-link": {
-                "font-size": "15px",
-                "text-align": "center",
-                "margin": "0px 4px",
-                "padding": "12px 20px",
-                "border-radius": "10px",
-                "font-weight": "700",
-                "color": "#4b5563",
-                "transition": "all 0.3s ease",
-                "background": "transparent",
-            },
-            "nav-link:hover": {
-                "background": "rgba(64, 91, 187, 0.12)",
-                "color": "#405bbb",
-                "transform": "translateY(-2px)",
-            },
-            "nav-link-selected": {
-                "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
-                "color": "#ffffff",
-                "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.35)",
-                "font-weight": "900",
-                "border": "none",
-            },
-        }
-    return {
-        "container": {
-            "padding": "0!important",
-            "background": "linear-gradient(135deg, #1a1c24 0%, #0e1117 100%)",
-            "border-radius": "12px",
-            "box-shadow": "0 4px 20px rgba(0, 0, 0, 0.4)",
-            "margin-bottom": "20px",
-        },
-        "icon": {
-            "color": "#8b9aff",
-            "font-size": "20px",
-            "margin-right": "8px",
-        },
-        "nav-link": {
-            "font-size": "15px",
-            "text-align": "center",
-            "margin": "0px 4px",
-            "padding": "12px 20px",
-            "border-radius": "10px",
-            "font-weight": "700",
-            "color": "#b0b3c0",
-            "transition": "all 0.3s ease",
-            "background": "transparent",
-        },
-        "nav-link:hover": {
-            "background": "rgba(139, 154, 255, 0.1)",
-            "color": "#8b9aff",
-            "transform": "translateY(-2px)",
-        },
-        "nav-link-selected": {
-            "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
-            "color": "#ffffff",
-            "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.4)",
-            "font-weight": "900",
-            "border": "none",
-        },
-    }
-
 # --- HABER UI ---
 def render_news_section(name, key):
     st.subheader(f"📰 {name}")
@@ -771,6 +568,87 @@ def render_news_section(name, key):
             )
     else:
         st.info("Haber akışı yüklenemedi.")
+
+
+# --- NAKİT YARDIMCI FONKSİYONLARI ---
+CASH_CODES = {"TL", "USD", "EUR"}
+
+
+def infer_asset_currency(pazar, kod):
+    """Varlığın hangi para birimiyle alındığını tahmin et."""
+    pazar_upper = str(pazar or "").upper()
+    kod_upper = str(kod or "").upper()
+
+    if (
+        "BIST" in pazar_upper
+        or "FON" in pazar_upper
+        or "EMTIA" in pazar_upper
+        or "NAKIT" in pazar_upper
+        or "TL" in kod_upper
+    ):
+        return "TRY"
+    return "USD"
+
+
+def adjust_cash_balance(df: pd.DataFrame, currency_code: str, delta_amount: float):
+    """
+    Nakit satırını verilen tutar kadar günceller.
+    delta_amount pozitifse para ekler, negatifse düşer.
+    """
+    if df is None or not isinstance(df, pd.DataFrame):
+        return df, None
+
+    try:
+        delta = float(delta_amount)
+    except (TypeError, ValueError):
+        return df, None
+
+    if abs(delta) < 1e-9:
+        return df, None
+
+    code = (currency_code or "").upper()
+    if code not in CASH_CODES:
+        return df, None
+
+    if "Pazar" not in df.columns or "Kod" not in df.columns:
+        return df, None
+
+    if "Tip" in df.columns:
+        tip_series = df["Tip"].astype(str)
+    else:
+        tip_series = pd.Series(["Portfoy"] * len(df))
+
+    mask = (
+        df["Pazar"].astype(str).str.contains("NAKIT", case=False, na=False)
+        & (df["Kod"].astype(str).str.upper() == code)
+        & (tip_series.str.lower() == "portfoy")
+    )
+
+    if mask.any():
+        idx = df[mask].index[0]
+        current_amount = smart_parse(df.loc[idx, "Adet"])
+        new_amount = current_amount + delta
+        df.loc[idx, "Adet"] = new_amount
+        df.loc[idx, "Maliyet"] = 1.0
+        df.loc[idx, "Pazar"] = "NAKIT"
+        df.loc[idx, "Tip"] = "Portfoy"
+        if "Notlar" in df.columns:
+            df.loc[idx, "Notlar"] = df.loc[idx].get("Notlar", "")
+    else:
+        new_amount = delta
+        new_row = pd.DataFrame(
+            {
+                "Kod": [code],
+                "Pazar": ["NAKIT"],
+                "Adet": [new_amount],
+                "Maliyet": [1.0],
+                "Tip": ["Portfoy"],
+                "Notlar": [""],
+            }
+        )
+        df = pd.concat([df, new_row], ignore_index=True)
+
+    return df, new_amount
 
 
 # --- ANA DATA ---
@@ -834,7 +712,43 @@ selected = option_menu(
     menu_icon="cast",
     default_index=0,
     orientation="horizontal",
-    styles=get_menu_styles(st.session_state["ui_theme"]),
+    styles={
+        "container": {
+            "padding": "0!important",
+            "background": "linear-gradient(135deg, #1a1c24 0%, #0e1117 100%)",
+            "border-radius": "12px",
+            "box-shadow": "0 4px 20px rgba(0, 0, 0, 0.4)",
+            "margin-bottom": "20px",
+        },
+        "icon": {
+            "color": "#8b9aff",
+            "font-size": "20px",
+            "margin-right": "8px",
+        },
+        "nav-link": {
+            "font-size": "15px",
+            "text-align": "center",
+            "margin": "0px 4px",
+            "padding": "12px 20px",
+            "border-radius": "10px",
+            "font-weight": "700",
+            "color": "#b0b3c0",
+            "transition": "all 0.3s ease",
+            "background": "transparent",
+        },
+        "nav-link:hover": {
+            "background": "rgba(139, 154, 255, 0.1)",
+            "color": "#8b9aff",
+            "transform": "translateY(-2px)",
+        },
+        "nav-link-selected": {
+            "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
+            "color": "#ffffff",
+            "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.4)",
+            "font-weight": "900",
+            "border": "none",
+        },
+    },
 )
 
 
@@ -1388,27 +1302,9 @@ def run_analysis(df, usd_try_rate, view_currency):
     return pd.DataFrame(results)
 
 
-# Session state ile önceki sonucu sakla - sekme değişimlerinde boş görünmesini önle
-# Cache key: portfoy_df hash'i + USD_TRY + GORUNUM_PB
-portfoy_df_hash = hash(str(portfoy_df.values.tolist())) if not portfoy_df.empty else 0
-cache_key = f"master_df_{portfoy_df_hash}_{USD_TRY}_{GORUNUM_PB}"
-
-# Eğer cache'de varsa ve veri değişmemişse kullan
-if cache_key in st.session_state:
-    master_df = st.session_state[cache_key]
-else:
-    # İlk yükleme veya veri değişmiş - yeniden hesapla
-    with st.spinner("Portföy verileri yükleniyor..."):
-        master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
-        st.session_state[cache_key] = master_df
-        # Eski cache'leri temizle (sadece son 3 cache'i tut)
-        cache_keys = [k for k in st.session_state.keys() if k.startswith("master_df_")]
-        if len(cache_keys) > 3:
-            for old_key in cache_keys[:-3]:
-                del st.session_state[old_key]
-
-portfoy_only = master_df[master_df["Tip"] == "Portfoy"] if not master_df.empty else pd.DataFrame(columns=ANALYSIS_COLS)
-takip_only = master_df[master_df["Tip"] == "Takip"] if not master_df.empty else pd.DataFrame(columns=ANALYSIS_COLS)
+master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
+portfoy_only = master_df[master_df["Tip"] == "Portfoy"]
+takip_only = master_df[master_df["Tip"] == "Takip"]
 
 
 # --- GLOBAL INFO BAR ---
@@ -1601,28 +1497,8 @@ if selected == "Dashboard":
             # Günlük portföy logunu yaz (aynı günse data_loader içinde atlanıyor)
             write_portfolio_history(total_try, total_usd)
 
-            # Fon toplamını ayrıca logla (haftalık/aylık hesaplardan düşebilmek için)
-            fon_mask = spot_only["Pazar"].astype(str).str.contains("FON", case=False, na=False)
-            fon_total_view = float(spot_only.loc[fon_mask, "Değer"].sum()) if fon_mask.any() else 0.0
-            if GORUNUM_PB == "TRY":
-                fon_try = fon_total_view
-                fon_usd = fon_total_view / USD_TRY if USD_TRY else 0.0
-            else:
-                fon_usd = fon_total_view
-                fon_try = fon_total_view * USD_TRY
-            write_history_fon(fon_try, fon_usd)
-
             history_df = read_portfolio_history()
-            history_fon = read_history_fon()
-            if not history_fon.empty and "Tarih" in history_fon.columns:
-                history_fon_filtered = history_fon.copy()
-            else:
-                history_fon_filtered = history_fon
-            kpi_timeframe = get_timeframe_changes(
-                history_df,
-                subtract_df=history_fon_filtered,
-                subtract_before=FON_METRIC_RESET_DATE,
-            )
+            kpi_timeframe = get_timeframe_changes(history_df)
         except Exception:
             kpi_timeframe = None
 
@@ -2157,6 +2033,48 @@ elif selected == "Portföy":
             show_sparklines=True,
         )
 
+        st.markdown("### 💵 Nakit Yönetimi")
+        st.caption("TRY / USD / EUR bakiyelerini buradan manuel olarak güncelleyebilirsin.")
+        with st.form("nakit_manual_form"):
+            col_currency, col_action = st.columns([1, 1])
+            with col_currency:
+                manual_currency = st.selectbox(
+                    "Para Birimi",
+                    ["TL", "USD", "EUR"],
+                    key="nakit_manual_currency",
+                )
+            with col_action:
+                manual_action = st.radio(
+                    "İşlem",
+                    ["Ekle", "Çek"],
+                    horizontal=True,
+                    key="nakit_manual_action",
+                )
+            manual_amount = st.number_input(
+                "Tutar",
+                min_value=0.0,
+                step=100.0,
+                format="%.2f",
+                key="nakit_manual_amount",
+            )
+            if st.form_submit_button("Bakiye Güncelle"):
+                if manual_amount <= 0:
+                    st.warning("Tutar sıfırdan büyük olmalı.")
+                else:
+                    delta = manual_amount if manual_action == "Ekle" else -manual_amount
+                    portfoy_df, new_total = adjust_cash_balance(
+                        portfoy_df, manual_currency, delta
+                    )
+                    if new_total is None:
+                        st.error("Nakit bakiyesi güncellenemedi.")
+                    else:
+                        save_data_to_sheet(portfoy_df)
+                        st.success(
+                            f"{manual_currency} bakiyesi güncellendi. Yeni bakiye: {new_total:,.2f} {manual_currency}"
+                        )
+                        time.sleep(1)
+                        st.rerun()
+
         render_pazar_tab(
             portfoy_only,
             "NAKIT",
@@ -2289,6 +2207,9 @@ elif selected == "Ekle/Çıkar":
             if not kod:
                 st.error("Kod boş olamaz.")
             else:
+                purchase_qty = None
+                purchase_price = None
+
                 if is_takip:
                     # İZLEME LİSTESİ: adet=1, fiyatı internetten çek
                     tip = "Takip"
@@ -2314,8 +2235,10 @@ elif selected == "Ekle/Çıkar":
                 else:
                     # PORTFÖY KAYDI
                     tip = "Portfoy"
-                    a = smart_parse(adet_str)
-                    m = smart_parse(maliyet_str)
+                    purchase_qty = smart_parse(adet_str)
+                    purchase_price = smart_parse(maliyet_str)
+                    a = purchase_qty
+                    m = purchase_price
                     if a <= 0 or m <= 0:
                         st.error("Adet ve maliyet pozitif olmalı.")
                         st.stop()
@@ -2360,6 +2283,19 @@ elif selected == "Ekle/Çıkar":
                     }
                 )
                 portfoy_df = pd.concat([portfoy_df, new_row], ignore_index=True)
+
+                if tip == "Portfoy" and "NAKIT" not in str(pazar).upper():
+                    if purchase_qty and purchase_price:
+                        spent_amount = purchase_qty * purchase_price
+                        if spent_amount > 0:
+                            asset_currency = infer_asset_currency(pazar, kod)
+                            cash_code = "TL" if asset_currency == "TRY" else "USD"
+                            portfoy_df, _ = adjust_cash_balance(
+                                portfoy_df,
+                                cash_code,
+                                -spent_amount,
+                            )
+
                 save_data_to_sheet(portfoy_df)
 
                 st.success(
@@ -2380,13 +2316,18 @@ elif selected == "Ekle/Çıkar":
                 na = st.text_input("Yeni Adet", str(r["Adet"]))
                 nm = st.text_input("Yeni Maliyet", str(r["Maliyet"]))
                 if st.button("Güncelle"):
+                    old_qty = smart_parse(r.get("Adet", 0))
+                    old_cost = smart_parse(r.get("Maliyet", 0))
+                    new_qty_val = smart_parse(na)
+                    new_cost_val = smart_parse(nm)
+
                     portfoy_df = portfoy_df[portfoy_df["Kod"] != s]
                     new_row = pd.DataFrame(
                         {
                             "Kod": [s],
                             "Pazar": [r["Pazar"]],
-                            "Adet": [smart_parse(na)],
-                            "Maliyet": [smart_parse(nm)],
+                            "Adet": [new_qty_val],
+                            "Maliyet": [new_cost_val],
                             "Tip": [r["Tip"]],
                             "Notlar": [""],
                         }
@@ -2394,6 +2335,25 @@ elif selected == "Ekle/Çıkar":
                     portfoy_df = pd.concat(
                         [portfoy_df, new_row], ignore_index=True
                     )
+
+                    if (
+                        str(r.get("Tip", "")).lower() == "portfoy"
+                        and "NAKIT" not in str(r.get("Pazar", "")).upper()
+                    ):
+                        old_total = old_qty * old_cost
+                        new_total = new_qty_val * new_cost_val
+                        delta_total = new_total - old_total
+                        if abs(delta_total) > 1e-6:
+                            asset_currency = infer_asset_currency(
+                                r.get("Pazar", ""), r.get("Kod", "")
+                            )
+                            cash_code = "TL" if asset_currency == "TRY" else "USD"
+                            portfoy_df, _ = adjust_cash_balance(
+                                portfoy_df,
+                                cash_code,
+                                -delta_total,
+                            )
+
                     save_data_to_sheet(portfoy_df)
                     st.success("Güncellendi!")
                     time.sleep(1)
@@ -2413,7 +2373,31 @@ elif selected == "Ekle/Çıkar":
             if islem_turu == "Sil":
                 s = st.selectbox("Silinecek Kod", portfoy_df["Kod"].unique(), key="del")
                 if st.button("🗑️ Sil"):
+                    matching_rows = portfoy_df[portfoy_df["Kod"] == s]
+                    row_to_delete = matching_rows.iloc[0] if not matching_rows.empty else None
+
                     portfoy_df = portfoy_df[portfoy_df["Kod"] != s]
+
+                    if row_to_delete is not None:
+                        if (
+                            str(row_to_delete.get("Tip", "")).lower() == "portfoy"
+                            and "NAKIT" not in str(row_to_delete.get("Pazar", "")).upper()
+                        ):
+                            qty_val = smart_parse(row_to_delete.get("Adet", 0))
+                            cost_val = smart_parse(row_to_delete.get("Maliyet", 0))
+                            refund_amount = qty_val * cost_val
+                            if abs(refund_amount) > 1e-6:
+                                asset_currency = infer_asset_currency(
+                                    row_to_delete.get("Pazar", ""),
+                                    row_to_delete.get("Kod", ""),
+                                )
+                                cash_code = "TL" if asset_currency == "TRY" else "USD"
+                                portfoy_df, _ = adjust_cash_balance(
+                                    portfoy_df,
+                                    cash_code,
+                                    refund_amount,
+                                )
+
                     save_data_to_sheet(portfoy_df)
                     st.success("Silindi!")
                     time.sleep(1)
@@ -2468,6 +2452,15 @@ elif selected == "Ekle/Çıkar":
                             portfoy_df.loc[
                                 portfoy_df["Kod"] == kod_sec, "Adet"
                             ] = kalan_adet
+
+                        if toplam_satis > 0:
+                            asset_currency = infer_asset_currency(pazar, kod_sec)
+                            cash_code = "TL" if asset_currency == "TRY" else "USD"
+                            portfoy_df, _ = adjust_cash_balance(
+                                portfoy_df,
+                                cash_code,
+                                toplam_satis,
+                            )
 
                         save_data_to_sheet(portfoy_df)
 
