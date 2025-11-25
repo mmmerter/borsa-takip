@@ -1484,14 +1484,11 @@ if selected == "Dashboard":
 
             history_df = read_portfolio_history()
             # Haftalık/aylık/YTD hesaplamalarında fonların bugünkü etkisini nötrleyip, bugünden sonraki değişimleri takip ediyoruz
-            # Geçmiş kayıtlarda fonların değeri zaten çıkarılmış durumda (fon_current_value_try)
-            # Bugünkü değerden de fonların bugünkü değerini çıkarıyoruz (fon_current_value_today_try) - nötr etki
+            # Geçmiş kayıtlarda fonların değeri zaten çıkarılmış durumda kaydediliyor
+            # Bugünkü kayıtta da fonların değeri çıkarılmış durumda kaydediliyor
+            # Bugünkü değere fonların bugünkü değerini ekleyerek nötr hale getiriyoruz
             # Böylece fonların bugünden sonraki değişimleri haftalık/aylık/YTD'ye etki edecek
-            kpi_timeframe = get_timeframe_changes(
-                history_df, 
-                fon_current_value_try=fon_total_value_try,  # Geçmiş kayıtlarda çıkarılmış değer
-                fon_current_value_today_try=fon_total_value_try  # Bugünkü kayıtta çıkarılacak değer (nötr etki)
-            )
+            kpi_timeframe = get_timeframe_changes(history_df, fon_current_value_try=fon_total_value_try)
         except Exception:
             kpi_timeframe = None
 
