@@ -122,7 +122,7 @@ def get_tefas_data(fund_code):
                     if field in last_record:
                         try:
                             price = float(last_record[field])
-                            if price > 0 and price < 100:  # Makul fiyat kontrolü
+                            if price > 0 and price < 1000:  # Makul fiyat kontrolü
                                 price_field = field
                                 break
                         except (ValueError, TypeError):
@@ -140,7 +140,7 @@ def get_tefas_data(fund_code):
                             if price_field in prev_record:
                                 try:
                                     candidate_price = float(prev_record[price_field])
-                                    if candidate_price > 0 and candidate_price < 100:
+                                    if candidate_price > 0 and candidate_price < 1000:
                                         prev_price = candidate_price
                                         break
                                 except (ValueError, TypeError):
@@ -154,16 +154,21 @@ def get_tefas_data(fund_code):
         crawler = Crawler()
         end = datetime.now().strftime("%Y-%m-%d")
         start = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
-        res = crawler.fetch(start=start, end=end, name=fund_code, columns=["Price"])
-        if not res.empty and len(res) > 0:
-            res = res.sort_index()
-            valid_prices = res["Price"].dropna()
-            if len(valid_prices) > 0:
-                # Son kapanış fiyatı (bugünün fiyatı yoksa en son geçerli fiyat)
-                curr_price = float(valid_prices.iloc[-1])
-                # Önceki günün kapanış fiyatı (günlük kar/zarar hesaplaması için)
-                prev_price = float(valid_prices.iloc[-2]) if len(valid_prices) > 1 else curr_price
-                if curr_price > 0 and curr_price < 100:
+        res = crawler.fetch(start=start, end=end, name=fund_code, columns=["date", "price"])
+        if res is not None and not res.empty:
+            # tarih & fiyat kolonlarını temizle
+            if "date" in res.columns:
+                res["date"] = pd.to_datetime(res["date"], errors="coerce")
+                res = res.dropna(subset=["date"])
+                res = res.sort_values("date")
+            price_col = "price" if "price" in res.columns else "Price"
+            res[price_col] = pd.to_numeric(res[price_col], errors="coerce")
+            res = res.dropna(subset=[price_col])
+            if not res.empty:
+                # En güncel kapanış fiyatını al
+                curr_price = float(res[price_col].iloc[-1])
+                prev_price = float(res[price_col].iloc[-2]) if len(res) > 1 else curr_price
+                if 0 < curr_price < 1000:
                     return curr_price, prev_price
     except Exception:
         pass
@@ -195,8 +200,8 @@ def get_tefas_data(fund_code):
                     try:
                         price_str = str(match).replace(",", ".").replace(" ", "")
                         price = float(price_str)
-                        # Makul fiyat aralığı kontrolü (0.01 - 100 TL arası)
-                        if price > 0 and price < 100:
+                        # Makul fiyat aralığı kontrolü (0.01 - 1000 TL arası)
+                        if price > 0 and price < 1000:
                             return price, price
                     except (ValueError, AttributeError):
                         continue
@@ -222,7 +227,7 @@ def get_tefas_data(fund_code):
                         try:
                             # Son kapanış fiyatı
                             price = float(last_record[field])
-                            if price > 0 and price < 100:
+                            if price > 0 and price < 1000:
                                 # Önceki günün fiyatı (günlük kar/zarar için)
                                 prev_price = price  # Varsayılan
                                 if len(data) > 1:
@@ -230,7 +235,7 @@ def get_tefas_data(fund_code):
                                         if field in data[i]:
                                             try:
                                                 candidate = float(data[i][field])
-                                                if candidate > 0 and candidate < 100:
+                                                if candidate > 0 and candidate < 1000:
                                                     prev_price = candidate
                                                     break
                                             except (ValueError, TypeError):
