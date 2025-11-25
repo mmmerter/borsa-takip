@@ -563,12 +563,13 @@ def get_timeframe_changes(history_df, fon_current_value_try=0.0):
     """
     Haftalık / Aylık / YTD gerçek K/Z hesaplar.
     history_df: read_portfolio_history() çıktısı
-    fon_current_value_try: Fonların bugünkü değeri (TRY)
+    fon_current_value_try: Fonların bugünkü değeri (TRY) - sadece bilgi amaçlı, kullanılmıyor
     Mantık: 
     - Geçmiş kayıtlarda fonların değeri zaten çıkarılmış durumda kaydediliyor
     - Bugünkü kayıtta da fonların değeri çıkarılmış durumda kaydediliyor
-    - Haftalık/aylık/YTD hesaplamalarında: Bugünkü değere fonların bugünkü değerini ekliyoruz (nötr etki)
-    - Böylece fonların bugünden sonraki değişimleri takip edilecek
+    - Haftalık/aylık/YTD hesaplamalarında: Sadece fon olmayan varlıkların değişimini takip ediyoruz
+    - Fonların bugünkü etkisi nötr (çünkü hem geçmiş hem bugünkü kayıtta çıkarılmış)
+    - Fonların bugünden sonraki değişimleri otomatik olarak takip edilecek (yeni kayıtlar geldiğinde)
     Dönüş:
       {
         "weekly": (değer, yüzde),
@@ -590,15 +591,12 @@ def get_timeframe_changes(history_df, fon_current_value_try=0.0):
 
     # Ana seri: TRY bazlı toplam
     # Geçmiş kayıtlarda fonların değeri zaten çıkarılmış durumda
+    # Bugünkü kayıtta da fonların değeri çıkarılmış durumda
+    # Hiçbir şey eklemeye veya çıkarmaya gerek yok, direkt kullanıyoruz
     if "Değer_TRY" not in df.columns:
         return None
 
-    # Bugünkü değere fonların bugünkü değerini ekle (nötr etki)
-    # Geçmiş kayıtlarda fonlar çıkarılmış, bugünkü kayıtta da fonlar çıkarılmış
-    # Bugünkü değere fonların bugünkü değerini ekleyerek nötr hale getiriyoruz
-    today_val_raw = float(df["Değer_TRY"].iloc[-1])
-    today_val = today_val_raw + float(fon_current_value_try)  # Ekle, çünkü zaten çıkarılmış durumda
-    
+    today_val = float(df["Değer_TRY"].iloc[-1])
     dates = df["Tarih"]
 
     def _calc_period(days: int):
@@ -610,8 +608,7 @@ def get_timeframe_changes(history_df, fon_current_value_try=0.0):
         start_val = float(sub["Değer_TRY"].iloc[0])
         diff = today_val - start_val
         pct = (diff / start_val * 100) if start_val > 0 else 0.0
-        # Sparkline için: geçmiş değerler (fonlar çıkarılmış) + bugünkü düzeltilmiş değer (fonlar eklenmiş)
-        spark = list(sub["Değer_TRY"].iloc[:-1]) + [today_val] if len(sub) > 1 else [today_val]
+        spark = list(sub["Değer_TRY"])
         return diff, pct, spark
 
     # 7 gün (haftalık)
@@ -627,8 +624,7 @@ def get_timeframe_changes(history_df, fon_current_value_try=0.0):
         start_val = float(ydf["Değer_TRY"].iloc[0])
         diff = today_val - start_val
         pct = (diff / start_val * 100) if start_val > 0 else 0.0
-        # Sparkline için: geçmiş değerler (fonlar çıkarılmış) + bugünkü düzeltilmiş değer (fonlar eklenmiş)
-        y_spark = list(ydf["Değer_TRY"].iloc[:-1]) + [today_val] if len(ydf) > 1 else [today_val]
+        y_spark = list(ydf["Değer_TRY"])
         y_val, y_pct = diff, pct
     else:
         y_val, y_pct, y_spark = 0.0, 0.0, []
