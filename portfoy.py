@@ -70,12 +70,28 @@ st.set_page_config(
     layout="wide",
     page_icon="🏦",
     initial_sidebar_state="collapsed",
+    theme={
+        "base": "dark",
+        "primaryColor": "#6b7fd7",
+        "secondaryBackgroundColor": "#1a1c24",
+        "backgroundColor": "#0e1117",
+        "textColor": "#ffffff",
+    },
 )
 
 # --- CSS ---
 st.markdown(
     """
 <style>
+    :root {
+        color-scheme: dark;
+    }
+
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stAppBody"] {
+        background-color: #0e1117 !important;
+        color: #ffffff !important;
+    }
+
     /* Streamlit Header Gizle */
     header { visibility: hidden; height: 0px; }
     
