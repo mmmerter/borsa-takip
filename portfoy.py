@@ -40,6 +40,19 @@ from data_loader import (
     write_history_nakit,
 )
 
+# Fon getirilerinin yeniden dahil edilme tarihi (varsayılan: yarın)
+def _init_fon_reset_date():
+    tomorrow = (pd.Timestamp.today().normalize() + pd.Timedelta(days=1))
+    default_date = tomorrow.strftime("%Y-%m-%d")
+    try:
+        raw = st.secrets.get("fon_metric_reset_date", default_date)
+    except Exception:
+        raw = default_date
+    try:
+        return pd.to_datetime(raw).tz_localize(None)
+    except Exception:
+        return pd.to_datetime(default_date).tz_localize(None)
+
 from charts import (
     render_pie_bar_charts,
     render_pazar_tab,
@@ -48,17 +61,58 @@ from charts import (
 )
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(
-    page_title="Merter’in Terminali",
-    layout="wide",
-    page_icon="🏦",
-    initial_sidebar_state="collapsed",
-)
+_PAGE_CONFIG = {
+    "page_title": "Merter’in Terminali",
+    "layout": "wide",
+    "page_icon": "🏦",
+    "initial_sidebar_state": "collapsed",
+}
+_THEME_CONFIG = {
+    "base": "dark",
+    "primaryColor": "#6b7fd7",
+    "secondaryBackgroundColor": "#1a1c24",
+    "backgroundColor": "#0e1117",
+    "textColor": "#ffffff",
+}
+
+
+def _configure_page():
+    """Apply page config, gracefully skipping theme on old Streamlit versions."""
+    try:
+        st.set_page_config(**_PAGE_CONFIG, theme=_THEME_CONFIG)
+    except TypeError as exc:
+        if "theme" not in str(exc):
+            raise
+        st.set_page_config(**_PAGE_CONFIG)
+
+
+_configure_page()
+
+FON_METRIC_RESET_DATE = _init_fon_reset_date()
+
+if "ui_theme" not in st.session_state:
+    st.session_state["ui_theme"] = "dark"
+
+theme_selector_cols = st.columns([0.82, 0.18])
+with theme_selector_cols[1]:
+    toggle_label = "🌞 Açık Tema" if st.session_state["ui_theme"] == "dark" else "🌙 Koyu Tema"
+    if st.button(toggle_label, key="theme_toggle_button"):
+        st.session_state["ui_theme"] = "light" if st.session_state["ui_theme"] == "dark" else "dark"
+        st.rerun()
 
 # --- CSS ---
 st.markdown(
     """
 <style>
+    :root {
+        color-scheme: dark;
+    }
+
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stAppBody"] {
+        background-color: #0e1117 !important;
+        color: #ffffff !important;
+    }
+
     /* Streamlit Header Gizle */
     header { visibility: hidden; height: 0px; }
     
@@ -549,6 +603,155 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+LIGHT_OVERRIDE_CSS = """
+<style>
+    :root {
+        color-scheme: light;
+    }
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stAppBody"] {
+        background-color: #f5f7fb !important;
+        color: #1f2937 !important;
+    }
+    .kral-header {
+        background: linear-gradient(135deg, #ffffff, #edf1fb);
+        border: 1px solid #d5d9ea;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+    }
+    .kral-header-title {
+        color: #111827;
+    }
+    .kral-header-sub {
+        color: #4b5563;
+    }
+    .ticker-container {
+        background: linear-gradient(135deg, #ffffff 0%, #e8edfb 100%);
+        border-bottom: 1px solid #d5d9ea;
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+    }
+    .ticker-label {
+        background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%);
+        color: #405bbb;
+        border-right: 1px solid #d5d9ea;
+    }
+    .ticker-text span {
+        color: #111827 !important;
+    }
+    .kral-infobox {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+    }
+    .kral-infobox-label,
+    .kral-infobox-sub {
+        color: #4b5563;
+    }
+    .kral-infobox-value {
+        color: #111827;
+    }
+    div[data-testid="stMetric"] {
+        background-color: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        color: #111827 !important;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+    div[data-testid="stMetricValue"],
+    div[data-testid="stMetricLabel"] {
+        color: #111827 !important;
+    }
+    .news-card {
+        background-color: #ffffff;
+        color: #1f2937;
+        border-left-color: #f97316;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    }
+    .news-title {
+        color: #1f2937;
+    }
+    .news-meta {
+        color: #6b7280;
+    }
+</style>
+"""
+
+if st.session_state["ui_theme"] == "light":
+    st.markdown(LIGHT_OVERRIDE_CSS, unsafe_allow_html=True)
+
+def get_menu_styles(theme: str):
+    if theme == "light":
+        return {
+            "container": {
+                "padding": "0!important",
+                "background": "linear-gradient(135deg, #ffffff 0%, #eef2ff 100%)",
+                "border-radius": "12px",
+                "box-shadow": "0 4px 20px rgba(15, 23, 42, 0.08)",
+                "margin-bottom": "20px",
+            },
+            "icon": {
+                "color": "#405bbb",
+                "font-size": "20px",
+                "margin-right": "8px",
+            },
+            "nav-link": {
+                "font-size": "15px",
+                "text-align": "center",
+                "margin": "0px 4px",
+                "padding": "12px 20px",
+                "border-radius": "10px",
+                "font-weight": "700",
+                "color": "#4b5563",
+                "transition": "all 0.3s ease",
+                "background": "transparent",
+            },
+            "nav-link:hover": {
+                "background": "rgba(64, 91, 187, 0.12)",
+                "color": "#405bbb",
+                "transform": "translateY(-2px)",
+            },
+            "nav-link-selected": {
+                "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
+                "color": "#ffffff",
+                "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.35)",
+                "font-weight": "900",
+                "border": "none",
+            },
+        }
+    return {
+        "container": {
+            "padding": "0!important",
+            "background": "linear-gradient(135deg, #1a1c24 0%, #0e1117 100%)",
+            "border-radius": "12px",
+            "box-shadow": "0 4px 20px rgba(0, 0, 0, 0.4)",
+            "margin-bottom": "20px",
+        },
+        "icon": {
+            "color": "#8b9aff",
+            "font-size": "20px",
+            "margin-right": "8px",
+        },
+        "nav-link": {
+            "font-size": "15px",
+            "text-align": "center",
+            "margin": "0px 4px",
+            "padding": "12px 20px",
+            "border-radius": "10px",
+            "font-weight": "700",
+            "color": "#b0b3c0",
+            "transition": "all 0.3s ease",
+            "background": "transparent",
+        },
+        "nav-link:hover": {
+            "background": "rgba(139, 154, 255, 0.1)",
+            "color": "#8b9aff",
+            "transform": "translateY(-2px)",
+        },
+        "nav-link-selected": {
+            "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
+            "color": "#ffffff",
+            "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.4)",
+            "font-weight": "900",
+            "border": "none",
+        },
+    }
+
 # --- HABER UI ---
 def render_news_section(name, key):
     st.subheader(f"📰 {name}")
@@ -631,43 +834,7 @@ selected = option_menu(
     menu_icon="cast",
     default_index=0,
     orientation="horizontal",
-    styles={
-        "container": {
-            "padding": "0!important",
-            "background": "linear-gradient(135deg, #1a1c24 0%, #0e1117 100%)",
-            "border-radius": "12px",
-            "box-shadow": "0 4px 20px rgba(0, 0, 0, 0.4)",
-            "margin-bottom": "20px",
-        },
-        "icon": {
-            "color": "#8b9aff",
-            "font-size": "20px",
-            "margin-right": "8px",
-        },
-        "nav-link": {
-            "font-size": "15px",
-            "text-align": "center",
-            "margin": "0px 4px",
-            "padding": "12px 20px",
-            "border-radius": "10px",
-            "font-weight": "700",
-            "color": "#b0b3c0",
-            "transition": "all 0.3s ease",
-            "background": "transparent",
-        },
-        "nav-link:hover": {
-            "background": "rgba(139, 154, 255, 0.1)",
-            "color": "#8b9aff",
-            "transform": "translateY(-2px)",
-        },
-        "nav-link-selected": {
-            "background": "linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%)",
-            "color": "#ffffff",
-            "box-shadow": "0 4px 15px rgba(107, 127, 215, 0.4)",
-            "font-weight": "900",
-            "border": "none",
-        },
-    },
+    styles=get_menu_styles(st.session_state["ui_theme"]),
 )
 
 
@@ -1221,9 +1388,27 @@ def run_analysis(df, usd_try_rate, view_currency):
     return pd.DataFrame(results)
 
 
-master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
-portfoy_only = master_df[master_df["Tip"] == "Portfoy"]
-takip_only = master_df[master_df["Tip"] == "Takip"]
+# Session state ile önceki sonucu sakla - sekme değişimlerinde boş görünmesini önle
+# Cache key: portfoy_df hash'i + USD_TRY + GORUNUM_PB
+portfoy_df_hash = hash(str(portfoy_df.values.tolist())) if not portfoy_df.empty else 0
+cache_key = f"master_df_{portfoy_df_hash}_{USD_TRY}_{GORUNUM_PB}"
+
+# Eğer cache'de varsa ve veri değişmemişse kullan
+if cache_key in st.session_state:
+    master_df = st.session_state[cache_key]
+else:
+    # İlk yükleme veya veri değişmiş - yeniden hesapla
+    with st.spinner("Portföy verileri yükleniyor..."):
+        master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
+        st.session_state[cache_key] = master_df
+        # Eski cache'leri temizle (sadece son 3 cache'i tut)
+        cache_keys = [k for k in st.session_state.keys() if k.startswith("master_df_")]
+        if len(cache_keys) > 3:
+            for old_key in cache_keys[:-3]:
+                del st.session_state[old_key]
+
+portfoy_only = master_df[master_df["Tip"] == "Portfoy"] if not master_df.empty else pd.DataFrame(columns=ANALYSIS_COLS)
+takip_only = master_df[master_df["Tip"] == "Takip"] if not master_df.empty else pd.DataFrame(columns=ANALYSIS_COLS)
 
 
 # --- GLOBAL INFO BAR ---
@@ -1416,8 +1601,28 @@ if selected == "Dashboard":
             # Günlük portföy logunu yaz (aynı günse data_loader içinde atlanıyor)
             write_portfolio_history(total_try, total_usd)
 
+            # Fon toplamını ayrıca logla (haftalık/aylık hesaplardan düşebilmek için)
+            fon_mask = spot_only["Pazar"].astype(str).str.contains("FON", case=False, na=False)
+            fon_total_view = float(spot_only.loc[fon_mask, "Değer"].sum()) if fon_mask.any() else 0.0
+            if GORUNUM_PB == "TRY":
+                fon_try = fon_total_view
+                fon_usd = fon_total_view / USD_TRY if USD_TRY else 0.0
+            else:
+                fon_usd = fon_total_view
+                fon_try = fon_total_view * USD_TRY
+            write_history_fon(fon_try, fon_usd)
+
             history_df = read_portfolio_history()
-            kpi_timeframe = get_timeframe_changes(history_df)
+            history_fon = read_history_fon()
+            if not history_fon.empty and "Tarih" in history_fon.columns:
+                history_fon_filtered = history_fon.copy()
+            else:
+                history_fon_filtered = history_fon
+            kpi_timeframe = get_timeframe_changes(
+                history_df,
+                subtract_df=history_fon_filtered,
+                subtract_before=FON_METRIC_RESET_DATE,
+            )
         except Exception:
             kpi_timeframe = None
 
@@ -2272,4 +2477,3 @@ elif selected == "Ekle/Çıkar":
                         )
                         time.sleep(1)
                         st.rerun()
-
