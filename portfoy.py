@@ -1467,8 +1467,12 @@ if selected == "Dashboard":
             # Fonların bugünkü değerini haftalık/aylık/YTD hesaplarından çıkar
             # Böylece sadece bugünden sonraki değişimler takip edilir
             # (Fonların geçmiş fiyatlarını geç çekebildiğimiz için bir yıllık kar bir haftalık gibi görünüyor)
-            fon_total_value_try = float(fon_total_value * (USD_TRY if GORUNUM_PB == "USD" else 1.0)) if GORUNUM_PB == "USD" else float(fon_total_value)
-            fon_total_value_try = 0.0 if pd.isna(fon_total_value_try) else fon_total_value_try
+            # fon_total_value zaten view_currency'de (GORUNUM_PB'ye göre), TRY'ye çevirmemiz gerekiyor
+            fon_total_value_clean = 0.0 if pd.isna(fon_total_value) else float(fon_total_value)
+            if GORUNUM_PB == "TRY":
+                fon_total_value_try = fon_total_value_clean
+            else:  # USD
+                fon_total_value_try = fon_total_value_clean * USD_TRY if USD_TRY else 0.0
             history_try = max(total_try - fon_total_value_try, 0.0)
             if USD_TRY:
                 history_usd = float(history_try / USD_TRY)
