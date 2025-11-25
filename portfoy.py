@@ -1388,9 +1388,27 @@ def run_analysis(df, usd_try_rate, view_currency):
     return pd.DataFrame(results)
 
 
-master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
-portfoy_only = master_df[master_df["Tip"] == "Portfoy"]
-takip_only = master_df[master_df["Tip"] == "Takip"]
+# Session state ile önceki sonucu sakla - sekme değişimlerinde boş görünmesini önle
+# Cache key: portfoy_df hash'i + USD_TRY + GORUNUM_PB
+portfoy_df_hash = hash(str(portfoy_df.values.tolist())) if not portfoy_df.empty else 0
+cache_key = f"master_df_{portfoy_df_hash}_{USD_TRY}_{GORUNUM_PB}"
+
+# Eğer cache'de varsa ve veri değişmemişse kullan
+if cache_key in st.session_state:
+    master_df = st.session_state[cache_key]
+else:
+    # İlk yükleme veya veri değişmiş - yeniden hesapla
+    with st.spinner("Portföy verileri yükleniyor..."):
+        master_df = run_analysis(portfoy_df, USD_TRY, GORUNUM_PB)
+        st.session_state[cache_key] = master_df
+        # Eski cache'leri temizle (sadece son 3 cache'i tut)
+        cache_keys = [k for k in st.session_state.keys() if k.startswith("master_df_")]
+        if len(cache_keys) > 3:
+            for old_key in cache_keys[:-3]:
+                del st.session_state[old_key]
+
+portfoy_only = master_df[master_df["Tip"] == "Portfoy"] if not master_df.empty else pd.DataFrame(columns=ANALYSIS_COLS)
+takip_only = master_df[master_df["Tip"] == "Takip"] if not master_df.empty else pd.DataFrame(columns=ANALYSIS_COLS)
 
 
 # --- GLOBAL INFO BAR ---
