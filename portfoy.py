@@ -53,8 +53,6 @@ def _init_fon_reset_date():
     except Exception:
         return pd.to_datetime(default_date).tz_localize(None)
 
-FON_METRIC_RESET_DATE = _init_fon_reset_date()
-
 from charts import (
     render_pie_bar_charts,
     render_pazar_tab,
@@ -76,6 +74,8 @@ st.set_page_config(
         "textColor": "#ffffff",
     },
 )
+
+FON_METRIC_RESET_DATE = _init_fon_reset_date()
 
 if "ui_theme" not in st.session_state:
     st.session_state["ui_theme"] = "dark"
