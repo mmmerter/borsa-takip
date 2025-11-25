@@ -42,9 +42,10 @@ from data_loader import (
 
 import pandas as pd
 
-# Fon getirilerinin yeniden dahil edilme tarihi (varsayılan: 2025-11-25)
+# Fon getirilerinin yeniden dahil edilme tarihi (varsayılan: yarın)
 def _init_fon_reset_date():
-    default_date = "2025-11-25"
+    tomorrow = (pd.Timestamp.today().normalize() + pd.Timedelta(days=1))
+    default_date = tomorrow.strftime("%Y-%m-%d")
     try:
         raw = st.secrets.get("fon_metric_reset_date", default_date)
     except Exception:
