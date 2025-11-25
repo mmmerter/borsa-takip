@@ -10,12 +10,32 @@ import ccxt
 import pandas as pd
 import re
 import unicodedata
+import socket
 from utils import get_yahoo_symbol
+
+# Google Sheets / network işlemleri sonsuza kadar beklemesin diye global timeout
+socket.setdefaulttimeout(15)
 
 SHEET_NAME = "PortfoyData"
 
 # Google Sheets client cache
 _client_cache = None
+
+
+def _warn_once(key: str, message: str):
+    """Streamlit ortamında aynı uyarıyı bir kez göster."""
+    try:
+        if not hasattr(st, "session_state"):
+            return
+        state_key = f"_warned_{key}"
+        if not st.session_state.get(state_key):
+            st.warning(message)
+            st.session_state[state_key] = True
+    except Exception:
+        # Streamlit dışında çağrılıyorsa sessiz geç
+        pass
+
+
 def _normalize_tip_value(value: str) -> str:
     """
     Google Sheet'ten gelen Tip değerlerini normalize eder.
@@ -50,6 +70,10 @@ def get_data_from_sheet():
     try:
         client = _get_gspread_client()
         if client is None:
+            _warn_once(
+                "sheet_client",
+                "Google Sheets verisine ulaşılamadı. İnternet bağlantısını veya servis hesabı ayarlarını kontrol et.",
+            )
             return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
         sheet = client.open(SHEET_NAME).sheet1
         data = sheet.get_all_records()
@@ -67,6 +91,10 @@ def get_data_from_sheet():
             df["Tip"] = df["Tip"].apply(_normalize_tip_value)
         return df
     except Exception:
+        _warn_once(
+            "sheet_client_error",
+            "Google Sheets verisi okunurken hata oluştu. Lütfen tekrar deneyin.",
+        )
         return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
 
 def save_data_to_sheet(df):
