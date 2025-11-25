@@ -1471,9 +1471,12 @@ if selected == "Dashboard":
                 total_try = float(t_v * USD_TRY) if USD_TRY else 0.0
                 fon_profit_try = float((fon_total_value - fon_total_cost) * (USD_TRY or 0.0))
 
-            # Fon kârını haftalık/aylık/YTD hesaplarından çıkar, toplam değeri bozma
-            fon_profit_try = 0.0 if pd.isna(fon_profit_try) else fon_profit_try
-            history_try = max(total_try - fon_profit_try, 0.0)
+            # Fonların bugünkü değerini haftalık/aylık/YTD hesaplarından çıkar
+            # Böylece sadece bugünden sonraki değişimler takip edilir
+            # (Fonların geçmiş fiyatlarını geç çekebildiğimiz için bir yıllık kar bir haftalık gibi görünüyor)
+            fon_total_value_try = float(fon_total_value * (USD_TRY if GORUNUM_PB == "USD" else 1.0)) if GORUNUM_PB == "USD" else float(fon_total_value)
+            fon_total_value_try = 0.0 if pd.isna(fon_total_value_try) else fon_total_value_try
+            history_try = max(total_try - fon_total_value_try, 0.0)
             if USD_TRY:
                 history_usd = float(history_try / USD_TRY)
             else:
@@ -1483,7 +1486,8 @@ if selected == "Dashboard":
             write_portfolio_history(history_try, history_usd)
 
             history_df = read_portfolio_history()
-            kpi_timeframe = get_timeframe_changes(history_df)
+            # Fonların bugünkü değerini parametre olarak geç (haftalık/aylık/YTD hesaplarından çıkarılacak)
+            kpi_timeframe = get_timeframe_changes(history_df, fon_current_value_try=fon_total_value_try)
         except Exception:
             kpi_timeframe = None
 

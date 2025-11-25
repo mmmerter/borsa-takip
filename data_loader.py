@@ -559,10 +559,11 @@ def write_portfolio_history(value_try, value_usd):
         pass
 
 
-def get_timeframe_changes(history_df):
+def get_timeframe_changes(history_df, fon_current_value_try=0.0):
     """
     Haftalık / Aylık / YTD gerçek K/Z hesaplar.
     history_df: read_portfolio_history() çıktısı
+    fon_current_value_try: Fonların bugünkü değeri (TRY) - haftalık/aylık/YTD hesaplarından çıkarılacak
     Dönüş:
       {
         "weekly": (değer, yüzde),
@@ -586,7 +587,11 @@ def get_timeframe_changes(history_df):
     if "Değer_TRY" not in df.columns:
         return None
 
-    today_val = float(df["Değer_TRY"].iloc[-1])
+    # Fonların bugünkü değerini her tarih için çıkar
+    # Böylece sadece fon olmayan varlıkların değişimini takip ederiz
+    df["Değer_TRY_NoFon"] = df["Değer_TRY"] - float(fon_current_value_try)
+
+    today_val = float(df["Değer_TRY_NoFon"].iloc[-1])
     dates = df["Tarih"]
 
     def _calc_period(days: int):
@@ -594,10 +599,10 @@ def get_timeframe_changes(history_df):
         sub = df[df["Tarih"] >= target_date]
         if sub.empty:
             return 0.0, 0.0, []
-        start_val = float(sub["Değer_TRY"].iloc[0])
+        start_val = float(sub["Değer_TRY_NoFon"].iloc[0])
         diff = today_val - start_val
         pct = (diff / start_val * 100) if start_val > 0 else 0.0
-        spark = list(sub["Değer_TRY"])
+        spark = list(sub["Değer_TRY_NoFon"])
         return diff, pct, spark
 
     # 7 gün (haftalık)
@@ -610,10 +615,10 @@ def get_timeframe_changes(history_df):
     year_mask = df["Tarih"].dt.year == datetime.now().year
     if year_mask.any():
         ydf = df[year_mask]
-        start_val = float(ydf["Değer_TRY"].iloc[0])
+        start_val = float(ydf["Değer_TRY_NoFon"].iloc[0])
         diff = today_val - start_val
         pct = (diff / start_val * 100) if start_val > 0 else 0.0
-        y_spark = list(ydf["Değer_TRY"])
+        y_spark = list(ydf["Değer_TRY_NoFon"])
         y_val, y_pct = diff, pct
     else:
         y_val, y_pct, y_spark = 0.0, 0.0, []
