@@ -61,19 +61,32 @@ from charts import (
 )
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(
-    page_title="Merter’in Terminali",
-    layout="wide",
-    page_icon="🏦",
-    initial_sidebar_state="collapsed",
-    theme={
-        "base": "dark",
-        "primaryColor": "#6b7fd7",
-        "secondaryBackgroundColor": "#1a1c24",
-        "backgroundColor": "#0e1117",
-        "textColor": "#ffffff",
-    },
-)
+_PAGE_CONFIG = {
+    "page_title": "Merter’in Terminali",
+    "layout": "wide",
+    "page_icon": "🏦",
+    "initial_sidebar_state": "collapsed",
+}
+_THEME_CONFIG = {
+    "base": "dark",
+    "primaryColor": "#6b7fd7",
+    "secondaryBackgroundColor": "#1a1c24",
+    "backgroundColor": "#0e1117",
+    "textColor": "#ffffff",
+}
+
+
+def _configure_page():
+    """Apply page config, gracefully skipping theme on old Streamlit versions."""
+    try:
+        st.set_page_config(**_PAGE_CONFIG, theme=_THEME_CONFIG)
+    except TypeError as exc:
+        if "theme" not in str(exc):
+            raise
+        st.set_page_config(**_PAGE_CONFIG)
+
+
+_configure_page()
 
 FON_METRIC_RESET_DATE = _init_fon_reset_date()
 
