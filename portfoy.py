@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import yfinance as yf
 import pandas as pd
 import time
@@ -1850,6 +1851,21 @@ def render_kpi_sparkline(values):
     return fig
 
 
+def render_html_table_block(html_markup, row_count=5):
+    """
+    Streamlit sürümünden bağımsız olarak custom HTML tablo render eder.
+    Modern sürümlerde st.html, eski sürümlerde components.html kullanılır.
+    """
+    base_height = 140
+    row_height = 64
+    target_height = base_height + max(row_count, 1) * row_height
+    html_renderer = getattr(st, "html", None)
+    if callable(html_renderer):
+        html_renderer(html_markup, height=target_height)
+    else:
+        components.html(html_markup, height=target_height, scrolling=False)
+
+
 def render_daily_winners_losers(df, sym, currency_symbol="₺"):
     """
     Günün kazananları ve kaybedenleri tablolarını render eder.
@@ -1968,11 +1984,8 @@ def render_daily_winners_losers(df, sym, currency_symbol="₺"):
                     </tr>'''
             
             winners_html += '</tbody></table></div>'
-            # Streamlit'in st.html() özelliğini kullan (eğer mevcut değilse st.markdown kullan)
-            try:
-                st.html(winners_html)
-            except AttributeError:
-                st.markdown(winners_html, unsafe_allow_html=True)
+            # Streamlit sürümünden bağımsız olarak HTML tabloyu render et
+            render_html_table_block(winners_html, row_count=len(winners_df))
         else:
             st.info("Bugün için kazanan varlık bulunmuyor.")
     
@@ -2040,11 +2053,7 @@ def render_daily_winners_losers(df, sym, currency_symbol="₺"):
                     </tr>'''
             
             losers_html += '</tbody></table></div>'
-            # Streamlit'in st.html() özelliğini kullan (eğer mevcut değilse st.markdown kullan)
-            try:
-                st.html(losers_html)
-            except AttributeError:
-                st.markdown(losers_html, unsafe_allow_html=True)
+            render_html_table_block(losers_html, row_count=len(losers_df))
         else:
             st.info("Bugün için kaybeden varlık bulunmuyor.")
 
