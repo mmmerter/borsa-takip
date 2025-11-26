@@ -235,7 +235,25 @@ st.markdown(
     a { text-decoration: none !important; }
     a:hover { text-decoration: underline !important; }
 
-    /* Eski header stilleri kaldırıldı */
+    /* KRAL HEADER */
+    .kral-header {
+        background: linear-gradient(135deg, #232837, #171b24);
+        border-radius: 14px;
+        padding: 14px 20px 10px 20px;
+        margin-bottom: 14px;
+        border: 1px solid #2f3440;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+    }
+    .kral-header-title {
+        font-size: 26px;
+        font-weight: 900;
+        color: #ffffff;
+        margin-bottom: 4px;
+    }
+    .kral-header-sub {
+        font-size: 13px;
+        color: #b3b7c6;
+    }
 
     /* Mini Info Bar - Genişletilmiş */
     .kral-infobar {
@@ -335,7 +353,17 @@ st.markdown(
             padding: 0.5rem !important;
         }
         
-        /* Header stilleri kaldırıldı */
+        /* Header küçültme */
+        .kral-header {
+            padding: 10px 12px !important;
+            margin-bottom: 10px !important;
+        }
+        .kral-header-title {
+            font-size: 18px !important;
+        }
+        .kral-header-sub {
+            font-size: 11px !important;
+        }
         
         /* Ticker küçültme */
         .ticker-container {
@@ -589,7 +617,17 @@ LIGHT_OVERRIDE_CSS = """
         background-color: #f5f7fb !important;
         color: #1f2937 !important;
     }
-    /* Header stilleri kaldırıldı */
+    .kral-header {
+        background: linear-gradient(135deg, #ffffff, #edf1fb);
+        border: 1px solid #d5d9ea;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+    }
+    .kral-header-title {
+        color: #111827;
+    }
+    .kral-header-sub {
+        color: #4b5563;
+    }
     .ticker-container {
         background: linear-gradient(135deg, #ffffff 0%, #e8edfb 100%);
         border-bottom: 1px solid #d5d9ea;
@@ -743,55 +781,105 @@ def render_news_section(name, key):
 # --- ANA DATA ---
 portfoy_df = get_data_from_sheet()
 
-# --- YENİ HEADER: Sağ Üst Köşe (TRY USD + Sayaç) ---
+# --- HEADER ---
 USD_TRY = get_usd_try()
 
 # Para birimi seçimi için session state
 if "gorunum_pb" not in st.session_state:
     st.session_state["gorunum_pb"] = "TRY"
 
-# Sayaç için session state
-if "counter_interval" not in st.session_state:
-    st.session_state["counter_interval"] = None
-if "counter_start_time" not in st.session_state:
-    st.session_state["counter_start_time"] = None
+# Otomatik yenileme için session state
+if "auto_refresh_interval" not in st.session_state:
+    st.session_state["auto_refresh_interval"] = None
+if "auto_refresh_start_time" not in st.session_state:
+    st.session_state["auto_refresh_start_time"] = None
 
 GORUNUM_PB = st.session_state["gorunum_pb"]
 sym = "₺" if GORUNUM_PB == "TRY" else "$"
 
-# Sağ üst köşede yeni header
+# Header - Başlık
+with st.container():
+    st.markdown('<div class="kral-header">', unsafe_allow_html=True)
+    c_title, c_toggle = st.columns([3, 1])
+    with c_title:
+        st.markdown(
+            "<div class='kral-header-title'>🏦 MERTER VARLIK TAKİP BOTU</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<div class='kral-header-sub'>Toplam portföyünü tek ekranda izlemek için kişisel kontrol panelin.</div>",
+            unsafe_allow_html=True,
+        )
+    with c_toggle:
+        st.write("")
+        GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True, key="pb_radio")
+        if GORUNUM_PB != st.session_state.get("gorunum_pb"):
+            st.session_state["gorunum_pb"] = GORUNUM_PB
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# Sağ üst köşede otomatik yenileme menüsü
+current_interval = st.session_state.get("auto_refresh_interval")
+current_start_time = st.session_state.get("auto_refresh_start_time")
+
 st.markdown(
     f"""
-    <div style="position: fixed; top: 10px; right: 10px; z-index: 9999; background: linear-gradient(135deg, #232837, #171b24); border-radius: 12px; padding: 12px 16px; border: 1px solid #2f3440; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); min-width: 140px;">
-        <!-- TRY USD Seçimi - En Üstte -->
-        <div style="text-align: center; margin-bottom: 10px;">
-            <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
-                <button id="btn-try" onclick="setCurrency('TRY')" style="background: {'rgba(107, 127, 215, 0.4)' if GORUNUM_PB == 'TRY' else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if GORUNUM_PB == 'TRY' else '#2f3440'}; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: {'#ffffff' if GORUNUM_PB == 'TRY' else '#b0b3c0'}; cursor: pointer; transition: all 0.2s ease;">TRY</button>
-                <button id="btn-usd" onclick="setCurrency('USD')" style="background: {'rgba(107, 127, 215, 0.4)' if GORUNUM_PB == 'USD' else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if GORUNUM_PB == 'USD' else '#2f3440'}; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: {'#ffffff' if GORUNUM_PB == 'USD' else '#b0b3c0'}; cursor: pointer; transition: all 0.2s ease;">USD</button>
+    <div style="position: fixed; top: 10px; right: 10px; z-index: 9999;">
+        <div id="refresh-menu-container" style="background: linear-gradient(135deg, #232837, #171b24); border-radius: 12px; padding: 10px 14px; border: 1px solid #2f3440; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); min-width: 140px;">
+            <!-- Açılır Menü Butonu -->
+            <div style="text-align: center; margin-bottom: 8px;">
+                <button id="refresh-toggle-btn" onclick="toggleRefreshMenu()" style="background: {'rgba(107, 127, 215, 0.3)' if current_interval else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if current_interval else '#2f3440'}; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: {'#ffffff' if current_interval else '#b0b3c0'}; cursor: pointer; width: 100%; transition: all 0.2s ease;">
+                    🔄 Otomatik Yenileme
+                </button>
             </div>
-        </div>
-        
-        <!-- Sayaç Seçimi Dropdown -->
-        <div style="margin-bottom: 8px;">
-            <select id="counter-select" onchange="setCounter(this.value)" style="width: 100%; background: rgba(255, 255, 255, 0.05); border: 1px solid #2f3440; border-radius: 6px; padding: 6px 8px; font-size: 12px; color: #b0b3c0; cursor: pointer;">
-                <option value="">Sayaç Seç</option>
-                <option value="30" {'selected' if st.session_state.get('counter_interval') == 30 else ''}>30 Saniye</option>
-                <option value="60" {'selected' if st.session_state.get('counter_interval') == 60 else ''}>1 Dakika</option>
-                <option value="120" {'selected' if st.session_state.get('counter_interval') == 120 else ''}>2 Dakika</option>
-                <option value="300" {'selected' if st.session_state.get('counter_interval') == 300 else ''}>5 Dakika</option>
-            </select>
-        </div>
-        
-        <!-- Geri Sayım Göstergesi -->
-        <div id="countdown-display" style="text-align: center; font-size: 11px; color: #6b7fd7; font-weight: 600; min-height: 18px; margin-top: 6px; padding-top: 4px;">
-            {'<span id="countdown-text" style="display: inline-block; background: rgba(107, 127, 215, 0.15); padding: 2px 8px; border-radius: 4px;">Yükleniyor...</span>' if st.session_state.get('counter_interval') else ''}
+            
+            <!-- Açılır Liste -->
+            <div id="refresh-options-list" style="display: none; flex-direction: column; gap: 4px;">
+                <div class="refresh-option" data-interval="30" onclick="selectRefreshInterval(30)" style="background: {'rgba(107, 127, 215, 0.3)' if current_interval == 30 else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if current_interval == 30 else '#2f3440'}; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: {'#ffffff' if current_interval == 30 else '#b0b3c0'}; cursor: pointer; text-align: center; font-weight: {'700' if current_interval == 30 else '400'}; transition: all 0.2s ease; margin-bottom: 4px;">
+                    30 Saniye
+                </div>
+                <div class="refresh-option" data-interval="60" onclick="selectRefreshInterval(60)" style="background: {'rgba(107, 127, 215, 0.3)' if current_interval == 60 else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if current_interval == 60 else '#2f3440'}; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: {'#ffffff' if current_interval == 60 else '#b0b3c0'}; cursor: pointer; text-align: center; font-weight: {'700' if current_interval == 60 else '400'}; transition: all 0.2s ease; margin-bottom: 4px;">
+                    1 Dakika
+                </div>
+                <div class="refresh-option" data-interval="120" onclick="selectRefreshInterval(120)" style="background: {'rgba(107, 127, 215, 0.3)' if current_interval == 120 else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if current_interval == 120 else '#2f3440'}; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: {'#ffffff' if current_interval == 120 else '#b0b3c0'}; cursor: pointer; text-align: center; font-weight: {'700' if current_interval == 120 else '400'}; transition: all 0.2s ease; margin-bottom: 4px;">
+                    2 Dakika
+                </div>
+                <div class="refresh-option" data-interval="300" onclick="selectRefreshInterval(300)" style="background: {'rgba(107, 127, 215, 0.3)' if current_interval == 300 else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if current_interval == 300 else '#2f3440'}; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: {'#ffffff' if current_interval == 300 else '#b0b3c0'}; cursor: pointer; text-align: center; font-weight: {'700' if current_interval == 300 else '400'}; transition: all 0.2s ease; margin-bottom: 4px;">
+                    5 Dakika
+                </div>
+                {'<div onclick="selectRefreshInterval(null)" style="background: rgba(255, 82, 82, 0.1); border: 1px solid #ff5252; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #ff5252; cursor: pointer; text-align: center; font-weight: 700; transition: all 0.2s ease;">Kapat</div>' if current_interval else ''}
+            </div>
+            
+            <!-- Geri Sayım Göstergesi -->
+            <div id="countdown-display" style="text-align: center; font-size: 11px; color: #6b7fd7; font-weight: 600; min-height: 18px; margin-top: 6px; padding-top: 4px;">
+                {'<span id="countdown-text" style="display: inline-block; background: rgba(107, 127, 215, 0.15); padding: 2px 8px; border-radius: 4px;">Yükleniyor...</span>' if current_interval else ''}
+            </div>
         </div>
     </div>
     
+    <style>
+    .refresh-option:hover {{
+        background: rgba(107, 127, 215, 0.2) !important;
+        border-color: #6b7fd7 !important;
+        color: #ffffff !important;
+    }}
+    </style>
+    
     <script>
-    function setCurrency(currency) {{
+    function toggleRefreshMenu() {{
+        const menu = document.getElementById('refresh-options-list');
+        if (menu) {{
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }}
+    }}
+    
+    function selectRefreshInterval(interval) {{
         const url = new URL(window.location);
-        url.searchParams.set('currency', currency);
+        if (interval === null) {{
+            url.searchParams.delete('refresh_interval');
+        }} else {{
+            url.searchParams.set('refresh_interval', interval);
+        }}
         if (window.parent && window.parent !== window) {{
             window.parent.location.href = url.toString();
         }} else {{
@@ -799,36 +887,11 @@ st.markdown(
         }}
     }}
     
-    function setCounter(interval) {{
-        if (!interval) {{
-            // Sayaç kaldırılıyor
-            const countdownDisplay = document.getElementById('countdown-display');
-            if (countdownDisplay) {{
-                countdownDisplay.innerHTML = '';
-            }}
-            const url = new URL(window.location);
-            url.searchParams.delete('counter_interval');
-            if (window.parent && window.parent !== window) {{
-                window.parent.location.href = url.toString();
-            }} else {{
-                window.location.href = url.toString();
-            }}
-            return;
-        }}
-        const url = new URL(window.location);
-        url.searchParams.set('counter_interval', interval);
-        if (window.parent && window.parent !== window) {{
-            window.parent.location.href = url.toString();
-        }} else {{
-            window.location.href = url.toString();
-        }}
-    }}
-    
-    // Geri sayım timer'ı - gerçek zamanlı güncelleme
+    // Geri sayım timer'ı - canlı güncelleme ve otomatik yenileme
     {f'''
     (function() {{
-        const interval = {st.session_state.get('counter_interval', 'null')};
-        const startTime = {st.session_state.get('counter_start_time', 'null')};
+        const interval = {current_interval if current_interval else 'null'};
+        const startTime = {current_start_time if current_start_time else 'null'};
         
         if (interval && startTime) {{
             const countdownText = document.getElementById('countdown-text');
@@ -842,8 +905,20 @@ st.markdown(
                         countdownText.textContent = remaining + 's';
                         countdownText.style.color = '#6b7fd7';
                     }} else {{
-                        countdownText.textContent = '0s';
+                        countdownText.textContent = 'Yenileniyor...';
                         countdownText.style.color = '#9da1b3';
+                        // Geri sayım bitti, sayfayı yenile
+                        setTimeout(function() {{
+                            if (window.parent && window.parent !== window) {{
+                                try {{
+                                    window.parent.postMessage({{type: 'streamlit:rerun'}}, '*');
+                                }} catch(e) {{
+                                    window.location.reload();
+                                }}
+                            }} else {{
+                                window.location.reload();
+                            }}
+                        }}, 500);
                     }}
                 }}
                 
@@ -862,32 +937,68 @@ st.markdown(
             }}
         }}
     }})();
-    ''' if st.session_state.get('counter_interval') and st.session_state.get('counter_start_time') else ''}
+    ''' if current_interval and current_start_time else ''}
     </script>
     """,
     unsafe_allow_html=True
 )
 
 # Query parametrelerinden değerleri al
-if 'currency' in st.query_params:
-    currency = st.query_params['currency']
-    if currency in ['TRY', 'USD']:
-        st.session_state["gorunum_pb"] = currency
-        st.query_params.pop('currency')
-        st.rerun()
-
-if 'counter_interval' in st.query_params:
+if 'refresh_interval' in st.query_params:
     try:
-        interval = int(st.query_params['counter_interval'])
-        if interval in [30, 60, 120, 300]:
-            st.session_state["counter_interval"] = interval
-            st.session_state["counter_start_time"] = time.time()
-            st.query_params.pop('counter_interval')
+        interval = st.query_params['refresh_interval']
+        if interval == '' or interval is None:
+            # Kapatıldı
+            st.session_state["auto_refresh_interval"] = None
+            st.session_state["auto_refresh_start_time"] = None
+            st.query_params.pop('refresh_interval')
             st.rerun()
+        else:
+            interval = int(interval)
+            if interval in [30, 60, 120, 300]:
+                st.session_state["auto_refresh_interval"] = interval
+                st.session_state["auto_refresh_start_time"] = time.time()
+                st.query_params.pop('refresh_interval')
+                st.rerun()
     except:
         pass
 
-# Sayaç sıfırlama kontrolü (otomatik yenileme yok, sadece gösterim)
+# Otomatik yenileme kontrolü - geri sayım bitince sayfayı yenile
+if current_interval is not None and current_start_time is not None:
+    elapsed = int(time.time() - current_start_time)
+    remaining = current_interval - elapsed
+    
+    if remaining <= 0:
+        # Süre doldu, sayfayı yenile ve cache'leri temizle
+        cache_functions = [
+            get_data_from_sheet,
+            get_usd_try,
+            get_tickers_data,
+        ]
+        for func in cache_functions:
+            try:
+                func.clear()
+            except Exception:
+                pass
+        
+        # Portföy analiz cache'lerini de temizle
+        optional_cache_functions = [
+            "_fetch_batch_prices_bist_abd",
+            "_fetch_batch_prices_crypto",
+            "_fetch_batch_prices_emtia",
+            "_fetch_sector_info",
+        ]
+        for func_name in optional_cache_functions:
+            try:
+                func = globals().get(func_name)
+                if func is not None and hasattr(func, 'clear'):
+                    func.clear()
+            except Exception:
+                pass
+        
+        # Timer'ı sıfırla ve yenile
+        st.session_state["auto_refresh_start_time"] = time.time()
+        st.rerun()
 
 mh, ph = get_tickers_data(portfoy_df, USD_TRY)
 st.markdown(
