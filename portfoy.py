@@ -120,7 +120,8 @@ with theme_selector_cols[1]:
             index=1,
             format_func=lambda x: f"{x//60}dk" if x >= 60 else f"{x}sn",
             key="refresh_interval_select",
-            help="Verilerin ne sıklıkla güncelleneceği"
+            help="Verilerin ne sıklıkla güncelleneceği",
+            label_visibility="visible"
         )
         st.session_state["auto_refresh_interval"] = refresh_interval
         
@@ -140,6 +141,7 @@ with theme_selector_cols[1]:
         
         if next_refresh > 0:
             # JavaScript ile gerçek zamanlı geri sayım ekle
+            # Timer'ı sessionStorage'da saklayarak Streamlit rerun'larda koruyoruz
             st.markdown(
                 f"""
                 <div id="refresh-countdown" style="font-size: 0.875rem; color: #9da1b3; margin-top: 0.25rem; margin-bottom: 0.5rem;">
@@ -147,24 +149,47 @@ with theme_selector_cols[1]:
                 </div>
                 <script>
                 (function() {{
-                    let remainingSeconds = {next_refresh};
                     const countdownElement = document.getElementById('countdown-value');
+                    const storageKey = 'streamlit_countdown_remaining';
+                    const startTimeKey = 'streamlit_countdown_start';
                     
-                    // Mevcut timer'ı temizle (çoklu timer'ı önlemek için)
+                    // Mevcut timer'ı temizle
                     if (window.countdownTimer) {{
                         clearInterval(window.countdownTimer);
                     }}
                     
-                    // Geri sayım timer'ı
+                    // Başlangıç zamanını ve kalan süreyi al
+                    let startTime = sessionStorage.getItem(startTimeKey);
+                    let initialRemaining = {next_refresh};
+                    
+                    if (startTime) {{
+                        // Eğer daha önce başlatılmışsa, kalan süreyi hesapla
+                        const elapsed = Math.floor((Date.now() - parseInt(startTime)) / 1000);
+                        initialRemaining = Math.max(0, {next_refresh} - elapsed);
+                    }} else {{
+                        // İlk kez başlatılıyorsa, başlangıç zamanını kaydet
+                        sessionStorage.setItem(startTimeKey, Date.now().toString());
+                    }}
+                    
+                    let remainingSeconds = initialRemaining;
+                    
+                    // İlk değeri göster
+                    if (countdownElement) {{
+                        countdownElement.textContent = remainingSeconds;
+                    }}
+                    
+                    // Geri sayım timer'ı - her saniye güncelle
                     window.countdownTimer = setInterval(function() {{
                         remainingSeconds--;
                         
-                        if (countdownElement) {{
+                        if (countdownElement && remainingSeconds >= 0) {{
                             countdownElement.textContent = remainingSeconds;
                         }}
                         
                         if (remainingSeconds <= 0) {{
                             clearInterval(window.countdownTimer);
+                            sessionStorage.removeItem(startTimeKey);
+                            sessionStorage.removeItem(storageKey);
                             // Sayfayı yenile
                             if (window.parent && window.parent !== window) {{
                                 try {{
@@ -2765,58 +2790,5 @@ elif selected == "Ekle/Çıkar":
                         time.sleep(1)
                         st.rerun()
 
-# --- OTOMATIK YENİLEME JAVASCRIPT ---
-# Otomatik yenileme aktifse, JavaScript ile belirli aralıklarla sayfayı yenile
-if st.session_state.get("auto_refresh_enabled", True):
-    refresh_interval_ms = st.session_state.get("auto_refresh_interval", 60) * 1000
-    st.markdown(
-        f"""
-        <script>
-        (function() {{
-            // Mevcut timer'ı temizle (çoklu timer'ı önlemek için)
-            if (window.autoRefreshTimer) {{
-                clearInterval(window.autoRefreshTimer);
-            }}
-            
-            // Otomatik yenileme için timer
-            let refreshInterval = {refresh_interval_ms};
-            
-            // Sayfa yüklendiğinde timer'ı başlat
-            function startAutoRefresh() {{
-                window.autoRefreshTimer = setInterval(function() {{
-                    // Streamlit'in kendi rerun mekanizmasını kullan
-                    // Streamlit iframe içinde çalışıyorsa parent'a mesaj gönder
-                    if (window.parent && window.parent !== window) {{
-                        try {{
-                            window.parent.postMessage({{
-                                type: 'streamlit:rerun'
-                            }}, '*');
-                        }} catch(e) {{
-                            // Fallback: sayfayı yenile
-                            window.location.reload();
-                        }}
-                    }} else {{
-                        // Streamlit standalone modunda sayfayı yenile
-                        window.location.reload();
-                    }}
-                }}, refreshInterval);
-            }}
-            
-            // Sayfa yüklendiğinde başlat
-            if (document.readyState === 'loading') {{
-                document.addEventListener('DOMContentLoaded', startAutoRefresh);
-            }} else {{
-                startAutoRefresh();
-            }}
-            
-            // Sayfa kapatılırken timer'ı temizle
-            window.addEventListener('beforeunload', function() {{
-                if (window.autoRefreshTimer) {{
-                    clearInterval(window.autoRefreshTimer);
-                }}
-            }});
-        }})();
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
+# Otomatik yenileme artık üstteki geri sayım timer'ı tarafından yönetiliyor
+# Burada ayrı bir timer'a gerek yok
