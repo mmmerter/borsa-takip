@@ -358,21 +358,57 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     - Her varlık için Yahoo Finance (veya ons altın/gümüş, fon vs.) verisi çekilir.
     - Lot/adet ile çarpılır.
     - Seçilen para birimine (pb: TRY / USD) göre çevrilir.
-    - Hepsi toplanıp tek zaman serisi olarak çizilir.
+    - Maliyet bazlı yüzde performans gösterilir (yeni varlık eklendiğinde ani yükseliş olmaz).
     Optimize edilmiş: Batch veri çekme kullanılıyor.
     """
     if df is None or df.empty:
         return None
 
+    # Mevcut varlıkların toplam maliyetini hesapla (sabit kalır)
+    total_cost = 0.0
+    for idx, row in df.iterrows():
+        adet = float(row.get("Adet", 0) or 0)
+        maliyet = float(row.get("Maliyet", 0) or 0)
+        if adet > 0 and maliyet > 0:
+            # Para birimine göre maliyet hesapla
+            pazar = str(row.get("Pazar", ""))
+            kod = str(row.get("Kod", ""))
+            pazar_upper = pazar.upper()
+            kod_upper = kod.upper()
+            
+            if (
+                "BIST" in pazar_upper
+                or "TL" in kod_upper
+                or "FON" in pazar_upper
+                or "EMTIA" in pazar_upper
+                or "NAKIT" in pazar_upper
+            ):
+                asset_currency = "TRY"
+            else:
+                asset_currency = "USD"
+            
+            cost_native = maliyet * adet
+            if pb == "TRY":
+                if asset_currency == "USD":
+                    total_cost += cost_native * usd_try_rate
+                else:
+                    total_cost += cost_native
+            else:  # pb == "USD"
+                if asset_currency == "TRY":
+                    total_cost += cost_native / usd_try_rate
+                else:
+                    total_cost += cost_native
+
     # Önce tüm sembolleri topla
     yahoo_symbols = []
-    symbol_to_rows = {}  # symbol -> [(idx, kod, pazar, adet, asset_currency), ...]
+    symbol_to_rows = {}  # symbol -> [(idx, kod, pazar, adet, asset_currency, maliyet), ...]
     special_cases = []  # Nakit, fon, gram altın/gümüş için
     
     for idx, row in df.iterrows():
         kod = str(row.get("Kod", ""))
         pazar = str(row.get("Pazar", ""))
         adet = float(row.get("Adet", 0) or 0)
+        maliyet = float(row.get("Maliyet", 0) or 0)
 
         if adet == 0 or not kod:
             continue
@@ -394,28 +430,28 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
 
         # Özel durumları ayır
         if "NAKIT" in pazar_upper:
-            special_cases.append(("NAKIT", idx, kod, pazar, adet, asset_currency))
+            special_cases.append(("NAKIT", idx, kod, pazar, adet, asset_currency, maliyet))
         elif "FON" in pazar_upper:
-            special_cases.append(("FON", idx, kod, pazar, adet, asset_currency))
+            special_cases.append(("FON", idx, kod, pazar, adet, asset_currency, maliyet))
         elif "GRAM GÜMÜŞ" in kod_upper:
             if "SI=F" not in yahoo_symbols:
                 yahoo_symbols.append("SI=F")
             if "SI=F" not in symbol_to_rows:
                 symbol_to_rows["SI=F"] = []
-            symbol_to_rows["SI=F"].append((idx, kod, pazar, adet, asset_currency, "GRAM_GUMUS"))
+            symbol_to_rows["SI=F"].append((idx, kod, pazar, adet, asset_currency, "GRAM_GUMUS", maliyet))
         elif "GRAM ALTIN" in kod_upper:
             if "GC=F" not in yahoo_symbols:
                 yahoo_symbols.append("GC=F")
             if "GC=F" not in symbol_to_rows:
                 symbol_to_rows["GC=F"] = []
-            symbol_to_rows["GC=F"].append((idx, kod, pazar, adet, asset_currency, "GRAM_ALTIN"))
+            symbol_to_rows["GC=F"].append((idx, kod, pazar, adet, asset_currency, "GRAM_ALTIN", maliyet))
         else:
             symbol = get_yahoo_symbol(kod, pazar)
             if symbol not in yahoo_symbols:
                 yahoo_symbols.append(symbol)
             if symbol not in symbol_to_rows:
                 symbol_to_rows[symbol] = []
-            symbol_to_rows[symbol].append((idx, kod, pazar, adet, asset_currency, "NORMAL"))
+            symbol_to_rows[symbol].append((idx, kod, pazar, adet, asset_currency, "NORMAL", maliyet))
 
     # Batch olarak fiyat verilerini çek
     batch_prices = _fetch_historical_prices_batch(yahoo_symbols, period="60d", interval="1d")
@@ -424,7 +460,7 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     today = pd.Timestamp.today().normalize()
 
     # Özel durumları işle
-    for case_type, idx, kod, pazar, adet, asset_currency in special_cases:
+    for case_type, idx, kod, pazar, adet, asset_currency, maliyet in special_cases:
         prices = None
         try:
             if case_type == "NAKIT":
@@ -465,7 +501,14 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
         prices = batch_prices[symbol]
         prices.index = pd.to_datetime(prices.index).tz_localize(None)
         
-        for idx, kod, pazar, adet, asset_currency, case_type in rows:
+        for row_data in rows:
+            if len(row_data) == 7:
+                idx, kod, pazar, adet, asset_currency, case_type, maliyet = row_data
+            else:
+                # Eski format desteği
+                idx, kod, pazar, adet, asset_currency, case_type = row_data
+                maliyet = 0.0
+            
             if case_type in ["GRAM_GUMUS", "GRAM_ALTIN"]:
                 # Gram altın/gümüş için özel dönüşüm
                 prices_converted = (prices * usd_try_rate) / 31.1035
@@ -501,6 +544,16 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     hist_df = portfolio_series.reset_index()
     hist_df.columns = ["Tarih", "ToplamDeğer"]
     
+    # Maliyet bazlı yüzde performans hesapla (yeni varlık eklendiğinde ani yükseliş olmaz)
+    if total_cost > 0:
+        hist_df["Performans%"] = (hist_df["ToplamDeğer"] / total_cost * 100) - 100
+        # Grafikte performans yüzdesini göster (başlangıç = 0%)
+        hist_df["GrafikDeğeri"] = hist_df["Performans%"]
+    else:
+        # Maliyet yoksa eski yöntemi kullan
+        hist_df["Performans%"] = 0.0
+        hist_df["GrafikDeğeri"] = hist_df["ToplamDeğer"]
+    
     # Günlük değişim ve yüzde değişim hesapla
     hist_df["GünlükDeğişim"] = hist_df["ToplamDeğer"].diff()
     hist_df["GünlükDeğişim%"] = (hist_df["ToplamDeğer"].pct_change() * 100).fillna(0)
@@ -511,14 +564,39 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     toplam_değişim = son_değer - başlangıç_değeri
     toplam_değişim_pct = ((son_değer - başlangıç_değeri) / başlangıç_değeri * 100) if başlangıç_değeri > 0 else 0
     
+    # Performans bazlı değişim (maliyete göre)
+    if total_cost > 0:
+        başlangıç_performans = hist_df["Performans%"].iloc[0]
+        son_performans = hist_df["Performans%"].iloc[-1]
+        performans_değişim = son_performans - başlangıç_performans
+    else:
+        performans_değişim = toplam_değişim_pct
+    
+    # Para birimi sembolü
+    currency_symbol = "₺" if pb == "TRY" else "$"
+    
+    # Grafikte gösterilecek değer: Maliyet bazlı yüzde varsa onu kullan, yoksa mutlak değer
+    if total_cost > 0:
+        y_values = hist_df["GrafikDeğeri"]
+        y_label = "Performans (%)"
+        hover_value_template = "<span style='color: #6b7fd7;'>Performans:</span> <b>%{y:+.2f}%</b><br>" + \
+                              f"<span style='color: #6b7fd7;'>Değer:</span> <b>{currency_symbol}%{{customdata[2]:,.0f}}</b><br>" + \
+                              "<span style='color: #6b7fd7;'>Günlük Değişim:</span> <b>%{customdata[0]:+,.0f}</b><br>" + \
+                              "<span style='color: #6b7fd7;'>Günlük Değişim %:</span> <b>%{customdata[1]:+.2f}%</b>"
+        customdata_array = hist_df[["GünlükDeğişim", "GünlükDeğişim%", "ToplamDeğer"]].values
+    else:
+        y_values = hist_df["ToplamDeğer"]
+        y_label = f"Portföy Değeri ({currency_symbol})"
+        hover_value_template = f"<span style='color: #6b7fd7;'>Değer:</span> <b>{currency_symbol}%{{y:,.0f}}</b><br>" + \
+                              "<span style='color: #6b7fd7;'>Günlük Değişim:</span> <b>%{customdata[0]:+,.0f}</b><br>" + \
+                              "<span style='color: #6b7fd7;'>Günlük Değişim %:</span> <b>%{customdata[1]:+.2f}%</b>"
+        customdata_array = hist_df[["GünlükDeğişim", "GünlükDeğişim%"]].values
+    
     # Min ve Max değerler
     min_değer = hist_df["ToplamDeğer"].min()
     max_değer = hist_df["ToplamDeğer"].max()
     min_tarih = hist_df.loc[hist_df["ToplamDeğer"].idxmin(), "Tarih"]
     max_tarih = hist_df.loc[hist_df["ToplamDeğer"].idxmax(), "Tarih"]
-    
-    # Para birimi sembolü
-    currency_symbol = "₺" if pb == "TRY" else "$"
     
     # Modern grafik oluştur - Area chart ile gradient fill
     fig = go.Figure()
@@ -527,9 +605,9 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     fig.add_trace(
         go.Scatter(
             x=hist_df["Tarih"],
-            y=hist_df["ToplamDeğer"],
+            y=y_values,
             mode="lines",
-            name="Portföy Değeri",
+            name="Portföy Performansı" if total_cost > 0 else "Portföy Değeri",
             fill="tonexty",
             fillcolor="rgba(107, 127, 215, 0.2)",  # Gradient fill için başlangıç
             line=dict(
@@ -538,10 +616,9 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
                 shape="spline",  # Yumuşak çizgiler
             ),
             hovertemplate="<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{x|%d %b %Y}</b><br>" +
-                         f"<span style='color: #6b7fd7;'>Değer:</span> <b>{currency_symbol}%{{y:,.0f}}</b><br>" +
-                         "<span style='color: #6b7fd7;'>Günlük Değişim:</span> <b>%{customdata[0]:+,.0f}</b><br>" +
-                         "<span style='color: #6b7fd7;'>Günlük Değişim %:</span> <b>%{customdata[1]:+.2f}%</b><extra></extra>",
-            customdata=hist_df[["GünlükDeğişim", "GünlükDeğişim%"]].values,
+                         hover_value_template +
+                         "<extra></extra>",
+            customdata=customdata_array,
         )
     )
     
@@ -563,10 +640,17 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     )
     
     # Başlangıç annotation'ı
+    if total_cost > 0:
+        başlangıç_y = hist_df["GrafikDeğeri"].iloc[0]
+        başlangıç_text = f"Başlangıç: {başlangıç_y:+.2f}%"
+    else:
+        başlangıç_y = başlangıç_değeri
+        başlangıç_text = f"Başlangıç: {currency_symbol}{başlangıç_değeri:,.0f}"
+    
     fig.add_annotation(
         x=başlangıç_tarih,
-        y=başlangıç_değeri,
-        text=f"Başlangıç: {currency_symbol}{başlangıç_değeri:,.0f}",
+        y=başlangıç_y,
+        text=başlangıç_text,
         showarrow=True,
         arrowhead=2,
         arrowcolor="#9da1b3",
@@ -576,37 +660,44 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
         xanchor="right",
     )
     
-    # Min ve Max noktaları (annotation ile)
-    if min_değer < başlangıç_değeri * 0.95:  # Sadece önemli düşüşlerde göster
-        fig.add_annotation(
-            x=min_tarih,
-            y=min_değer,
-            text=f"Min: {currency_symbol}{min_değer:,.0f}",
-            showarrow=True,
-            arrowhead=2,
-            arrowcolor="#ff5252",
-            bgcolor="rgba(255, 82, 82, 0.8)",
-            bordercolor="#ff5252",
-            font=dict(color="#ffffff", size=10, family="Inter, sans-serif"),
-        )
+    # Min ve Max noktaları (annotation ile) - sadece mutlak değer modunda göster
+    if total_cost == 0:
+        if min_değer < başlangıç_değeri * 0.95:  # Sadece önemli düşüşlerde göster
+            fig.add_annotation(
+                x=min_tarih,
+                y=min_değer,
+                text=f"Min: {currency_symbol}{min_değer:,.0f}",
+                showarrow=True,
+                arrowhead=2,
+                arrowcolor="#ff5252",
+                bgcolor="rgba(255, 82, 82, 0.8)",
+                bordercolor="#ff5252",
+                font=dict(color="#ffffff", size=10, family="Inter, sans-serif"),
+            )
+        
+        if max_değer > başlangıç_değeri * 1.05:  # Sadece önemli yükselişlerde göster
+            fig.add_annotation(
+                x=max_tarih,
+                y=max_değer,
+                text=f"Max: {currency_symbol}{max_değer:,.0f}",
+                showarrow=True,
+                arrowhead=2,
+                arrowcolor="#00e676",
+                bgcolor="rgba(0, 230, 118, 0.8)",
+                bordercolor="#00e676",
+                font=dict(color="#ffffff", size=10, family="Inter, sans-serif"),
+            )
     
-    if max_değer > başlangıç_değeri * 1.05:  # Sadece önemli yükselişlerde göster
-        fig.add_annotation(
-            x=max_tarih,
-            y=max_değer,
-            text=f"Max: {currency_symbol}{max_değer:,.0f}",
-            showarrow=True,
-            arrowhead=2,
-            arrowcolor="#00e676",
-            bgcolor="rgba(0, 230, 118, 0.8)",
-            bordercolor="#00e676",
-            font=dict(color="#ffffff", size=10, family="Inter, sans-serif"),
-        )
+    # Başlık metni: Maliyet bazlı yüzde varsa onu göster
+    if total_cost > 0:
+        title_text = f"<b>Portföy Performansı (60 Gün - Maliyet Bazlı)</b><br><span style='font-size: 12px; color: #9da1b3;'>Performans Değişimi: {performans_değişim:+.2f}% (Maliyete Göre)</span>"
+    else:
+        title_text = f"<b>Portföy Değeri (60 Gün)</b><br><span style='font-size: 12px; color: #9da1b3;'>Toplam Değişim: {currency_symbol}{toplam_değişim:+,.0f} ({toplam_değişim_pct:+.2f}%)</span>"
     
     # Modern layout
     fig.update_layout(
         title=dict(
-            text=f"<b>Portföy Değeri (60 Gün)</b><br><span style='font-size: 12px; color: #9da1b3;'>Toplam Değişim: {currency_symbol}{toplam_değişim:+,.0f} ({toplam_değişim_pct:+.2f}%)</span>",
+            text=title_text,
             font=dict(
                 family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                 size=18,
@@ -634,7 +725,7 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
         ),
         yaxis=dict(
             title=dict(
-                text=f"Portföy Değeri ({currency_symbol})",
+                text=y_label,
                 font=dict(
                     family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                     size=12,

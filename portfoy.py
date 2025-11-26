@@ -1639,9 +1639,9 @@ if selected == "Dashboard":
 
         # Eski 2 metric (Toplam Varlık + Genel K/Z) yine dursun
         c1, c2 = st.columns(2)
-        # Toplam Varlık için: Toplam kâr/zarar yüzdesi (maliyete göre)
-        c1.metric("Toplam Varlık", f"{sym}{t_v:,.0f}", delta=f"{pct:.2f}%")
-        c2.metric("Genel Kâr/Zarar", f"{sym}{t_p:,.0f}", delta=f"{pct:.2f}%")
+        # Toplam Varlık için: Toplam kâr/zarar yüzdesi (maliyete göre) - zaman aralığı belirtilmeli
+        c1.metric("Toplam Varlık", f"{sym}{t_v:,.0f}", delta=f"{pct:.2f}% (Başlangıçtan Beri)")
+        c2.metric("Genel Kâr/Zarar", f"{sym}{t_p:,.0f}", delta=f"{pct:.2f}% (Maliyete Göre)")
 
         st.divider()
 
