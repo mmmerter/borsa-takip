@@ -95,7 +95,7 @@ FON_METRIC_RESET_DATE = _init_fon_reset_date()
 if "ui_theme" not in st.session_state:
     st.session_state["ui_theme"] = "dark"
 
-# Otomatik yenileme kaldırıldı - artık sadece sayaç var
+# Otomatik yenileme: Her 2 dakikada bir sayfa yenilenir
 
 theme_selector_cols = st.columns([0.85, 0.15])
 with theme_selector_cols[0]:
@@ -821,6 +821,19 @@ LIGHT_OVERRIDE_CSS = """
 
 if st.session_state["ui_theme"] == "light":
     st.markdown(LIGHT_OVERRIDE_CSS, unsafe_allow_html=True)
+
+# Otomatik yenileme JavaScript kodu (her 2 dakikada bir)
+st.markdown(
+    """
+    <script>
+    // Her 2 dakikada (120 saniye) bir sayfayı otomatik yenile
+    setTimeout(function() {
+        window.location.reload();
+    }, 120000); // 120000 milisaniye = 2 dakika
+    </script>
+    """,
+    unsafe_allow_html=True,
+)
 
 def get_menu_styles(theme: str):
     if theme == "light":
@@ -1835,6 +1848,165 @@ def render_kpi_sparkline(values):
     )
     return fig
 
+
+def render_daily_winners_losers(df, sym, currency_symbol="₺"):
+    """
+    Günün kazananları ve kaybedenleri tablolarını render eder.
+    - En çok değer kazanan ilk 5 varlık
+    - En çok değer kaybeden ilk 5 varlık
+    """
+    if df is None or df.empty or "Gün. Kâr/Zarar" not in df.columns:
+        return
+    
+    # Günlük kâr/zarar sıfır olanları filtrele
+    daily_pnl_df = df[df["Gün. Kâr/Zarar"] != 0].copy()
+    
+    if daily_pnl_df.empty:
+        st.info("Bugün için günlük kâr/zarar verisi bulunmuyor.")
+        return
+    
+    # Günlük yüzde değişimi hesapla (eğer yoksa)
+    if "Günlük Değişim %" not in daily_pnl_df.columns:
+        # Önceki değer = Değer - Gün. Kâr/Zarar
+        prev_value = daily_pnl_df["Değer"] - daily_pnl_df["Gün. Kâr/Zarar"]
+        daily_pnl_df["Günlük Değişim %"] = (
+            (daily_pnl_df["Gün. Kâr/Zarar"] / prev_value) * 100
+        ).fillna(0)
+    
+    # Kazananlar: En yüksek günlük kâr/zarar
+    winners = daily_pnl_df.nlargest(5, "Gün. Kâr/Zarar").copy()
+    # Kaybedenler: En düşük günlük kâr/zarar (negatif)
+    losers = daily_pnl_df.nsmallest(5, "Gün. Kâr/Zarar").copy()
+    
+    # İki kolonlu layout
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(
+            """
+            <div style="background: linear-gradient(135deg, rgba(0, 230, 118, 0.15) 0%, rgba(0, 200, 100, 0.05) 100%);
+                        border: 2px solid rgba(0, 230, 118, 0.3);
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin-bottom: 20px;">
+                <h3 style="color: #00e676; font-size: 20px; font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 24px;">📈</span> Günün Kazananları
+                </h3>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        
+        if not winners.empty:
+            # Tablo için HTML oluştur
+            winners_html = """
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif;">
+                    <thead>
+                        <tr style="background: rgba(0, 230, 118, 0.1); border-bottom: 2px solid rgba(0, 230, 118, 0.3);">
+                            <th style="padding: 12px; text-align: left; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Sıra</th>
+                            <th style="padding: 12px; text-align: left; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kod</th>
+                            <th style="padding: 12px; text-align: right; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kâr/Zarar</th>
+                            <th style="padding: 12px; text-align: right; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Değişim %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """
+            
+            for idx, (_, row) in enumerate(winners.iterrows(), 1):
+                kod = str(row.get("Kod", ""))
+                gun_pnl = float(row.get("Gün. Kâr/Zarar", 0))
+                gun_pct = float(row.get("Günlük Değişim %", 0))
+                pazar = str(row.get("Pazar", ""))
+                
+                # Renk ve ikon
+                medal_icon = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"][idx - 1]
+                row_color = "rgba(0, 230, 118, 0.05)" if idx % 2 == 0 else "rgba(0, 0, 0, 0)"
+                
+                winners_html += f"""
+                        <tr style="background: {row_color}; border-bottom: 1px solid rgba(0, 230, 118, 0.1); transition: background 0.2s;">
+                            <td style="padding: 12px; color: #ffffff; font-weight: 700; font-size: 16px;">{medal_icon}</td>
+                            <td style="padding: 12px;">
+                                <div style="font-weight: 700; color: #ffffff; font-size: 14px;">{kod}</div>
+                                <div style="font-size: 11px; color: #9da1b3; margin-top: 2px;">{pazar}</div>
+                            </td>
+                            <td style="padding: 12px; text-align: right; color: #00e676; font-weight: 800; font-size: 14px;">+{sym}{gun_pnl:,.0f}</td>
+                            <td style="padding: 12px; text-align: right; color: #00e676; font-weight: 800; font-size: 14px;">+{gun_pct:.2f}%</td>
+                        </tr>
+                """
+            
+            winners_html += """
+                    </tbody>
+                </table>
+            </div>
+            """
+            st.markdown(winners_html, unsafe_allow_html=True)
+        else:
+            st.info("Bugün için kazanan varlık bulunmuyor.")
+    
+    with col2:
+        st.markdown(
+            """
+            <div style="background: linear-gradient(135deg, rgba(255, 82, 82, 0.15) 0%, rgba(200, 50, 50, 0.05) 100%);
+                        border: 2px solid rgba(255, 82, 82, 0.3);
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin-bottom: 20px;">
+                <h3 style="color: #ff5252; font-size: 20px; font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 24px;">📉</span> Günün Kaybedenleri
+                </h3>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        
+        if not losers.empty:
+            # Tablo için HTML oluştur
+            losers_html = """
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif;">
+                    <thead>
+                        <tr style="background: rgba(255, 82, 82, 0.1); border-bottom: 2px solid rgba(255, 82, 82, 0.3);">
+                            <th style="padding: 12px; text-align: left; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Sıra</th>
+                            <th style="padding: 12px; text-align: left; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kod</th>
+                            <th style="padding: 12px; text-align: right; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kâr/Zarar</th>
+                            <th style="padding: 12px; text-align: right; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Değişim %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """
+            
+            for idx, (_, row) in enumerate(losers.iterrows(), 1):
+                kod = str(row.get("Kod", ""))
+                gun_pnl = float(row.get("Gün. Kâr/Zarar", 0))
+                gun_pct = float(row.get("Günlük Değişim %", 0))
+                pazar = str(row.get("Pazar", ""))
+                
+                # Renk ve ikon (en kötüden en iyiye doğru)
+                medal_icon = ["🔻", "🔻", "🔻", "🔻", "🔻"][idx - 1]
+                row_color = "rgba(255, 82, 82, 0.05)" if idx % 2 == 0 else "rgba(0, 0, 0, 0)"
+                
+                losers_html += f"""
+                        <tr style="background: {row_color}; border-bottom: 1px solid rgba(255, 82, 82, 0.1); transition: background 0.2s;">
+                            <td style="padding: 12px; color: #ffffff; font-weight: 700; font-size: 16px;">{medal_icon}</td>
+                            <td style="padding: 12px;">
+                                <div style="font-weight: 700; color: #ffffff; font-size: 14px;">{kod}</div>
+                                <div style="font-size: 11px; color: #9da1b3; margin-top: 2px;">{pazar}</div>
+                            </td>
+                            <td style="padding: 12px; text-align: right; color: #ff5252; font-weight: 800; font-size: 14px;">{sym}{gun_pnl:,.0f}</td>
+                            <td style="padding: 12px; text-align: right; color: #ff5252; font-weight: 800; font-size: 14px;">{gun_pct:.2f}%</td>
+                        </tr>
+                """
+            
+            losers_html += """
+                    </tbody>
+                </table>
+            </div>
+            """
+            st.markdown(losers_html, unsafe_allow_html=True)
+        else:
+            st.info("Bugün için kaybeden varlık bulunmuyor.")
+
 # --- GÖRÜNÜM AYARI ---
 TOTAL_SPOT_DEGER = portfoy_only["Değer"].sum()
 st.markdown("---")
@@ -1928,6 +2100,15 @@ if selected == "Dashboard":
             total_spot_deger=TOTAL_SPOT_DEGER,
         )
 
+        st.divider()
+        
+        # Para birimi sembolü
+        currency_symbol = "₺" if GORUNUM_PB == "TRY" else "$"
+        
+        # --- GÜNÜN KAZANANLARI VE KAYBEDENLERİ ---
+        st.subheader("🏆 Günün Performansı")
+        render_daily_winners_losers(spot_only, sym, currency_symbol=currency_symbol)
+        
         st.divider()
         c_tree_1, c_tree_2 = st.columns([3, 1])
         with c_tree_1:
@@ -2924,5 +3105,4 @@ elif selected == "Ekle/Çıkar":
                         time.sleep(1)
                         st.rerun()
 
-# Otomatik yenileme kaldırıldı - sadece sayaç gösterimi var
-# Burada ayrı bir timer'a gerek yok
+# Otomatik yenileme: Sayfa üst kısmındaki JavaScript ile her 2 dakikada bir yenileniyor
