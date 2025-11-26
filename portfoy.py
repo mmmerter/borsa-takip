@@ -888,7 +888,6 @@ st.markdown(
     }}
     
     // Geri sayım timer'ı - canlı güncelleme ve otomatik yenileme
-    {f'''
     (function() {{
         const interval = {current_interval if current_interval else 'null'};
         const startTime = {current_start_time if current_start_time else 'null'};
@@ -938,7 +937,6 @@ st.markdown(
             countdownText.style.display = 'none';
         }}
     }})();
-    '''
     </script>
     """,
     unsafe_allow_html=True
