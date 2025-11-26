@@ -3327,6 +3327,27 @@ elif selected == "İzleme":
         takip_display = takip_only[["Kod", "Pazar", "Maliyet", "Fiyat", "Top. %"]].copy()
         takip_display = takip_display.rename(columns={"Top. %": "Değişim %"})
         
+        # Pazar isimlerini modernize et
+        pazar_modernize = {
+            "BIST (Tümü)": "🇹🇷 Borsa İstanbul",
+            "BIST": "🇹🇷 Borsa İstanbul",
+            "ABD (S&P + NASDAQ)": "🇺🇸 ABD Borsaları",
+            "ABD": "🇺🇸 Amerika",
+            "NASDAQ": "🇺🇸 NASDAQ",
+            "S&P": "🇺🇸 S&P 500",
+            "FON": "📊 Yatırım Fonları",
+            "Fonlar": "📊 Yatırım Fonları",
+            "EMTIA": "💎 Altın &귀금속",
+            "Emtia": "💎 Altın &귀금속",
+            "NAKIT": "💵 Nakit & Döviz",
+            "Nakit": "💵 Nakit & Döviz",
+            "KRİPTO": "₿ Kripto Paralar",
+            "Kripto": "₿ Kripto Paralar",
+            "VADELİ": "📈 Vadeli İşlemler",
+            "Vadeli": "📈 Vadeli İşlemler",
+        }
+        takip_display["Pazar"] = takip_display["Pazar"].replace(pazar_modernize)
+        
         # Her satır için modern kart oluştur
         for idx, row in takip_display.iterrows():
             pct = row['Değişim %']
@@ -3417,6 +3438,29 @@ elif selected == "Satışlar":
     if not sales_df.empty:
         # Kolon isimlerini modernize et
         sales_display = sales_df.copy()
+        
+        # Pazar isimlerini modernize et
+        if "Pazar" in sales_display.columns:
+            pazar_modernize = {
+                "BIST (Tümü)": "🇹🇷 Borsa İstanbul",
+                "BIST": "🇹🇷 Borsa İstanbul",
+                "ABD (S&P + NASDAQ)": "🇺🇸 ABD Borsaları",
+                "ABD": "🇺🇸 Amerika",
+                "NASDAQ": "🇺🇸 NASDAQ",
+                "S&P": "🇺🇸 S&P 500",
+                "FON": "📊 Yatırım Fonları",
+                "Fonlar": "📊 Yatırım Fonları",
+                "EMTIA": "💎 Altın &귀금속",
+                "Emtia": "💎 Altın &귀금속",
+                "NAKIT": "💵 Nakit & Döviz",
+                "Nakit": "💵 Nakit & Döviz",
+                "KRİPTO": "₿ Kripto Paralar",
+                "Kripto": "₿ Kripto Paralar",
+                "VADELİ": "📈 Vadeli İşlemler",
+                "Vadeli": "📈 Vadeli İşlemler",
+            }
+            sales_display["Pazar"] = sales_display["Pazar"].replace(pazar_modernize)
+        
         sales_display = sales_display.rename(columns={
             "Tarih": "📅 İşlem Tarihi",
             "Kod": "🎯 Varlık",

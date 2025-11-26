@@ -270,6 +270,29 @@ def render_pie_bar_charts(
     )
     
     disp = grouped[[label_col, "Değer", "Pay (%)"]].copy()
+    
+    # Pazar isimlerini modernize et
+    if group_col == "Pazar":
+        pazar_modernize = {
+            "BIST (Tümü)": "🇹🇷 Borsa İstanbul",
+            "BIST": "🇹🇷 Borsa İstanbul",
+            "ABD (S&P + NASDAQ)": "🇺🇸 ABD Borsaları",
+            "ABD": "🇺🇸 Amerika",
+            "NASDAQ": "🇺🇸 NASDAQ",
+            "S&P": "🇺🇸 S&P 500",
+            "FON": "📊 Yatırım Fonları",
+            "Fonlar": "📊 Yatırım Fonları",
+            "EMTIA": "💎 Altın &귀금속",
+            "Emtia": "💎 Altın &귀금속",
+            "NAKIT": "💵 Nakit & Döviz",
+            "Nakit": "💵 Nakit & Döviz",
+            "KRİPTO": "₿ Kripto Paralar",
+            "Kripto": "₿ Kripto Paralar",
+            "VADELİ": "📈 Vadeli İşlemler",
+            "Vadeli": "📈 Vadeli İşlemler",
+        }
+        disp[label_col] = disp[label_col].replace(pazar_modernize)
+    
     # Kolon isimlerini modernize et
     column_renames = {
         label_col: f"🎯 {group_col}",
@@ -402,6 +425,37 @@ def render_pazar_tab(
             disp["Değer"] = disp["Tutar"] / denom * 100
         else:
             disp["Değer"] = 0.0
+    
+    # Pazar isimlerini modernize et
+    if "Pazar" in disp.columns:
+        pazar_modernize = {
+            "BIST (Tümü)": "🇹🇷 Borsa İstanbul",
+            "BIST": "🇹🇷 Borsa İstanbul",
+            "ABD (S&P + NASDAQ)": "🇺🇸 ABD Borsaları",
+            "ABD": "🇺🇸 Amerika",
+            "NASDAQ": "🇺🇸 NASDAQ",
+            "S&P": "🇺🇸 S&P 500",
+            "FON": "📊 Yatırım Fonları",
+            "Fonlar": "📊 Yatırım Fonları",
+            "EMTIA": "💎 Altın &귀금속",
+            "Emtia": "💎 Altın &귀금속",
+            "NAKIT": "💵 Nakit & Döviz",
+            "Nakit": "💵 Nakit & Döviz",
+            "KRİPTO": "₿ Kripto Paralar",
+            "Kripto": "₿ Kripto Paralar",
+            "VADELİ": "📈 Vadeli İşlemler",
+            "Vadeli": "📈 Vadeli İşlemler",
+        }
+        disp["Pazar"] = disp["Pazar"].replace(pazar_modernize)
+    
+    # Tip kolonunu modernize et
+    if "Tip" in disp.columns:
+        tip_modernize = {
+            "Spot": "💰 Spot",
+            "Takip": "👁️ İzleme",
+            "Vadeli": "📈 Vadeli",
+        }
+        disp["Tip"] = disp["Tip"].replace(tip_modernize)
     
     # Kolon isimlerini modernize et
     modern_column_names = {
