@@ -149,66 +149,82 @@ with theme_selector_cols[1]:
                 </div>
                 <script>
                 (function() {{
-                    const countdownElement = document.getElementById('countdown-value');
-                    const storageKey = 'streamlit_countdown_remaining';
-                    const startTimeKey = 'streamlit_countdown_start';
-                    
-                    // Mevcut timer'ı temizle
-                    if (window.countdownTimer) {{
-                        clearInterval(window.countdownTimer);
-                    }}
-                    
-                    // Başlangıç zamanını ve kalan süreyi al
-                    let startTime = sessionStorage.getItem(startTimeKey);
-                    let initialRemaining = {next_refresh};
-                    
-                    if (startTime) {{
-                        // Eğer daha önce başlatılmışsa, kalan süreyi hesapla
-                        const elapsed = Math.floor((Date.now() - parseInt(startTime)) / 1000);
-                        initialRemaining = Math.max(0, {next_refresh} - elapsed);
-                    }} else {{
-                        // İlk kez başlatılıyorsa, başlangıç zamanını kaydet
-                        sessionStorage.setItem(startTimeKey, Date.now().toString());
-                    }}
-                    
-                    let remainingSeconds = initialRemaining;
-                    
-                    // İlk değeri göster
-                    if (countdownElement) {{
-                        countdownElement.textContent = remainingSeconds;
-                    }}
-                    
-                    // Geri sayım timer'ı - her saniye güncelle
-                    window.countdownTimer = setInterval(function() {{
-                        remainingSeconds--;
-                        
-                        if (countdownElement && remainingSeconds >= 0) {{
-                            countdownElement.textContent = remainingSeconds;
+                    function initCountdown() {{
+                        const countdownElement = document.getElementById('countdown-value');
+                        if (!countdownElement) {{
+                            // Element henüz yüklenmemişse, biraz bekle ve tekrar dene
+                            setTimeout(initCountdown, 100);
+                            return;
                         }}
                         
-                        if (remainingSeconds <= 0) {{
+                        const storageKey = 'streamlit_countdown_remaining';
+                        const startTimeKey = 'streamlit_countdown_start';
+                        
+                        // Mevcut timer'ı temizle
+                        if (window.countdownTimer) {{
                             clearInterval(window.countdownTimer);
-                            sessionStorage.removeItem(startTimeKey);
-                            sessionStorage.removeItem(storageKey);
-                            // Sayfayı yenile
-                            if (window.parent && window.parent !== window) {{
-                                try {{
-                                    window.parent.postMessage({{
-                                        type: 'streamlit:rerun'
-                                    }}, '*');
-                                }} catch(e) {{
+                            window.countdownTimer = null;
+                        }}
+                        
+                        // Başlangıç zamanını ve kalan süreyi al
+                        let startTime = sessionStorage.getItem(startTimeKey);
+                        let initialRemaining = {next_refresh};
+                        
+                        if (startTime) {{
+                            // Eğer daha önce başlatılmışsa, kalan süreyi hesapla
+                            const elapsed = Math.floor((Date.now() - parseInt(startTime)) / 1000);
+                            initialRemaining = Math.max(0, {next_refresh} - elapsed);
+                        }} else {{
+                            // İlk kez başlatılıyorsa, başlangıç zamanını kaydet
+                            sessionStorage.setItem(startTimeKey, Date.now().toString());
+                        }}
+                        
+                        let remainingSeconds = initialRemaining;
+                        
+                        // İlk değeri göster
+                        countdownElement.textContent = remainingSeconds;
+                        
+                        // Geri sayım timer'ı - her saniye güncelle
+                        window.countdownTimer = setInterval(function() {{
+                            remainingSeconds--;
+                            
+                            if (countdownElement && remainingSeconds >= 0) {{
+                                countdownElement.textContent = remainingSeconds;
+                            }}
+                            
+                            if (remainingSeconds <= 0) {{
+                                clearInterval(window.countdownTimer);
+                                window.countdownTimer = null;
+                                sessionStorage.removeItem(startTimeKey);
+                                sessionStorage.removeItem(storageKey);
+                                // Sayfayı yenile
+                                if (window.parent && window.parent !== window) {{
+                                    try {{
+                                        window.parent.postMessage({{
+                                            type: 'streamlit:rerun'
+                                        }}, '*');
+                                    }} catch(e) {{
+                                        window.location.reload();
+                                    }}
+                                }} else {{
                                     window.location.reload();
                                 }}
-                            }} else {{
-                                window.location.reload();
                             }}
-                        }}
-                    }}, 1000);
+                        }}, 1000);
+                    }}
+                    
+                    // DOM yüklendiğinde başlat
+                    if (document.readyState === 'loading') {{
+                        document.addEventListener('DOMContentLoaded', initCountdown);
+                    }} else {{
+                        initCountdown();
+                    }}
                     
                     // Sayfa kapatılırken timer'ı temizle
                     window.addEventListener('beforeunload', function() {{
                         if (window.countdownTimer) {{
                             clearInterval(window.countdownTimer);
+                            window.countdownTimer = null;
                         }}
                     }});
                 }})();
