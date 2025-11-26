@@ -559,10 +559,12 @@ def write_portfolio_history(value_try, value_usd):
         pass
 
 
-def get_timeframe_changes(history_df):
+def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
     """
     Haftalık / Aylık / YTD gerçek K/Z hesaplar.
     history_df: read_portfolio_history() çıktısı
+    subtract_df: Çıkarılacak değerler (örn: fon geçmişi) - opsiyonel
+    subtract_before: Bu tarihten önceki subtract_df değerlerini çıkar - opsiyonel
     Dönüş:
       {
         "weekly": (değer, yüzde),
@@ -583,21 +585,49 @@ def get_timeframe_changes(history_df):
     df["Tarih"] = pd.to_datetime(df["Tarih"])
 
     # Ana seri: TRY bazlı toplam
-    # Geçmiş kayıtlarda fonların değeri zaten çıkarılmış durumda
-    # Bugünkü kayıtta da fonların değeri çıkarılmış durumda
-    # Hiçbir şey eklemeye veya çıkarmaya gerek yok, direkt kullanıyoruz
+    # Eğer subtract_df varsa ve subtract_before tarihinden önceki kayıtlar varsa,
+    # bunları çıkar (fonların reset tarihinden önceki değerlerini çıkarmak için)
+    if subtract_df is not None and not subtract_df.empty and subtract_before is not None:
+        if "Tarih" in subtract_df.columns and "Değer_TRY" in subtract_df.columns:
+            subtract_df_copy = subtract_df.copy()
+            subtract_df_copy["Tarih"] = pd.to_datetime(subtract_df_copy["Tarih"])
+            # subtract_before tarihinden önceki kayıtları çıkar
+            subtract_before_dt = pd.to_datetime(subtract_before)
+            subtract_before_mask = subtract_df_copy["Tarih"] < subtract_before_dt
+            
+            if subtract_before_mask.any():
+                subtract_before_df = subtract_df_copy[subtract_before_mask].copy()
+                # Her tarih için history_df'deki değerden çıkar
+                for _, sub_row in subtract_before_df.iterrows():
+                    sub_date = sub_row["Tarih"]
+                    sub_val = float(sub_row.get("Değer_TRY", 0))
+                    # Aynı tarihli kayıtları bul ve çıkar
+                    date_mask = df["Tarih"].dt.date == sub_date.date()
+                    if date_mask.any():
+                        df.loc[date_mask, "Değer_TRY"] = df.loc[date_mask, "Değer_TRY"] - sub_val
+
     if "Değer_TRY" not in df.columns:
+        return None
+
+    if df.empty:
         return None
 
     today_val = float(df["Değer_TRY"].iloc[-1])
     dates = df["Tarih"]
+    today_date = dates.max()
 
     def _calc_period(days: int):
-        target_date = dates.max() - timedelta(days=days)
+        target_date = today_date - timedelta(days=days)
         sub = df[df["Tarih"] >= target_date]
         if sub.empty:
+            # Eğer hedef tarihten sonra veri yoksa, en eski kaydı kullan
+            if not df.empty:
+                start_val = float(df["Değer_TRY"].iloc[0])
+                diff = today_val - start_val
+                pct = (diff / start_val * 100) if start_val > 0 else 0.0
+                spark = list(df["Değer_TRY"])
+                return diff, pct, spark
             return 0.0, 0.0, []
-        # Geçmiş kayıtlarda fonların değeri zaten çıkarılmış durumda
         start_val = float(sub["Değer_TRY"].iloc[0])
         diff = today_val - start_val
         pct = (diff / start_val * 100) if start_val > 0 else 0.0
@@ -620,7 +650,15 @@ def get_timeframe_changes(history_df):
         y_spark = list(ydf["Değer_TRY"])
         y_val, y_pct = diff, pct
     else:
-        y_val, y_pct, y_spark = 0.0, 0.0, []
+        # Yıl içinde veri yoksa, tüm veriyi kullan
+        if not df.empty:
+            start_val = float(df["Değer_TRY"].iloc[0])
+            diff = today_val - start_val
+            pct = (diff / start_val * 100) if start_val > 0 else 0.0
+            y_spark = list(df["Değer_TRY"])
+            y_val, y_pct = diff, pct
+        else:
+            y_val, y_pct, y_spark = 0.0, 0.0, []
 
     return {
         "weekly": (w_val, w_pct),
