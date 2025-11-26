@@ -1,10 +1,12 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import yfinance as yf
 import pandas as pd
 import time
 import plotly.express as px
 from streamlit_option_menu import option_menu
 from datetime import datetime, timedelta
+import html
 
 # --- MODÜLLER ---
 from utils import (
@@ -1849,6 +1851,21 @@ def render_kpi_sparkline(values):
     return fig
 
 
+def render_html_table_block(html_markup, row_count=5):
+    """
+    Streamlit sürümünden bağımsız olarak custom HTML tablo render eder.
+    Modern sürümlerde st.html, eski sürümlerde components.html kullanılır.
+    """
+    base_height = 140
+    row_height = 64
+    target_height = base_height + max(row_count, 1) * row_height
+    html_renderer = getattr(st, "html", None)
+    if callable(html_renderer):
+        html_renderer(html_markup, height=target_height)
+    else:
+        components.html(html_markup, height=target_height, scrolling=False)
+
+
 def render_daily_winners_losers(df, sym, currency_symbol="₺"):
     """
     Günün kazananları ve kaybedenleri tablolarını render eder.
@@ -1881,129 +1898,162 @@ def render_daily_winners_losers(df, sym, currency_symbol="₺"):
     # İki kolonlu layout
     col1, col2 = st.columns(2)
     
+    def format_pnl(value):
+        """Format kâr/zarar değerini kullanıcının gösterdiği formata çevirir"""
+        abs_value = abs(value)
+        # Türk formatı: binlik ayırıcı olarak virgül kullan
+        formatted = f"{abs_value:,.0f}"
+        return formatted
+    
+    def get_category_display(pazar):
+        """Pazar bilgisini kullanıcının gösterdiği kategori formatına çevirir"""
+        pazar_upper = str(pazar).upper()
+        if "BIST" in pazar_upper:
+            return "BIST (Tümü)"
+        elif "ABD" in pazar_upper or "S&P" in pazar_upper or "NASDAQ" in pazar_upper:
+            return "ABD (S&P + NASDAQ)"
+        elif "EMTIA" in pazar_upper:
+            return "EMTIA"
+        elif "FON" in pazar_upper:
+            return "FON"
+        elif "KRIPTO" in pazar_upper:
+            return "KRIPTO"
+        elif "VADELI" in pazar_upper:
+            return "VADELI"
+        elif "NAKIT" in pazar_upper:
+            return "NAKIT"
+        return str(pazar)
+    
     with col1:
-        st.markdown(
-            """
-            <div style="background: linear-gradient(135deg, rgba(0, 230, 118, 0.15) 0%, rgba(0, 200, 100, 0.05) 100%);
-                        border: 2px solid rgba(0, 230, 118, 0.3);
-                        border-radius: 12px;
-                        padding: 20px;
-                        margin-bottom: 20px;">
-                <h3 style="color: #00e676; font-size: 20px; font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 24px;">📈</span> Günün Kazananları
-                </h3>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        
         if not winners.empty:
-            # Tablo için HTML oluştur
-            winners_html = """
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif;">
-                    <thead>
-                        <tr style="background: rgba(0, 230, 118, 0.1); border-bottom: 2px solid rgba(0, 230, 118, 0.3);">
-                            <th style="padding: 12px; text-align: left; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Sıra</th>
-                            <th style="padding: 12px; text-align: left; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kod</th>
-                            <th style="padding: 12px; text-align: right; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kâr/Zarar</th>
-                            <th style="padding: 12px; text-align: right; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Değişim %</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            """
+            st.markdown(
+                '<h3 style="color: #00e676; font-size: 20px; font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">'
+                '<span style="font-size: 24px;">📈</span> Günün Kazananları</h3>',
+                unsafe_allow_html=True
+            )
             
+            # Tablo verilerini hazırla
+            table_data = []
             for idx, (_, row) in enumerate(winners.iterrows(), 1):
                 kod = str(row.get("Kod", ""))
                 gun_pnl = float(row.get("Gün. Kâr/Zarar", 0))
                 gun_pct = float(row.get("Günlük Değişim %", 0))
                 pazar = str(row.get("Pazar", ""))
+                category = get_category_display(pazar)
                 
                 # Renk ve ikon
                 medal_icon = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"][idx - 1]
-                row_color = "rgba(0, 230, 118, 0.05)" if idx % 2 == 0 else "rgba(0, 0, 0, 0)"
                 
-                winners_html += f"""
-                        <tr style="background: {row_color}; border-bottom: 1px solid rgba(0, 230, 118, 0.1); transition: background 0.2s;">
-                            <td style="padding: 12px; color: #ffffff; font-weight: 700; font-size: 16px;">{medal_icon}</td>
-                            <td style="padding: 12px;">
-                                <div style="font-weight: 700; color: #ffffff; font-size: 14px;">{kod}</div>
-                                <div style="font-size: 11px; color: #9da1b3; margin-top: 2px;">{pazar}</div>
-                            </td>
-                            <td style="padding: 12px; text-align: right; color: #00e676; font-weight: 800; font-size: 14px;">+{sym}{gun_pnl:,.0f}</td>
-                            <td style="padding: 12px; text-align: right; color: #00e676; font-weight: 800; font-size: 14px;">+{gun_pct:.2f}%</td>
-                        </tr>
-                """
+                # Format kâr/zarar (pozitif olduğu için + işareti ekle)
+                pnl_formatted = format_pnl(gun_pnl)
+                pnl_display = f"+{currency_symbol}{pnl_formatted}"
+                
+                # Format yüzde (pozitif olduğu için + işareti ekle)
+                pct_display = f"+{gun_pct:.2f}%"
+                
+                table_data.append({
+                    "": medal_icon,
+                    "Kod": kod,
+                    "Kategori": category,
+                    "Kâr/Zarar": pnl_display,
+                    "Değişim %": pct_display
+                })
             
-            winners_html += """
-                    </tbody>
-                </table>
-            </div>
-            """
-            st.markdown(winners_html, unsafe_allow_html=True)
+            # DataFrame oluştur ve göster
+            winners_df = pd.DataFrame(table_data)
+            
+            # HTML tablo oluştur - değerleri escape et
+            winners_html = '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-family: \'Inter\', sans-serif;"><thead><tr style="border-bottom: 2px solid rgba(0, 230, 118, 0.3);"><th style="padding: 12px; color: #9da1b3; font-weight: 700; font-size: 12px; text-align: left;">Sıra</th><th style="padding: 12px; color: #9da1b3; font-weight: 700; font-size: 12px; text-align: left;">Kod</th><th style="padding: 12px; color: #9da1b3; font-weight: 700; font-size: 12px; text-align: right;">Kâr/Zarar</th><th style="padding: 12px; color: #9da1b3; font-weight: 700; font-size: 12px; text-align: right;">Değişim %</th></tr></thead><tbody>'
+            
+            for idx, row in winners_df.iterrows():
+                row_color = "rgba(0, 230, 118, 0.05)" if idx % 2 == 0 else "rgba(0, 0, 0, 0)"
+                medal_icon_escaped = html.escape(str(row[""]))
+                kod_escaped = html.escape(str(row["Kod"]))
+                kategori_escaped = html.escape(str(row["Kategori"]))
+                kar_zarar_escaped = html.escape(str(row["Kâr/Zarar"]))
+                degisim_escaped = html.escape(str(row["Değişim %"]))
+                
+                winners_html += f'''<tr style="background: {row_color}; border-bottom: 1px solid rgba(0, 230, 118, 0.1); transition: background 0.2s;">
+                        <td style="padding: 12px; color: #ffffff; font-weight: 700; font-size: 16px;">{medal_icon_escaped}</td>
+                        <td style="padding: 12px;">
+                            <div style="font-weight: 700; color: #ffffff; font-size: 14px;">{kod_escaped}</div>
+                            <div style="font-size: 11px; color: #9da1b3; margin-top: 2px;">{kategori_escaped}</div>
+                        </td>
+                        <td style="padding: 12px; text-align: right; color: #00e676; font-weight: 800; font-size: 14px;">{kar_zarar_escaped}</td>
+                        <td style="padding: 12px; text-align: right; color: #00e676; font-weight: 800; font-size: 14px;">{degisim_escaped}</td>
+                    </tr>'''
+            
+            winners_html += '</tbody></table></div>'
+            # Streamlit sürümünden bağımsız olarak HTML tabloyu render et
+            render_html_table_block(winners_html, row_count=len(winners_df))
         else:
             st.info("Bugün için kazanan varlık bulunmuyor.")
     
     with col2:
-        st.markdown(
-            """
-            <div style="background: linear-gradient(135deg, rgba(255, 82, 82, 0.15) 0%, rgba(200, 50, 50, 0.05) 100%);
-                        border: 2px solid rgba(255, 82, 82, 0.3);
-                        border-radius: 12px;
-                        padding: 20px;
-                        margin-bottom: 20px;">
-                <h3 style="color: #ff5252; font-size: 20px; font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 24px;">📉</span> Günün Kaybedenleri
-                </h3>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        
         if not losers.empty:
-            # Tablo için HTML oluştur
-            losers_html = """
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif;">
-                    <thead>
-                        <tr style="background: rgba(255, 82, 82, 0.1); border-bottom: 2px solid rgba(255, 82, 82, 0.3);">
-                            <th style="padding: 12px; text-align: left; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Sıra</th>
-                            <th style="padding: 12px; text-align: left; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kod</th>
-                            <th style="padding: 12px; text-align: right; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kâr/Zarar</th>
-                            <th style="padding: 12px; text-align: right; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Değişim %</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            """
+            st.markdown(
+                '<h3 style="color: #ff5252; font-size: 20px; font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">'
+                '<span style="font-size: 24px;">📉</span> Günün Kaybedenleri</h3>',
+                unsafe_allow_html=True
+            )
             
+            # Tablo verilerini hazırla
+            table_data = []
             for idx, (_, row) in enumerate(losers.iterrows(), 1):
                 kod = str(row.get("Kod", ""))
                 gun_pnl = float(row.get("Gün. Kâr/Zarar", 0))
                 gun_pct = float(row.get("Günlük Değişim %", 0))
                 pazar = str(row.get("Pazar", ""))
+                category = get_category_display(pazar)
                 
                 # Renk ve ikon (en kötüden en iyiye doğru)
-                medal_icon = ["🔻", "🔻", "🔻", "🔻", "🔻"][idx - 1]
-                row_color = "rgba(255, 82, 82, 0.05)" if idx % 2 == 0 else "rgba(0, 0, 0, 0)"
+                medal_icon = "🔻"
                 
-                losers_html += f"""
-                        <tr style="background: {row_color}; border-bottom: 1px solid rgba(255, 82, 82, 0.1); transition: background 0.2s;">
-                            <td style="padding: 12px; color: #ffffff; font-weight: 700; font-size: 16px;">{medal_icon}</td>
-                            <td style="padding: 12px;">
-                                <div style="font-weight: 700; color: #ffffff; font-size: 14px;">{kod}</div>
-                                <div style="font-size: 11px; color: #9da1b3; margin-top: 2px;">{pazar}</div>
-                            </td>
-                            <td style="padding: 12px; text-align: right; color: #ff5252; font-weight: 800; font-size: 14px;">{sym}{gun_pnl:,.0f}</td>
-                            <td style="padding: 12px; text-align: right; color: #ff5252; font-weight: 800; font-size: 14px;">{gun_pct:.2f}%</td>
-                        </tr>
-                """
+                # Format kâr/zarar (negatif olduğu için - işareti ekle)
+                pnl_formatted = format_pnl(gun_pnl)
+                # Negatif değerler için özel format (kullanıcının gösterdiği gibi)
+                if gun_pnl < 0:
+                    pnl_display = f"{currency_symbol}-{pnl_formatted}"
+                else:
+                    pnl_display = f"{currency_symbol}{pnl_formatted}"
+                
+                # Format yüzde (negatif için - işareti)
+                pct_display = f"{gun_pct:.2f}%"
+                
+                table_data.append({
+                    "": medal_icon,
+                    "Kod": kod,
+                    "Kategori": category,
+                    "Kâr/Zarar": pnl_display,
+                    "Değişim %": pct_display
+                })
             
-            losers_html += """
-                    </tbody>
-                </table>
-            </div>
-            """
-            st.markdown(losers_html, unsafe_allow_html=True)
+            # DataFrame oluştur ve göster
+            losers_df = pd.DataFrame(table_data)
+            
+            # HTML tablo oluştur - değerleri escape et
+            losers_html = '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-family: \'Inter\', sans-serif;"><thead><tr style="border-bottom: 2px solid rgba(255, 82, 82, 0.3);"><th style="padding: 12px; color: #9da1b3; font-weight: 700; font-size: 12px; text-align: left;">Sıra</th><th style="padding: 12px; color: #9da1b3; font-weight: 700; font-size: 12px; text-align: left;">Kod</th><th style="padding: 12px; color: #9da1b3; font-weight: 700; font-size: 12px; text-align: right;">Kâr/Zarar</th><th style="padding: 12px; color: #9da1b3; font-weight: 700; font-size: 12px; text-align: right;">Değişim %</th></tr></thead><tbody>'
+            
+            for idx, row in losers_df.iterrows():
+                row_color = "rgba(255, 82, 82, 0.05)" if idx % 2 == 0 else "rgba(0, 0, 0, 0)"
+                medal_icon_escaped = html.escape(str(row[""]))
+                kod_escaped = html.escape(str(row["Kod"]))
+                kategori_escaped = html.escape(str(row["Kategori"]))
+                kar_zarar_escaped = html.escape(str(row["Kâr/Zarar"]))
+                degisim_escaped = html.escape(str(row["Değişim %"]))
+                
+                losers_html += f'''<tr style="background: {row_color}; border-bottom: 1px solid rgba(255, 82, 82, 0.1); transition: background 0.2s;">
+                        <td style="padding: 12px; color: #ffffff; font-weight: 700; font-size: 16px;">{medal_icon_escaped}</td>
+                        <td style="padding: 12px;">
+                            <div style="font-weight: 700; color: #ffffff; font-size: 14px;">{kod_escaped}</div>
+                            <div style="font-size: 11px; color: #9da1b3; margin-top: 2px;">{kategori_escaped}</div>
+                        </td>
+                        <td style="padding: 12px; text-align: right; color: #ff5252; font-weight: 800; font-size: 14px;">{kar_zarar_escaped}</td>
+                        <td style="padding: 12px; text-align: right; color: #ff5252; font-weight: 800; font-size: 14px;">{degisim_escaped}</td>
+                    </tr>'''
+            
+            losers_html += '</tbody></table></div>'
+            render_html_table_block(losers_html, row_count=len(losers_df))
         else:
             st.info("Bugün için kaybeden varlık bulunmuyor.")
 
