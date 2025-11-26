@@ -496,6 +496,80 @@ BASE_CSS = """
         }
         [data-testid="stHorizontalBlock"] > div > div > div > div > div > a i {
             font-size: 14px !important;
+        }
+    }
+</style>
+"""
+
+LIGHT_OVERRIDE_CSS = """
+<style>
+    :root {
+        color-scheme: light;
+    }
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stAppBody"] {
+        background-color: #f5f7fb !important;
+        color: #1f2937 !important;
+    }
+    .kral-header {
+        background: linear-gradient(135deg, #ffffff, #edf1fb);
+        border: 1px solid #d5d9ea;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+    }
+    .kral-header-title {
+        color: #111827;
+    }
+    .kral-header-sub {
+        color: #4b5563;
+    }
+    .ticker-container {
+        background: linear-gradient(135deg, #ffffff 0%, #e8edfb 100%);
+        border-bottom: 1px solid #d5d9ea;
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+    }
+    .ticker-label {
+        background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%);
+        color: #405bbb;
+        border-right: 1px solid #d5d9ea;
+    }
+    .ticker-text span {
+        color: #111827 !important;
+    }
+    .kral-infobox {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+    }
+    .kral-infobox-label,
+    .kral-infobox-sub {
+        color: #4b5563;
+    }
+    .kral-infobox-value {
+        color: #111827;
+    }
+    div[data-testid="stMetric"] {
+        background-color: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        color: #111827 !important;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+    div[data-testid="stMetricValue"],
+    div[data-testid="stMetricLabel"] {
+        color: #111827 !important;
+    }
+    .news-card {
+        background-color: #ffffff;
+        color: #1f2937;
+        border-left-color: #f97316;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    }
+    .news-title {
+        color: #1f2937;
+    }
+    .news-meta {
+        color: #6b7280;
+    }
+</style>
+"""
+
 from charts import (
     render_pie_bar_charts,
     render_pazar_tab,
