@@ -1908,24 +1908,14 @@ def render_daily_winners_losers(df, sym, currency_symbol="₺"):
         return str(pazar)
     
     with col1:
-        st.markdown(
-            """
-            <div style="background: linear-gradient(135deg, rgba(0, 230, 118, 0.15) 0%, rgba(0, 200, 100, 0.05) 100%);
-                        border: 2px solid rgba(0, 230, 118, 0.3);
-                        border-radius: 12px;
-                        padding: 20px;
-                        margin-bottom: 20px;">
+        if not winners.empty:
+            # Tablo için HTML oluştur (header olmadan)
+            winners_html = """
+            <div style="margin-bottom: 20px;">
                 <h3 style="color: #00e676; font-size: 20px; font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 24px;">📈</span> Günün Kazananları
                 </h3>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        
-        if not winners.empty:
-            # Tablo için HTML oluştur (header olmadan)
-            winners_html = """
             <div style="overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif;">
                     <tbody>
@@ -1971,24 +1961,14 @@ def render_daily_winners_losers(df, sym, currency_symbol="₺"):
             st.info("Bugün için kazanan varlık bulunmuyor.")
     
     with col2:
-        st.markdown(
-            """
-            <div style="background: linear-gradient(135deg, rgba(255, 82, 82, 0.15) 0%, rgba(200, 50, 50, 0.05) 100%);
-                        border: 2px solid rgba(255, 82, 82, 0.3);
-                        border-radius: 12px;
-                        padding: 20px;
-                        margin-bottom: 20px;">
+        if not losers.empty:
+            # Tablo için HTML oluştur (header olmadan)
+            losers_html = """
+            <div style="margin-bottom: 20px;">
                 <h3 style="color: #ff5252; font-size: 20px; font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 24px;">📉</span> Günün Kaybedenleri
                 </h3>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        
-        if not losers.empty:
-            # Tablo için HTML oluştur (header olmadan)
-            losers_html = """
             <div style="overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif;">
                     <tbody>
