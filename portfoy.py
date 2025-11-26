@@ -137,17 +137,31 @@ with theme_selector_cols[1]:
             # Yenileme zamanı geldi
             st.session_state["last_refresh_time"] = time.time()
             # Cache'leri temizle (daha güncel veri için)
-            try:
-                get_data_from_sheet.clear()
-                get_usd_try.clear()
-                get_tickers_data.clear()
-                # Portföy analiz cache'lerini de temizle
-                _fetch_batch_prices_bist_abd.clear()
-                _fetch_batch_prices_crypto.clear()
-                _fetch_batch_prices_emtia.clear()
-                _fetch_sector_info.clear()
-            except Exception:
-                pass  # Cache temizleme hatası önemli değil
+            cache_functions = [
+                get_data_from_sheet,
+                get_usd_try,
+                get_tickers_data,
+            ]
+            for func in cache_functions:
+                try:
+                    func.clear()
+                except Exception:
+                    pass
+            
+            # Portföy analiz cache'lerini de temizle (eğer tanımlanmışsa)
+            optional_cache_functions = [
+                "_fetch_batch_prices_bist_abd",
+                "_fetch_batch_prices_crypto",
+                "_fetch_batch_prices_emtia",
+                "_fetch_sector_info",
+            ]
+            for func_name in optional_cache_functions:
+                try:
+                    func = globals().get(func_name)
+                    if func is not None and hasattr(func, 'clear'):
+                        func.clear()
+                except Exception:
+                    pass
             st.rerun()
 
 with theme_selector_cols[2]:
