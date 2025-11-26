@@ -1881,35 +1881,43 @@ def render_daily_winners_losers(df, sym, currency_symbol="₺"):
     # İki kolonlu layout
     col1, col2 = st.columns(2)
     
+    def format_pnl(value):
+        """Format kâr/zarar değerini kullanıcının gösterdiği formata çevirir"""
+        abs_value = abs(value)
+        # Türk formatı: binlik ayırıcı olarak virgül kullan
+        formatted = f"{abs_value:,.0f}"
+        return formatted
+    
+    def get_category_display(pazar):
+        """Pazar bilgisini kullanıcının gösterdiği kategori formatına çevirir"""
+        pazar_upper = str(pazar).upper()
+        if "BIST" in pazar_upper:
+            return "BIST (Tümü)"
+        elif "ABD" in pazar_upper or "S&P" in pazar_upper or "NASDAQ" in pazar_upper:
+            return "ABD (S&P + NASDAQ)"
+        elif "EMTIA" in pazar_upper:
+            return "EMTIA"
+        elif "FON" in pazar_upper:
+            return "FON"
+        elif "KRIPTO" in pazar_upper:
+            return "KRIPTO"
+        elif "VADELI" in pazar_upper:
+            return "VADELI"
+        elif "NAKIT" in pazar_upper:
+            return "NAKIT"
+        return str(pazar)
+    
     with col1:
-        st.markdown(
-            """
-            <div style="background: linear-gradient(135deg, rgba(0, 230, 118, 0.15) 0%, rgba(0, 200, 100, 0.05) 100%);
-                        border: 2px solid rgba(0, 230, 118, 0.3);
-                        border-radius: 12px;
-                        padding: 20px;
-                        margin-bottom: 20px;">
+        if not winners.empty:
+            # Tablo için HTML oluştur (header olmadan)
+            winners_html = """
+            <div style="margin-bottom: 20px;">
                 <h3 style="color: #00e676; font-size: 20px; font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 24px;">📈</span> Günün Kazananları
                 </h3>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        
-        if not winners.empty:
-            # Tablo için HTML oluştur
-            winners_html = """
             <div style="overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif;">
-                    <thead>
-                        <tr style="background: rgba(0, 230, 118, 0.1); border-bottom: 2px solid rgba(0, 230, 118, 0.3);">
-                            <th style="padding: 12px; text-align: left; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Sıra</th>
-                            <th style="padding: 12px; text-align: left; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kod</th>
-                            <th style="padding: 12px; text-align: right; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kâr/Zarar</th>
-                            <th style="padding: 12px; text-align: right; color: #00e676; font-weight: 700; font-size: 12px; text-transform: uppercase;">Değişim %</th>
-                        </tr>
-                    </thead>
                     <tbody>
             """
             
@@ -1918,20 +1926,28 @@ def render_daily_winners_losers(df, sym, currency_symbol="₺"):
                 gun_pnl = float(row.get("Gün. Kâr/Zarar", 0))
                 gun_pct = float(row.get("Günlük Değişim %", 0))
                 pazar = str(row.get("Pazar", ""))
+                category = get_category_display(pazar)
                 
                 # Renk ve ikon
                 medal_icon = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"][idx - 1]
                 row_color = "rgba(0, 230, 118, 0.05)" if idx % 2 == 0 else "rgba(0, 0, 0, 0)"
+                
+                # Format kâr/zarar (pozitif olduğu için + işareti ekle)
+                pnl_formatted = format_pnl(gun_pnl)
+                pnl_display = f"+{currency_symbol}{pnl_formatted}"
+                
+                # Format yüzde (pozitif olduğu için + işareti ekle)
+                pct_display = f"+{gun_pct:.2f}%"
                 
                 winners_html += f"""
                         <tr style="background: {row_color}; border-bottom: 1px solid rgba(0, 230, 118, 0.1); transition: background 0.2s;">
                             <td style="padding: 12px; color: #ffffff; font-weight: 700; font-size: 16px;">{medal_icon}</td>
                             <td style="padding: 12px;">
                                 <div style="font-weight: 700; color: #ffffff; font-size: 14px;">{kod}</div>
-                                <div style="font-size: 11px; color: #9da1b3; margin-top: 2px;">{pazar}</div>
+                                <div style="font-size: 11px; color: #9da1b3; margin-top: 2px;">{category}</div>
                             </td>
-                            <td style="padding: 12px; text-align: right; color: #00e676; font-weight: 800; font-size: 14px;">+{sym}{gun_pnl:,.0f}</td>
-                            <td style="padding: 12px; text-align: right; color: #00e676; font-weight: 800; font-size: 14px;">+{gun_pct:.2f}%</td>
+                            <td style="padding: 12px; text-align: right; color: #00e676; font-weight: 800; font-size: 14px;">{pnl_display}</td>
+                            <td style="padding: 12px; text-align: right; color: #00e676; font-weight: 800; font-size: 14px;">{pct_display}</td>
                         </tr>
                 """
             
@@ -1945,34 +1961,16 @@ def render_daily_winners_losers(df, sym, currency_symbol="₺"):
             st.info("Bugün için kazanan varlık bulunmuyor.")
     
     with col2:
-        st.markdown(
-            """
-            <div style="background: linear-gradient(135deg, rgba(255, 82, 82, 0.15) 0%, rgba(200, 50, 50, 0.05) 100%);
-                        border: 2px solid rgba(255, 82, 82, 0.3);
-                        border-radius: 12px;
-                        padding: 20px;
-                        margin-bottom: 20px;">
+        if not losers.empty:
+            # Tablo için HTML oluştur (header olmadan)
+            losers_html = """
+            <div style="margin-bottom: 20px;">
                 <h3 style="color: #ff5252; font-size: 20px; font-weight: 800; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 24px;">📉</span> Günün Kaybedenleri
                 </h3>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        
-        if not losers.empty:
-            # Tablo için HTML oluştur
-            losers_html = """
             <div style="overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif;">
-                    <thead>
-                        <tr style="background: rgba(255, 82, 82, 0.1); border-bottom: 2px solid rgba(255, 82, 82, 0.3);">
-                            <th style="padding: 12px; text-align: left; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Sıra</th>
-                            <th style="padding: 12px; text-align: left; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kod</th>
-                            <th style="padding: 12px; text-align: right; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Kâr/Zarar</th>
-                            <th style="padding: 12px; text-align: right; color: #ff5252; font-weight: 700; font-size: 12px; text-transform: uppercase;">Değişim %</th>
-                        </tr>
-                    </thead>
                     <tbody>
             """
             
@@ -1981,20 +1979,35 @@ def render_daily_winners_losers(df, sym, currency_symbol="₺"):
                 gun_pnl = float(row.get("Gün. Kâr/Zarar", 0))
                 gun_pct = float(row.get("Günlük Değişim %", 0))
                 pazar = str(row.get("Pazar", ""))
+                category = get_category_display(pazar)
                 
                 # Renk ve ikon (en kötüden en iyiye doğru)
-                medal_icon = ["🔻", "🔻", "🔻", "🔻", "🔻"][idx - 1]
+                medal_icon = "🔻"
                 row_color = "rgba(255, 82, 82, 0.05)" if idx % 2 == 0 else "rgba(0, 0, 0, 0)"
+                
+                # Format kâr/zarar (negatif olduğu için - işareti ekle)
+                pnl_formatted = format_pnl(gun_pnl)
+                # Negatif değerler için özel format (kullanıcının gösterdiği gibi)
+                if gun_pnl < 0:
+                    pnl_display = f"{currency_symbol}-{pnl_formatted}"
+                else:
+                    pnl_display = f"{currency_symbol}{pnl_formatted}"
+                
+                # Format yüzde (negatif için - işareti)
+                if gun_pct < 0:
+                    pct_display = f"{gun_pct:.2f}%"
+                else:
+                    pct_display = f"{gun_pct:.2f}%"
                 
                 losers_html += f"""
                         <tr style="background: {row_color}; border-bottom: 1px solid rgba(255, 82, 82, 0.1); transition: background 0.2s;">
                             <td style="padding: 12px; color: #ffffff; font-weight: 700; font-size: 16px;">{medal_icon}</td>
                             <td style="padding: 12px;">
                                 <div style="font-weight: 700; color: #ffffff; font-size: 14px;">{kod}</div>
-                                <div style="font-size: 11px; color: #9da1b3; margin-top: 2px;">{pazar}</div>
+                                <div style="font-size: 11px; color: #9da1b3; margin-top: 2px;">{category}</div>
                             </td>
-                            <td style="padding: 12px; text-align: right; color: #ff5252; font-weight: 800; font-size: 14px;">{sym}{gun_pnl:,.0f}</td>
-                            <td style="padding: 12px; text-align: right; color: #ff5252; font-weight: 800; font-size: 14px;">{gun_pct:.2f}%</td>
+                            <td style="padding: 12px; text-align: right; color: #ff5252; font-weight: 800; font-size: 14px;">{pnl_display}</td>
+                            <td style="padding: 12px; text-align: right; color: #ff5252; font-weight: 800; font-size: 14px;">{pct_display}</td>
                         </tr>
                 """
             
