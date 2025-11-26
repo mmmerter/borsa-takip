@@ -1865,8 +1865,28 @@ if selected == "Dashboard":
         st.divider()
 
         # --- TARİHSEL GRAFİK EN ALTA ---
-        st.subheader("📈 Tarihsel Portföy Değeri (60 Gün)")
-        hist_chart = get_historical_chart(spot_only, USD_TRY, GORUNUM_PB)
+        col_title, col_date = st.columns([2, 1])
+        with col_title:
+            st.subheader("📈 Tarihsel Portföy Değeri")
+        with col_date:
+            # Tarih seçici - varsayılan: None (son 60 gün)
+            use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="dashboard_date_toggle")
+            if use_custom_date:
+                # En az 60 gün öncesine kadar seçim yapılabilir
+                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
+                max_date = pd.Timestamp.today()
+                selected_date = st.date_input(
+                    "Başlangıç Tarihi",
+                    value=max_date - pd.Timedelta(days=30),
+                    min_value=min_date,
+                    max_value=max_date,
+                    key="dashboard_start_date"
+                )
+                start_date = pd.Timestamp(selected_date)
+            else:
+                start_date = None
+        
+        hist_chart = get_historical_chart(spot_only, USD_TRY, GORUNUM_PB, start_date=start_date)
         if hist_chart:
             st.plotly_chart(hist_chart, use_container_width=True)
         else:
@@ -1892,8 +1912,25 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
-        st.subheader("📈 Tarihsel Değer - Tümü (60 Gün)")
-        hist_chart = get_historical_chart(portfoy_only, USD_TRY, GORUNUM_PB)
+        col_title, col_date = st.columns([2, 1])
+        with col_title:
+            st.subheader("📈 Tarihsel Değer - Tümü")
+        with col_date:
+            use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="tumu_date_toggle")
+            if use_custom_date:
+                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
+                max_date = pd.Timestamp.today()
+                selected_date = st.date_input(
+                    "Başlangıç Tarihi",
+                    value=max_date - pd.Timedelta(days=30),
+                    min_value=min_date,
+                    max_value=max_date,
+                    key="tumu_start_date"
+                )
+                start_date = pd.Timestamp(selected_date)
+            else:
+                start_date = None
+        hist_chart = get_historical_chart(portfoy_only, USD_TRY, GORUNUM_PB, start_date=start_date)
         if hist_chart:
             st.plotly_chart(hist_chart, use_container_width=True)
 
@@ -1963,8 +2000,25 @@ elif selected == "Portföy":
             else:
                 st.info("Sektör bilgisi bulunamadı.")
         
-        st.subheader("📈 Tarihsel Değer - BIST (60 Gün)")
-        hist_chart = get_historical_chart(bist_df, USD_TRY, GORUNUM_PB)
+        col_title, col_date = st.columns([2, 1])
+        with col_title:
+            st.subheader("📈 Tarihsel Değer - BIST")
+        with col_date:
+            use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="bist_date_toggle")
+            if use_custom_date:
+                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
+                max_date = pd.Timestamp.today()
+                selected_date = st.date_input(
+                    "Başlangıç Tarihi",
+                    value=max_date - pd.Timedelta(days=30),
+                    min_value=min_date,
+                    max_value=max_date,
+                    key="bist_start_date"
+                )
+                start_date = pd.Timestamp(selected_date)
+            else:
+                start_date = None
+        hist_chart = get_historical_chart(bist_df, USD_TRY, GORUNUM_PB, start_date=start_date)
         if hist_chart:
             st.plotly_chart(hist_chart, use_container_width=True)
 
@@ -2033,8 +2087,25 @@ elif selected == "Portföy":
             else:
                 st.info("Sektör bilgisi bulunamadı.")
         
-        st.subheader("📈 Tarihsel Değer - ABD (60 Gün)")
-        hist_chart = get_historical_chart(abd_df, USD_TRY, GORUNUM_PB)
+        col_title, col_date = st.columns([2, 1])
+        with col_title:
+            st.subheader("📈 Tarihsel Değer - ABD")
+        with col_date:
+            use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="abd_date_toggle")
+            if use_custom_date:
+                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
+                max_date = pd.Timestamp.today()
+                selected_date = st.date_input(
+                    "Başlangıç Tarihi",
+                    value=max_date - pd.Timedelta(days=30),
+                    min_value=min_date,
+                    max_value=max_date,
+                    key="abd_start_date"
+                )
+                start_date = pd.Timestamp(selected_date)
+            else:
+                start_date = None
+        hist_chart = get_historical_chart(abd_df, USD_TRY, GORUNUM_PB, start_date=start_date)
         if hist_chart:
             st.plotly_chart(hist_chart, use_container_width=True)
 
@@ -2078,8 +2149,25 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
-        st.subheader("📈 Tarihsel Değer - FON (60 Gün)")
-        hist_chart = get_historical_chart(fon_df, USD_TRY, GORUNUM_PB)
+        col_title, col_date = st.columns([2, 1])
+        with col_title:
+            st.subheader("📈 Tarihsel Değer - FON")
+        with col_date:
+            use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="fon_date_toggle")
+            if use_custom_date:
+                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
+                max_date = pd.Timestamp.today()
+                selected_date = st.date_input(
+                    "Başlangıç Tarihi",
+                    value=max_date - pd.Timedelta(days=30),
+                    min_value=min_date,
+                    max_value=max_date,
+                    key="fon_start_date"
+                )
+                start_date = pd.Timestamp(selected_date)
+            else:
+                start_date = None
+        hist_chart = get_historical_chart(fon_df, USD_TRY, GORUNUM_PB, start_date=start_date)
         if hist_chart:
             st.plotly_chart(hist_chart, use_container_width=True)
 
@@ -2123,8 +2211,25 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
-        st.subheader("📈 Tarihsel Değer - Emtia (60 Gün)")
-        hist_chart = get_historical_chart(emtia_df, USD_TRY, GORUNUM_PB)
+        col_title, col_date = st.columns([2, 1])
+        with col_title:
+            st.subheader("📈 Tarihsel Değer - Emtia")
+        with col_date:
+            use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="emtia_date_toggle")
+            if use_custom_date:
+                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
+                max_date = pd.Timestamp.today()
+                selected_date = st.date_input(
+                    "Başlangıç Tarihi",
+                    value=max_date - pd.Timedelta(days=30),
+                    min_value=min_date,
+                    max_value=max_date,
+                    key="emtia_start_date"
+                )
+                start_date = pd.Timestamp(selected_date)
+            else:
+                start_date = None
+        hist_chart = get_historical_chart(emtia_df, USD_TRY, GORUNUM_PB, start_date=start_date)
         if hist_chart:
             st.plotly_chart(hist_chart, use_container_width=True)
 
@@ -2142,8 +2247,25 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
-        st.subheader("📈 Tarihsel Değer - Kripto (60 Gün)")
-        hist_chart = get_historical_chart(kripto_df, USD_TRY, GORUNUM_PB)
+        col_title, col_date = st.columns([2, 1])
+        with col_title:
+            st.subheader("📈 Tarihsel Değer - Kripto")
+        with col_date:
+            use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="kripto_date_toggle")
+            if use_custom_date:
+                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
+                max_date = pd.Timestamp.today()
+                selected_date = st.date_input(
+                    "Başlangıç Tarihi",
+                    value=max_date - pd.Timedelta(days=30),
+                    min_value=min_date,
+                    max_value=max_date,
+                    key="kripto_start_date"
+                )
+                start_date = pd.Timestamp(selected_date)
+            else:
+                start_date = None
+        hist_chart = get_historical_chart(kripto_df, USD_TRY, GORUNUM_PB, start_date=start_date)
         if hist_chart:
             st.plotly_chart(hist_chart, use_container_width=True)
 
@@ -2186,8 +2308,25 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
-        st.subheader("📈 Tarihsel Değer - Nakit (60 Gün)")
-        hist_chart = get_historical_chart(nakit_df, USD_TRY, GORUNUM_PB)
+        col_title, col_date = st.columns([2, 1])
+        with col_title:
+            st.subheader("📈 Tarihsel Değer - Nakit")
+        with col_date:
+            use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="nakit_date_toggle")
+            if use_custom_date:
+                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
+                max_date = pd.Timestamp.today()
+                selected_date = st.date_input(
+                    "Başlangıç Tarihi",
+                    value=max_date - pd.Timedelta(days=30),
+                    min_value=min_date,
+                    max_value=max_date,
+                    key="nakit_start_date"
+                )
+                start_date = pd.Timestamp(selected_date)
+            else:
+                start_date = None
+        hist_chart = get_historical_chart(nakit_df, USD_TRY, GORUNUM_PB, start_date=start_date)
         if hist_chart:
             st.plotly_chart(hist_chart, use_container_width=True)
 

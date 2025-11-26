@@ -352,14 +352,21 @@ def _fetch_historical_prices_batch(symbols_list, period="60d", interval="1d"):
     except Exception:
         return {}
 
-def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
+def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, start_date: pd.Timestamp = None):
     """
-    Son 60 güne ait yaklaşık tarihsel portföy değeri grafiği oluşturur.
+    Tarihsel portföy değeri grafiği oluşturur.
     - Her varlık için Yahoo Finance (veya ons altın/gümüş, fon vs.) verisi çekilir.
     - Lot/adet ile çarpılır.
     - Seçilen para birimine (pb: TRY / USD) göre çevrilir.
+    - start_date belirtilirse, o tarihten itibaren performans gösterilir (normalize edilir).
     - Maliyet bazlı yüzde performans gösterilir (yeni varlık eklendiğinde ani yükseliş olmaz).
     Optimize edilmiş: Batch veri çekme kullanılıyor.
+    
+    Args:
+        df: Portföy dataframe'i
+        usd_try_rate: USD/TRY kuru
+        pb: Para birimi ("TRY" veya "USD")
+        start_date: Başlangıç tarihi (None ise son 60 gün gösterilir)
     """
     if df is None or df.empty:
         return None
@@ -539,20 +546,58 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     df_concat = df_concat.ffill()  # eksik günleri son değerle doldur
 
     portfolio_series = df_concat.sum(axis=1)
-    portfolio_series = portfolio_series[-60:]  # son 60 gün
+    
+    # start_date belirtilmişse, o tarihten itibaren filtrele
+    if start_date is not None:
+        start_date_normalized = pd.to_datetime(start_date).normalize()
+        portfolio_series = portfolio_series[portfolio_series.index >= start_date_normalized]
+        # En az 1 gün veri olmalı
+        if len(portfolio_series) == 0:
+            # Eğer start_date'den sonra veri yoksa, en yakın tarihi kullan
+            available_dates = df_concat.sum(axis=1).index
+            if len(available_dates) > 0:
+                closest_date = available_dates[available_dates >= start_date_normalized]
+                if len(closest_date) > 0:
+                    portfolio_series = df_concat.sum(axis=1)[df_concat.sum(axis=1).index >= closest_date[0]]
+                else:
+                    # Hiç veri yoksa son 60 günü göster
+                    portfolio_series = df_concat.sum(axis=1)[-60:]
+    else:
+        # start_date yoksa son 60 günü göster
+        portfolio_series = portfolio_series[-60:]
 
     hist_df = portfolio_series.reset_index()
     hist_df.columns = ["Tarih", "ToplamDeğer"]
     
-    # Maliyet bazlı yüzde performans hesapla (yeni varlık eklendiğinde ani yükseliş olmaz)
-    if total_cost > 0:
-        hist_df["Performans%"] = (hist_df["ToplamDeğer"] / total_cost * 100) - 100
-        # Grafikte performans yüzdesini göster (başlangıç = 0%)
-        hist_df["GrafikDeğeri"] = hist_df["Performans%"]
+    # start_date belirtilmişse, o tarihteki değeri başlangıç olarak kullan ve normalize et
+    if start_date is not None and len(hist_df) > 0:
+        start_date_normalized = pd.to_datetime(start_date).normalize()
+        # Başlangıç tarihine en yakın değeri bul
+        start_mask = hist_df["Tarih"] >= start_date_normalized
+        if start_mask.any():
+            start_value = hist_df.loc[start_mask, "ToplamDeğer"].iloc[0]
+            # Normalize et: başlangıç değeri = 100
+            hist_df["NormalizeDeğer"] = (hist_df["ToplamDeğer"] / start_value) * 100
+            hist_df["Performans%"] = hist_df["NormalizeDeğer"] - 100
+            hist_df["GrafikDeğeri"] = hist_df["Performans%"]
+        else:
+            # Başlangıç tarihi bulunamazsa maliyet bazlı hesapla
+            if total_cost > 0:
+                hist_df["Performans%"] = (hist_df["ToplamDeğer"] / total_cost * 100) - 100
+                hist_df["GrafikDeğeri"] = hist_df["Performans%"]
+            else:
+                hist_df["Performans%"] = 0.0
+                hist_df["GrafikDeğeri"] = hist_df["ToplamDeğer"]
     else:
-        # Maliyet yoksa eski yöntemi kullan
-        hist_df["Performans%"] = 0.0
-        hist_df["GrafikDeğeri"] = hist_df["ToplamDeğer"]
+        # Maliyet bazlı yüzde performans hesapla (yeni varlık eklendiğinde ani yükseliş olmaz)
+        if total_cost > 0:
+            hist_df["Performans%"] = (hist_df["ToplamDeğer"] / total_cost * 100) - 100
+            # Grafikte performans yüzdesini göster (başlangıç = 0%)
+            hist_df["GrafikDeğeri"] = hist_df["Performans%"]
+        else:
+            # Maliyet yoksa eski yöntemi kullan
+            hist_df["Performans%"] = 0.0
+            hist_df["GrafikDeğeri"] = hist_df["ToplamDeğer"]
     
     # Günlük değişim ve yüzde değişim hesapla
     hist_df["GünlükDeğişim"] = hist_df["ToplamDeğer"].diff()
@@ -564,8 +609,14 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     toplam_değişim = son_değer - başlangıç_değeri
     toplam_değişim_pct = ((son_değer - başlangıç_değeri) / başlangıç_değeri * 100) if başlangıç_değeri > 0 else 0
     
-    # Performans bazlı değişim (maliyete göre)
-    if total_cost > 0:
+    # Performans bazlı değişim
+    if start_date is not None and "NormalizeDeğer" in hist_df.columns:
+        # Normalize edilmiş performans
+        başlangıç_performans = hist_df["Performans%"].iloc[0]  # Bu durumda 0 olmalı
+        son_performans = hist_df["Performans%"].iloc[-1]
+        performans_değişim = son_performans - başlangıç_performans
+    elif total_cost > 0:
+        # Maliyet bazlı performans
         başlangıç_performans = hist_df["Performans%"].iloc[0]
         son_performans = hist_df["Performans%"].iloc[-1]
         performans_değişim = son_performans - başlangıç_performans
@@ -640,7 +691,11 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
     )
     
     # Başlangıç annotation'ı
-    if total_cost > 0:
+    if start_date is not None and "NormalizeDeğer" in hist_df.columns:
+        # Normalize edilmiş performans modu
+        başlangıç_y = hist_df["GrafikDeğeri"].iloc[0]  # Bu durumda 0 olmalı
+        başlangıç_text = f"Başlangıç ({başlangıç_tarih.strftime('%d %b %Y')}): 0%"
+    elif total_cost > 0:
         başlangıç_y = hist_df["GrafikDeğeri"].iloc[0]
         başlangıç_text = f"Başlangıç: {başlangıç_y:+.2f}%"
     else:
@@ -688,8 +743,14 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str):
                 font=dict(color="#ffffff", size=10, family="Inter, sans-serif"),
             )
     
-    # Başlık metni: Maliyet bazlı yüzde varsa onu göster
-    if total_cost > 0:
+    # Başlık metni
+    if start_date is not None:
+        start_date_str = pd.to_datetime(start_date).strftime("%d %b %Y")
+        if "NormalizeDeğer" in hist_df.columns:
+            title_text = f"<b>Portföy Performansı ({start_date_str}'den İtibaren)</b><br><span style='font-size: 12px; color: #9da1b3;'>Performans Değişimi: {performans_değişim:+.2f}% (Başlangıç Tarihine Göre)</span>"
+        else:
+            title_text = f"<b>Portföy Değeri ({start_date_str}'den İtibaren)</b><br><span style='font-size: 12px; color: #9da1b3;'>Toplam Değişim: {currency_symbol}{toplam_değişim:+,.0f} ({toplam_değişim_pct:+.2f}%)</span>"
+    elif total_cost > 0:
         title_text = f"<b>Portföy Performansı (60 Gün - Maliyet Bazlı)</b><br><span style='font-size: 12px; color: #9da1b3;'>Performans Değişimi: {performans_değişim:+.2f}% (Maliyete Göre)</span>"
     else:
         title_text = f"<b>Portföy Değeri (60 Gün)</b><br><span style='font-size: 12px; color: #9da1b3;'>Toplam Değişim: {currency_symbol}{toplam_değişim:+,.0f} ({toplam_değişim_pct:+.2f}%)</span>"
