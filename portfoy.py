@@ -2099,7 +2099,7 @@ def get_daily_movers(df, top_n=5):
 
 
 def render_daily_movers_section(df, currency_symbol, top_n=5):
-    """Render günlük kazanan/kaybeden listesini modern tablo formatında göster."""
+    """Render günlük kazanan/kaybeden listesini modern kart formatında göster."""
     winners, losers = get_daily_movers(df, top_n=top_n)
     if winners.empty and losers.empty:
         st.info("Günlük kazanan/kaybeden verisi bulunamadı.")
@@ -2108,130 +2108,193 @@ def render_daily_movers_section(df, currency_symbol, top_n=5):
     # Başlık
     st.markdown(
         """
-        <div style="margin-bottom: 24px;">
-            <h2 style="font-size: 28px; font-weight: 900; color: #ffffff; margin-bottom: 5px; display: flex; align-items: center; gap: 12px;">
-                <span style="font-size: 32px;">🔥</span>
+        <div style="margin-bottom: 30px;">
+            <h2 style="font-size: 32px; font-weight: 900; color: #ffffff; margin-bottom: 8px; display: flex; align-items: center; gap: 14px;">
+                <span style="font-size: 38px; filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.2));">🔥</span>
                 Günün Kazananları / Kaybedenleri
             </h2>
+            <p style="font-size: 14px; color: #9da1b3; margin: 0; font-weight: 600;">En yüksek ve en düşük günlük performans gösteren varlıklarınız</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     # İki sütunlu layout
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2, gap="large")
 
     # Günün Kazananları
     with col1:
+        # Kart başlığı
         st.markdown(
             """
-            <div style="background: linear-gradient(135deg, #1b1f2b 0%, #10131b 100%); 
-                        border-radius: 16px; 
+            <div class="daily-movers-card positive-card" style="background: linear-gradient(135deg, #1b1f2b 0%, #10131b 100%); 
+                        border-radius: 20px; 
                         border-top: 4px solid #00e676; 
-                        padding: 20px; 
+                        padding: 24px; 
                         margin-bottom: 20px;
-                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);">
-                <h3 style="color: #ffffff; font-size: 20px; font-weight: 900; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 24px;">🏆</span>
-                    Günün Kazananları
-                    <span style="background: rgba(255, 255, 255, 0.1); padding: 4px 12px; border-radius: 12px; font-size: 11px; margin-left: auto;">TOP 5</span>
-                </h3>
-            </div>
+                        box-shadow: 0 12px 32px rgba(0, 230, 118, 0.15), 0 0 0 1px rgba(0, 230, 118, 0.1);">
+                <div class="daily-movers-card-header">
+                    <div class="daily-movers-card-title">
+                        <span class="daily-movers-card-title-icon">🏆</span>
+                        <span style="font-size: 22px;">Günün Kazananları</span>
+                    </div>
+                    <div class="daily-movers-chip" style="background: rgba(0, 230, 118, 0.2); color: #00e676; border-color: rgba(0, 230, 118, 0.3);">
+                        TOP 5
+                    </div>
+                </div>
+                <div class="daily-movers-card-body">
             """,
             unsafe_allow_html=True,
         )
         
         if not winners.empty:
-            # Tablo verilerini hazırla
-            display_winners = winners[["Kod", "Günlük %", "Gün. Kâr/Zarar"]].copy()
-            display_winners.columns = ["Sembol", "Değişim %", "Kâr/Zarar"]
-            
-            # Değerleri formatlı
-            display_winners["Değişim %"] = display_winners["Değişim %"].apply(
-                lambda x: f"+{x:.2f}%" if x > 0 else f"{x:.2f}%"
-            )
-            display_winners["Kâr/Zarar"] = display_winners["Kâr/Zarar"].apply(
-                lambda x: f"{currency_symbol}{x:,.0f}"
-            )
-            
-            # Styled dataframe göster
-            st.dataframe(
-                display_winners,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Sembol": st.column_config.TextColumn(
-                        "Sembol",
-                        width="medium",
-                    ),
-                    "Değişim %": st.column_config.TextColumn(
-                        "Değişim %",
-                        width="small",
-                    ),
-                    "Kâr/Zarar": st.column_config.TextColumn(
-                        "Kâr/Zarar",
-                        width="medium",
-                    ),
-                },
-            )
+            # Her bir kazanan için satır oluştur
+            for idx, (_, row) in enumerate(winners.iterrows(), 1):
+                symbol = row["Kod"]
+                change_pct = row["Günlük %"]
+                pl_value = row["Gün. Kâr/Zarar"]
+                
+                # Değer formatla
+                change_sign = "+" if change_pct > 0 else ""
+                change_str = f"{change_sign}{change_pct:.2f}%"
+                pl_str = f"{currency_symbol}{pl_value:,.0f}"
+                
+                # Emoji ve renk seç
+                if change_pct > 5:
+                    emoji = "🚀"
+                elif change_pct > 2:
+                    emoji = "📈"
+                else:
+                    emoji = "↗️"
+                
+                st.markdown(
+                    f"""
+                    <div class="daily-mover-row positive" style="display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 16px;
+                                padding: 18px 20px; border-radius: 14px; margin-bottom: 12px;
+                                background: linear-gradient(135deg, rgba(0, 230, 118, 0.06) 0%, rgba(0, 230, 118, 0.02) 100%);
+                                border: 1px solid rgba(0, 230, 118, 0.15); border-left: 4px solid #00e676;
+                                transition: all 0.3s ease;">
+                        <div class="daily-mover-symbol" style="display: flex; align-items: center; gap: 12px;">
+                            <span class="daily-mover-symbol-badge" style="width: 36px; height: 36px; border-radius: 10px; 
+                                        background: rgba(0, 230, 118, 0.15); border: 1px solid rgba(0, 230, 118, 0.3);
+                                        display: flex; align-items: center; justify-content: center; 
+                                        font-size: 14px; font-weight: 900; color: #00e676;">
+                                {idx}
+                            </span>
+                            <span style="font-size: 20px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">
+                                {symbol}
+                            </span>
+                        </div>
+                        <div class="daily-mover-change" style="display: flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 900; color: #00e676; text-shadow: 0 0 12px rgba(0, 230, 118, 0.4);">
+                            <span>{emoji}</span>
+                            <span style="letter-spacing: -0.3px;">{change_str}</span>
+                        </div>
+                        <div class="daily-mover-pl" style="font-size: 16px; font-weight: 700; color: #b6bad3; text-align: right; letter-spacing: -0.2px;">
+                            {pl_str}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
         else:
-            st.info("📊 Veri bulunamadı")
+            st.markdown(
+                """
+                <div class="daily-mover-empty" style="text-align: center; padding: 32px; border-radius: 14px; 
+                            background: rgba(255, 255, 255, 0.03); border: 1px dashed rgba(255, 255, 255, 0.1);">
+                    <span style="font-size: 16px; color: #8f93a6; font-weight: 600;">📊 Veri bulunamadı</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        
+        st.markdown("</div></div>", unsafe_allow_html=True)
 
     # Günün Kaybedenleri
     with col2:
+        # Kart başlığı
         st.markdown(
             """
-            <div style="background: linear-gradient(135deg, #1b1f2b 0%, #10131b 100%); 
-                        border-radius: 16px; 
+            <div class="daily-movers-card negative-card" style="background: linear-gradient(135deg, #1b1f2b 0%, #10131b 100%); 
+                        border-radius: 20px; 
                         border-top: 4px solid #ff5252; 
-                        padding: 20px; 
+                        padding: 24px; 
                         margin-bottom: 20px;
-                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);">
-                <h3 style="color: #ffffff; font-size: 20px; font-weight: 900; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 24px;">⚠️</span>
-                    Günün Kaybedenleri
-                    <span style="background: rgba(255, 255, 255, 0.1); padding: 4px 12px; border-radius: 12px; font-size: 11px; margin-left: auto;">TOP 5</span>
-                </h3>
-            </div>
+                        box-shadow: 0 12px 32px rgba(255, 82, 82, 0.15), 0 0 0 1px rgba(255, 82, 82, 0.1);">
+                <div class="daily-movers-card-header">
+                    <div class="daily-movers-card-title">
+                        <span class="daily-movers-card-title-icon">⚠️</span>
+                        <span style="font-size: 22px;">Günün Kaybedenleri</span>
+                    </div>
+                    <div class="daily-movers-chip" style="background: rgba(255, 82, 82, 0.2); color: #ff5252; border-color: rgba(255, 82, 82, 0.3);">
+                        TOP 5
+                    </div>
+                </div>
+                <div class="daily-movers-card-body">
             """,
             unsafe_allow_html=True,
         )
         
         if not losers.empty:
-            # Tablo verilerini hazırla
-            display_losers = losers[["Kod", "Günlük %", "Gün. Kâr/Zarar"]].copy()
-            display_losers.columns = ["Sembol", "Değişim %", "Kâr/Zarar"]
-            
-            # Değerleri formatla
-            display_losers["Değişim %"] = display_losers["Değişim %"].apply(
-                lambda x: f"+{x:.2f}%" if x > 0 else f"{x:.2f}%"
-            )
-            display_losers["Kâr/Zarar"] = display_losers["Kâr/Zarar"].apply(
-                lambda x: f"{currency_symbol}{x:,.0f}"
-            )
-            
-            # Styled dataframe göster
-            st.dataframe(
-                display_losers,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Sembol": st.column_config.TextColumn(
-                        "Sembol",
-                        width="medium",
-                    ),
-                    "Değişim %": st.column_config.TextColumn(
-                        "Değişim %",
-                        width="small",
-                    ),
-                    "Kâr/Zarar": st.column_config.TextColumn(
-                        "Kâr/Zarar",
-                        width="medium",
-                    ),
-                },
-            )
+            # Her bir kaybeden için satır oluştur
+            for idx, (_, row) in enumerate(losers.iterrows(), 1):
+                symbol = row["Kod"]
+                change_pct = row["Günlük %"]
+                pl_value = row["Gün. Kâr/Zarar"]
+                
+                # Değer formatla
+                change_sign = "" if change_pct < 0 else "+"
+                change_str = f"{change_sign}{change_pct:.2f}%"
+                pl_str = f"{currency_symbol}{pl_value:,.0f}"
+                
+                # Emoji seç
+                if change_pct < -5:
+                    emoji = "💥"
+                elif change_pct < -2:
+                    emoji = "📉"
+                else:
+                    emoji = "↘️"
+                
+                st.markdown(
+                    f"""
+                    <div class="daily-mover-row negative" style="display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 16px;
+                                padding: 18px 20px; border-radius: 14px; margin-bottom: 12px;
+                                background: linear-gradient(135deg, rgba(255, 82, 82, 0.06) 0%, rgba(255, 82, 82, 0.02) 100%);
+                                border: 1px solid rgba(255, 82, 82, 0.15); border-left: 4px solid #ff5252;
+                                transition: all 0.3s ease;">
+                        <div class="daily-mover-symbol" style="display: flex; align-items: center; gap: 12px;">
+                            <span class="daily-mover-symbol-badge" style="width: 36px; height: 36px; border-radius: 10px; 
+                                        background: rgba(255, 82, 82, 0.15); border: 1px solid rgba(255, 82, 82, 0.3);
+                                        display: flex; align-items: center; justify-content: center; 
+                                        font-size: 14px; font-weight: 900; color: #ff5252;">
+                                {idx}
+                            </span>
+                            <span style="font-size: 20px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">
+                                {symbol}
+                            </span>
+                        </div>
+                        <div class="daily-mover-change" style="display: flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 900; color: #ff5252; text-shadow: 0 0 12px rgba(255, 82, 82, 0.4);">
+                            <span>{emoji}</span>
+                            <span style="letter-spacing: -0.3px;">{change_str}</span>
+                        </div>
+                        <div class="daily-mover-pl" style="font-size: 16px; font-weight: 700; color: #b6bad3; text-align: right; letter-spacing: -0.2px;">
+                            {pl_str}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
         else:
-            st.info("📊 Veri bulunamadı")
+            st.markdown(
+                """
+                <div class="daily-mover-empty" style="text-align: center; padding: 32px; border-radius: 14px; 
+                            background: rgba(255, 255, 255, 0.03); border: 1px dashed rgba(255, 255, 255, 0.1);">
+                    <span style="font-size: 16px; color: #8f93a6; font-weight: 600;">📊 Veri bulunamadı</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        
+        st.markdown("</div></div>", unsafe_allow_html=True)
 
 # --- GÖRÜNÜM AYARI ---
 TOTAL_SPOT_DEGER = portfoy_only["Değer"].sum()
