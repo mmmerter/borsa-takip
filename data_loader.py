@@ -323,7 +323,30 @@ def get_financial_news(topic="finance"):
             "DOVIZ": "https://news.google.com/rss/search?q=Dolar+Altın+Piyasa&hl=tr&gl=TR&ceid=TR:tr"}
     try:
         feed = feedparser.parse(urls.get(topic, urls["BIST"]))
-        return [{"title": e.title, "link": e.link, "date": e.published} for e in feed.entries[:10]]
+        news_list = []
+        for e in feed.entries[:10]:
+            # Tarihi parse et (feedparser'in published_parsed özelliğini kullan)
+            date_for_sort = ""
+            if hasattr(e, 'published_parsed') and e.published_parsed:
+                try:
+                    from time import mktime
+                    date_for_sort = mktime(e.published_parsed)
+                except:
+                    date_for_sort = e.published
+            else:
+                date_for_sort = e.published
+            news_list.append({
+                "title": e.title, 
+                "link": e.link, 
+                "date": e.published,
+                "_sort_date": date_for_sort
+            })
+        # Tarihe göre sırala (en yeni önce)
+        news_list.sort(key=lambda x: x.get("_sort_date", x.get("date", "")), reverse=True)
+        # _sort_date kolonunu kaldır
+        for item in news_list:
+            item.pop("_sort_date", None)
+        return news_list
     except: return []
 
 @st.cache_data(ttl=300)

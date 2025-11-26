@@ -974,6 +974,29 @@ def render_portfolio_news_section(portfolio_df, watchlist_df=None):
     if selected_source != "Tümü":
         filtered_news = [n for n in filtered_news if n.get("source") == selected_source]
     
+    # Filtreleme sonrası tarihe göre tekrar sırala (en yeni önce)
+    try:
+        from datetime import datetime
+        def parse_date_for_sort(date_str):
+            """Tarih string'ini parse edip sıralama için kullanılabilir hale getirir"""
+            try:
+                # RFC 2822 formatını dene
+                return datetime.strptime(date_str[:25], '%a, %d %b %Y %H:%M:%S')
+            except:
+                try:
+                    # ISO formatını dene
+                    return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                except:
+                    # Parse edilemezse string olarak kullan
+                    return date_str
+        filtered_news.sort(key=lambda x: parse_date_for_sort(x.get("date", "")), reverse=True)
+    except Exception:
+        # Hata durumunda string sıralaması yap
+        try:
+            filtered_news.sort(key=lambda x: x.get("date", ""), reverse=True)
+        except:
+            pass
+    
     if not filtered_news:
         st.info("Seçilen filtreler için haber bulunamadı.")
         return
