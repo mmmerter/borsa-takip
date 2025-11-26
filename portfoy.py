@@ -1958,64 +1958,65 @@ def get_daily_movers(df, top_n=5):
 
 
 def render_daily_movers_section(df, currency_symbol, top_n=5):
-    """Visual block that highlights günlük kazanan ve kaybedenler."""
+    """Render günlük kazanan/kaybeden listesini Streamlit tablosu olarak göster."""
     winners, losers = get_daily_movers(df, top_n=top_n)
     if winners.empty and losers.empty:
+        st.info("Günlük kazanan/kaybeden verisi bulunamadı.")
         return
 
-    def _build_rows(dataframe):
+    def _format_table(dataframe: pd.DataFrame) -> pd.DataFrame:
         if dataframe.empty:
-            return '<div class="daily-mover-empty">Veri bulunamadı.</div>'
-        rows = []
-        for _, row in dataframe.iterrows():
-            change_pct = float(row.get("Günlük %", 0.0))
-            change_val = float(row.get("Gün. Kâr/Zarar", 0.0))
-            code = row.get("Kod", "—")
-            direction = "positive" if change_pct >= 0 else "negative"
-            rows.append(
-                f"""
-                <div class="daily-mover-row {direction}">
-                    <div class="daily-mover-symbol">{code}</div>
-                    <div class="daily-mover-change">{change_pct:+.2f}%</div>
-                    <div class="daily-mover-pl">{currency_symbol}{change_val:,.0f}</div>
-                </div>
-                """
-            )
-        return "".join(rows)
+            return pd.DataFrame(columns=["Sembol", "Günlük %", "Günlük K/Z"])
 
-    cards = []
-    sections = [
-        ("🏆 Günün Kazananları", winners, "positive-card"),
-        ("⚠️ Günün Kaybedenleri", losers, "negative-card"),
-    ]
-    for title, data, css_class in sections:
-        rows_html = _build_rows(data)
-        display_count = min(top_n, len(data)) if len(data) else top_n
-        cards.append(
-            f"""
-            <div class="daily-movers-card {css_class}">
-                <div class="daily-movers-card-header">
-                    <span>{title}</span>
-                    <span class="daily-movers-chip">Top {display_count}</span>
-                </div>
-                <div class="daily-movers-card-body">
-                    {rows_html}
-                </div>
-            </div>
-            """
+        table = dataframe[["Kod", "Günlük %", "Gün. Kâr/Zarar"]].copy()
+        table = table.rename(
+            columns={
+                "Kod": "Sembol",
+                "Günlük %": "Günlük %",
+                "Gün. Kâr/Zarar": "Günlük K/Z",
+            }
         )
 
+        def _fmt_pct(value):
+            try:
+                return f"{float(value):+.2f}%"
+            except (TypeError, ValueError):
+                return "0.00%"
+
+        def _fmt_currency(value):
+            try:
+                return f"{currency_symbol}{float(value):,.0f}"
+            except (TypeError, ValueError):
+                return f"{currency_symbol}0"
+
+        table["Günlük %"] = table["Günlük %"].apply(_fmt_pct)
+        table["Günlük K/Z"] = table["Günlük K/Z"].apply(_fmt_currency)
+        return table
+
     st.subheader("🔥 Günün Kazananları / Kaybedenleri")
-    st.markdown(
-        f"""
-        <div class="daily-movers-section">
-            <div class="daily-movers-grid">
-                {''.join(cards)}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    col_pos, col_neg = st.columns(2)
+
+    with col_pos:
+        st.markdown("**🏆 Günün Kazananları**")
+        if winners.empty:
+            st.caption("Veri bulunamadı.")
+        else:
+            st.caption(f"Top {min(top_n, len(winners))} varlık listeleniyor.")
+            st.dataframe(
+                _format_table(winners),
+                use_container_width=True,
+            )
+
+    with col_neg:
+        st.markdown("**⚠️ Günün Kaybedenleri**")
+        if losers.empty:
+            st.caption("Veri bulunamadı.")
+        else:
+            st.caption(f"Top {min(top_n, len(losers))} varlık listeleniyor.")
+            st.dataframe(
+                _format_table(losers),
+                use_container_width=True,
+            )
 
 # --- GÖRÜNÜM AYARI ---
 TOTAL_SPOT_DEGER = portfoy_only["Değer"].sum()
