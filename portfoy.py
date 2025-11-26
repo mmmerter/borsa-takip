@@ -60,6 +60,7 @@ from charts import (
     render_detail_view,
     get_historical_chart,
     get_comparison_chart,
+    render_modern_list_header,
 )
 
 # --- SAYFA AYARLARI ---
@@ -394,6 +395,27 @@ st.markdown(
         font-size: 11px;
         color: #9da1b3;
         margin-top: 4px;
+    }
+    
+    /* Modern List Headers - Animasyonlu */
+    .modern-list-header {
+        animation: slideInFromLeft 0.5s ease-out;
+    }
+    
+    @keyframes slideInFromLeft {
+        0% {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    .header-icon {
+        display: inline-block;
+        animation: pulse-glow 2s ease-in-out infinite;
     }
     
     /* Günlük Kazanan/Kaybeden Kartları - Modern ve Dikkat Çekici */
@@ -2514,7 +2536,11 @@ if selected == "Dashboard":
         st.divider()
 
         # --- PAZAR DAĞILIMI ---
-        st.subheader("📊 Pazarlara Göre Dağılım")
+        render_modern_list_header(
+            title="Pazarlara Göre Dağılım",
+            icon="🌍",
+            subtitle="Varlıklarınızın hangi pazarlarda dağıldığını görüntüleyin"
+        )
         dash_pazar = spot_only.groupby("Pazar", as_index=False).agg(
             {"Değer": "sum", "Top. Kâr/Zarar": "sum"}
         )
@@ -2529,9 +2555,15 @@ if selected == "Dashboard":
         st.divider()
         render_daily_movers_section(spot_only, sym)
 
+        render_modern_list_header(
+            title="Portföy Isı Haritası",
+            icon="🗺️",
+            subtitle="Varlıklarınızın performansını görsel olarak keşfedin"
+        )
+        
         c_tree_1, c_tree_2 = st.columns([3, 1])
         with c_tree_1:
-            st.subheader("🗺️ Portföy Isı Haritası")
+            st.write("")  # Boş alan
         with c_tree_2:
             map_mode = st.radio(
                 "Renklendirme:",
@@ -2690,7 +2722,11 @@ if selected == "Dashboard":
 
         # --- SEKTÖREL DAĞILIM ---
         if "Sektör" in spot_only.columns:
-            st.subheader("🏭 Sektörel Dağılım")
+            render_modern_list_header(
+                title="Sektörel Dağılım",
+                icon="🏭",
+                subtitle="Hangi sektörlere yatırım yaptığınızı keşfedin • Şirket detayları hover ile görülebilir"
+            )
             sektor_df = spot_only[spot_only["Sektör"] != ""].copy()
             if not sektor_df.empty:
                 # Her sektör için şirket listesini hazırla
@@ -2715,7 +2751,11 @@ if selected == "Dashboard":
         st.divider()
 
         # --- KARŞILAŞTIRMALI GRAFİKLER ---
-        st.subheader("📊 Portföy Karşılaştırmaları")
+        render_modern_list_header(
+            title="Portföy Karşılaştırmaları",
+            icon="📊",
+            subtitle="Portföyünüzün performansını benchmark'larla karşılaştırın"
+        )
         
         # Buton switch'li seçim
         comparison_options = ["BIST 100", "Altın", "SP500", "Enflasyon"]
@@ -2735,9 +2775,14 @@ if selected == "Dashboard":
         st.divider()
 
         # --- TARİHSEL GRAFİK EN ALTA ---
+        render_modern_list_header(
+            title="Tarihsel Portföy Değeri",
+            icon="📈",
+            subtitle="Portföyünüzün zaman içindeki değer değişimini inceleyin"
+        )
         col_title, col_date = st.columns([2, 1])
         with col_title:
-            st.subheader("📈 Tarihsel Portföy Değeri")
+            st.write("")  # Boş alan
         with col_date:
             # Tarih seçici - varsayılan: None (son 60 gün)
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="dashboard_date_toggle")
@@ -2782,9 +2827,14 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
+        render_modern_list_header(
+            title="Tarihsel Değer - Tümü",
+            icon="📈",
+            subtitle="Tüm varlıklarınızın toplam değer grafiği"
+        )
         col_title, col_date = st.columns([2, 1])
         with col_title:
-            st.subheader("📈 Tarihsel Değer - Tümü")
+            st.write("")  # Boş alan
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="tumu_date_toggle")
             if use_custom_date:
@@ -2848,7 +2898,11 @@ elif selected == "Portföy":
         
         # --- SEKTÖREL DAĞILIM - BIST ---
         if "Sektör" in bist_df.columns:
-            st.subheader("🏭 Sektörel Dağılım - BIST")
+            render_modern_list_header(
+                title="Sektörel Dağılım - BIST",
+                icon="🏭",
+                subtitle="BIST hisselerinizin sektörel dağılımı • Şirketler hover ile görünür"
+            )
             sektor_bist = bist_df[bist_df["Sektör"] != ""].copy()
             if not sektor_bist.empty:
                 # Her sektör için şirket listesini hazırla
@@ -2870,9 +2924,14 @@ elif selected == "Portföy":
             else:
                 st.info("Sektör bilgisi bulunamadı.")
         
+        render_modern_list_header(
+            title="Tarihsel Değer - BIST",
+            icon="📈",
+            subtitle="BIST varlıklarınızın zaman içindeki performansı"
+        )
         col_title, col_date = st.columns([2, 1])
         with col_title:
-            st.subheader("📈 Tarihsel Değer - BIST")
+            st.write("")  # Boş alan
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="bist_date_toggle")
             if use_custom_date:
@@ -2935,7 +2994,11 @@ elif selected == "Portföy":
         
         # --- SEKTÖREL DAĞILIM - ABD ---
         if "Sektör" in abd_df.columns:
-            st.subheader("🏭 Sektörel Dağılım - ABD")
+            render_modern_list_header(
+                title="Sektörel Dağılım - ABD",
+                icon="🏭",
+                subtitle="ABD hisselerinizin sektörel dağılımı • Şirketler hover ile görünür"
+            )
             sektor_abd = abd_df[abd_df["Sektör"] != ""].copy()
             if not sektor_abd.empty:
                 # Her sektör için şirket listesini hazırla
@@ -2957,9 +3020,14 @@ elif selected == "Portföy":
             else:
                 st.info("Sektör bilgisi bulunamadı.")
         
+        render_modern_list_header(
+            title="Tarihsel Değer - ABD",
+            icon="📈",
+            subtitle="ABD varlıklarınızın zaman içindeki performansı"
+        )
         col_title, col_date = st.columns([2, 1])
         with col_title:
-            st.subheader("📈 Tarihsel Değer - ABD")
+            st.write("")  # Boş alan
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="abd_date_toggle")
             if use_custom_date:
@@ -3019,9 +3087,14 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
+        render_modern_list_header(
+            title="Tarihsel Değer - Fonlar",
+            icon="📈",
+            subtitle="Yatırım fonu varlıklarınızın zaman içindeki performansı"
+        )
         col_title, col_date = st.columns([2, 1])
         with col_title:
-            st.subheader("📈 Tarihsel Değer - FON")
+            st.write("")  # Boş alan
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="fon_date_toggle")
             if use_custom_date:
@@ -3081,9 +3154,14 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
+        render_modern_list_header(
+            title="Tarihsel Değer - Emtia",
+            icon="📈",
+            subtitle="Altın, gümüş ve diğer emtia varlıklarınızın performansı"
+        )
         col_title, col_date = st.columns([2, 1])
         with col_title:
-            st.subheader("📈 Tarihsel Değer - Emtia")
+            st.write("")  # Boş alan
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="emtia_date_toggle")
             if use_custom_date:
@@ -3117,9 +3195,14 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
+        render_modern_list_header(
+            title="Tarihsel Değer - Kripto",
+            icon="📈",
+            subtitle="Kripto para varlıklarınızın zaman içindeki değişimi"
+        )
         col_title, col_date = st.columns([2, 1])
         with col_title:
-            st.subheader("📈 Tarihsel Değer - Kripto")
+            st.write("")  # Boş alan
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="kripto_date_toggle")
             if use_custom_date:
@@ -3178,9 +3261,14 @@ elif selected == "Portföy":
             VARLIK_GORUNUMU,
             TOTAL_SPOT_DEGER,
         )
+        render_modern_list_header(
+            title="Tarihsel Değer - Nakit",
+            icon="📈",
+            subtitle="Nakit ve döviz varlıklarınızın değer değişimi"
+        )
         col_title, col_date = st.columns([2, 1])
         with col_title:
-            st.subheader("📈 Tarihsel Değer - Nakit")
+            st.write("")  # Boş alan
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="nakit_date_toggle")
             if use_custom_date:
@@ -3228,53 +3316,86 @@ elif selected == "Haberler":
         render_news_section("Döviz / Altın", "DOVIZ")
 
 elif selected == "İzleme":
-    st.subheader("👁️ İzleme Listesi")
+    render_modern_list_header(
+        title="İzleme Listesi",
+        icon="👁️",
+        subtitle="Takip ettiğiniz varlıkların anlık fiyat ve değişim bilgileri"
+    )
+    
     if not takip_only.empty:
         # İzleme listesi için: Kod, Pazar, Maliyet (eklediğindeki fiyat), Fiyat (güncel), Değişim %
         takip_display = takip_only[["Kod", "Pazar", "Maliyet", "Fiyat", "Top. %"]].copy()
         takip_display = takip_display.rename(columns={"Top. %": "Değişim %"})
         
-        # Tablo başlıkları
-        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6 = st.columns([2, 2, 2, 2, 2, 1])
-        with header_col1:
-            st.markdown("**Kod**")
-        with header_col2:
-            st.markdown("**Pazar**")
-        with header_col3:
-            st.markdown("**Maliyet**")
-        with header_col4:
-            st.markdown("**Fiyat**")
-        with header_col5:
-            st.markdown("**Değişim %**")
-        with header_col6:
-            st.markdown("**İşlem**")
-        
-        st.markdown("<hr style='margin: 5px 0; border-color: #2f3440;'>", unsafe_allow_html=True)
-        
-        # Her satır için silme butonu ekle
+        # Her satır için modern kart oluştur
         for idx, row in takip_display.iterrows():
-            col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 2, 2, 2, 1])
+            pct = row['Değişim %']
             
+            # Renk ve emoji belirle
+            if pct > 0:
+                card_color = "rgba(0, 230, 118, 0.15)"
+                border_color = "#00e676"
+                pct_color = "#00e676"
+                emoji = "📈"
+            elif pct < 0:
+                card_color = "rgba(255, 82, 82, 0.15)"
+                border_color = "#ff5252"
+                pct_color = "#ff5252"
+                emoji = "📉"
+            else:
+                card_color = "rgba(255, 255, 255, 0.05)"
+                border_color = "#6b7fd7"
+                pct_color = "#9da1b3"
+                emoji = "➖"
+            
+            col1, col2 = st.columns([6, 1])
             with col1:
-                st.write(f"**{row['Kod']}**")
+                st.markdown(
+                    f"""
+                    <div style="
+                        background: linear-gradient(135deg, {card_color} 0%, rgba(26, 28, 36, 0.5) 100%);
+                        border-radius: 16px;
+                        padding: 20px 24px;
+                        margin-bottom: 16px;
+                        border-left: 4px solid {border_color};
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                        transition: all 0.3s ease;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(107, 127, 215, 0.4)';" 
+                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(0, 0, 0, 0.3)';">
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr; gap: 16px; align-items: center;">
+                            <div>
+                                <div style="font-size: 11px; color: #9da1b3; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600;">Kod</div>
+                                <div style="font-size: 22px; font-weight: 900; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+                                    <span>{emoji}</span>
+                                    <span>{row['Kod']}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; color: #9da1b3; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600;">Pazar</div>
+                                <div style="font-size: 15px; font-weight: 700; color: #ffffff;">{row['Pazar']}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; color: #9da1b3; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600;">Başlangıç</div>
+                                <div style="font-size: 15px; font-weight: 700; color: #b0b3c0;">{row['Maliyet']:,.2f}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; color: #9da1b3; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600;">Güncel Fiyat</div>
+                                <div style="font-size: 16px; font-weight: 900; color: #ffffff;">{row['Fiyat']:,.2f}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; color: #9da1b3; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 600;">Değişim</div>
+                                <div style="font-size: 20px; font-weight: 900; color: {pct_color}; text-shadow: 0 0 12px {pct_color}80;">
+                                    {'+' if pct > 0 else ''}{pct:.2f}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
             with col2:
-                st.write(row['Pazar'])
-            with col3:
-                st.write(f"{row['Maliyet']:,.2f}")
-            with col4:
-                st.write(f"{row['Fiyat']:,.2f}")
-            with col5:
-                # Değişim % renklendirilmiş göster
-                pct = row['Değişim %']
-                if pct > 0:
-                    st.markdown(f'<span style="color: #00e676; font-weight: 900;">+{pct:.2f}%</span>', unsafe_allow_html=True)
-                elif pct < 0:
-                    st.markdown(f'<span style="color: #ff5252; font-weight: 900;">{pct:.2f}%</span>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<span style="color: #cccccc; font-weight: 900;">{pct:.2f}%</span>', unsafe_allow_html=True)
-            with col6:
-                # Silme butonu
-                if st.button("🗑️", key=f"sil_takip_{row['Kod']}_{idx}", help="Sil"):
+                # Silme butonu - modern stil
+                if st.button("🗑️ Sil", key=f"sil_takip_{row['Kod']}_{idx}", help="Sil", use_container_width=True):
                     # portfoy_df'den bu kodu ve Tip="Takip" olan satırı sil
                     kod = row['Kod']
                     portfoy_df = portfoy_df[~((portfoy_df["Kod"] == kod) & (portfoy_df["Tip"] == "Takip"))]
@@ -3282,23 +3403,51 @@ elif selected == "İzleme":
                     st.success(f"{kod} izleme listesinden silindi!")
                     time.sleep(1)
                     st.rerun()
-            
-            # Satırlar arası ayırıcı
-            st.markdown("<hr style='margin: 5px 0; border-color: #2f3440;'>", unsafe_allow_html=True)
     else:
-        st.info("İzleme listesi boş.")
+        st.info("İzleme listesi boş. Varlık eklemek için 'Ekle/Çıkar' sekmesine gidin.")
 
 elif selected == "Satışlar":
-    st.subheader("🧾 Satış Geçmişi")
+    render_modern_list_header(
+        title="Satış Geçmişi",
+        icon="🧾",
+        subtitle="Gerçekleştirdiğiniz tüm satış işlemlerinin detaylı kayıtları"
+    )
+    
     sales_df = get_sales_history()
     if not sales_df.empty:
+        # Toplam özet metrikler ekle
+        if "Kar/Zarar" in sales_df.columns:
+            total_profit = sales_df["Kar/Zarar"].sum()
+            total_sales_value = sales_df.get("Satış Tutarı", sales_df.get("Toplam Satış", pd.Series([0]))).sum()
+            avg_profit_pct = sales_df["Kar/Zarar"].mean() if len(sales_df) > 0 else 0
+            
+            col1, col2, col3 = st.columns(3)
+            col1.metric(
+                "Toplam Kâr/Zarar", 
+                f"{sym}{total_profit:,.0f}",
+                delta=f"{(total_profit / total_sales_value * 100) if total_sales_value > 0 else 0:.2f}%"
+            )
+            col2.metric(
+                "Toplam Satış Tutarı", 
+                f"{sym}{total_sales_value:,.0f}",
+                delta=f"{len(sales_df)} işlem"
+            )
+            col3.metric(
+                "Ortalama K/Z", 
+                f"{sym}{avg_profit_pct:,.0f}",
+                delta="İşlem başına"
+            )
+            
+            st.divider()
+        
         st.dataframe(
             styled_dataframe(sales_df),
             use_container_width=True,
             hide_index=True,
+            height=min(600, len(sales_df) * 50 + 100)
         )
     else:
-        st.info("Satış kaydı yok.")
+        st.info("Henüz satış kaydı bulunmuyor. İlk satışınızı yapmak için 'Ekle/Çıkar' sekmesine gidin.")
 
 
 elif selected == "Ekle/Çıkar":

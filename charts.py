@@ -244,11 +244,79 @@ def render_pie_bar_charts(
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
-    # Altında özet tablo
+    # Altında özet tablo - modern header ekle
+    st.markdown(
+        """
+        <div style="
+            background: linear-gradient(90deg, rgba(107, 127, 215, 0.2) 0%, rgba(139, 154, 255, 0.1) 100%);
+            border-radius: 12px;
+            padding: 12px 20px;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            border-left: 3px solid #6b7fd7;
+        ">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 18px;">📊</span>
+                <span style="
+                    font-size: 16px;
+                    font-weight: 800;
+                    color: #ffffff;
+                    letter-spacing: -0.3px;
+                ">Detaylı Dağılım Tablosu</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
     disp = grouped[[label_col, "Değer", "Pay (%)"]].copy()
     disp.rename(columns={label_col: group_col}, inplace=True)
     disp["Pay (%)"] = disp["Pay (%)"].round(2)
-    st.dataframe(styled_dataframe(disp), use_container_width=True, hide_index=True)
+    st.dataframe(styled_dataframe(disp), use_container_width=True, hide_index=True, height=min(400, len(disp) * 50 + 100))
+
+
+def render_modern_list_header(title: str, icon: str, subtitle: str = ""):
+    """Modern başlık oluşturur - animasyonlu ikon ve gradyan arka plan ile"""
+    st.markdown(
+        f"""
+        <div class="modern-list-header" style="
+            background: linear-gradient(135deg, rgba(107, 127, 215, 0.15) 0%, rgba(139, 154, 255, 0.05) 100%);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+            border-left: 4px solid #6b7fd7;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        ">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <span class="header-icon" style="
+                    font-size: 36px;
+                    filter: drop-shadow(0 2px 6px rgba(107, 127, 215, 0.4));
+                    animation: pulse-glow 2s ease-in-out infinite;
+                ">{icon}</span>
+                <div>
+                    <h3 style="
+                        font-size: 26px;
+                        font-weight: 900;
+                        color: #ffffff;
+                        margin: 0;
+                        letter-spacing: -0.5px;
+                        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+                    ">{title}</h3>
+                    {f'<p style="font-size: 13px; color: #b0b3c0; margin: 4px 0 0 0; font-weight: 600;">{subtitle}</p>' if subtitle else ''}
+                </div>
+            </div>
+        </div>
+        <style>
+            @keyframes pulse-glow {{
+                0%, 100% {{ transform: scale(1); opacity: 1; }}
+                50% {{ transform: scale(1.05); opacity: 0.9; }}
+            }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 def render_pazar_tab(
@@ -263,7 +331,7 @@ def render_pazar_tab(
     Portföy sayfasındaki her pazar sekmesi için:
     - Üstte pazar özeti metric'ler
     - Ortada donut + bar grafikleri
-    - Altta detay tablo
+    - Altta modern detay tablo
     """
 
     if df is None or df.empty:
@@ -311,6 +379,13 @@ def render_pazar_tab(
             total_spot_deger=total_spot_deger,
         )
 
+    # Modern başlık ekle
+    render_modern_list_header(
+        title=f"Detaylı {filter_key} Listesi",
+        icon="📋",
+        subtitle=f"{len(sub)} varlık • {sym}{total_val:,.0f} toplam değer"
+    )
+
     # Detay tablo
     disp = sub.copy()
     if varlik_gorunumu == "YÜZDE (%)" and not is_vadeli:
@@ -322,7 +397,7 @@ def render_pazar_tab(
         else:
             disp["Değer"] = 0.0
 
-    st.dataframe(styled_dataframe(disp), use_container_width=True, hide_index=True)
+    st.dataframe(styled_dataframe(disp), use_container_width=True, hide_index=True, height=min(600, len(disp) * 50 + 100))
 
 
 def render_detail_view(symbol: str, pazar: str) -> None:
