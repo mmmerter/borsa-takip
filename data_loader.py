@@ -693,12 +693,22 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
         "spark_ytd": [seri],
       }
     """
+    # Veri yoksa varsayılan değerler döndür (None yerine)
+    default_result = {
+        "weekly": (0.0, 0.0),
+        "monthly": (0.0, 0.0),
+        "ytd": (0.0, 0.0),
+        "spark_week": [],
+        "spark_month": [],
+        "spark_ytd": [],
+    }
+    
     if history_df is None or history_df.empty:
-        return None
+        return default_result
 
     # Tarih kolonu garanti olsun
     if "Tarih" not in history_df.columns:
-        return None
+        return default_result
     df = history_df.copy()
     df["Tarih"] = pd.to_datetime(df["Tarih"])
     df = df.sort_values("Tarih")
@@ -706,7 +716,7 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
     if subtract_df is not None and not subtract_df.empty:
         sub = subtract_df.copy()
         if "Tarih" not in sub.columns:
-            return None
+            return default_result
         sub["Tarih"] = pd.to_datetime(sub["Tarih"])
         sub = sub.sort_values("Tarih")
         if subtract_before is not None:
@@ -726,8 +736,8 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
         df.drop(columns=["Sub_TRY", "Sub_USD"], inplace=True)
 
     # Ana seri: TRY bazlı toplam
-    if "Değer_TRY" not in df.columns:
-        return None
+    if "Değer_TRY" not in df.columns or df.empty:
+        return default_result
 
     today_val = float(df["Değer_TRY"].iloc[-1])
     dates = df["Tarih"]

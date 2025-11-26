@@ -1689,8 +1689,26 @@ if selected == "Dashboard":
                 subtract_df=history_fon_filtered,
                 subtract_before=FON_METRIC_RESET_DATE,
             )
-        except Exception:
-            kpi_timeframe = None
+            # Eğer None dönerse (eski kod uyumluluğu için), default değerler kullan
+            if kpi_timeframe is None:
+                kpi_timeframe = {
+                    "weekly": (0.0, 0.0),
+                    "monthly": (0.0, 0.0),
+                    "ytd": (0.0, 0.0),
+                    "spark_week": [],
+                    "spark_month": [],
+                    "spark_ytd": [],
+                }
+        except Exception as e:
+            # Hata durumunda da default değerler kullan
+            kpi_timeframe = {
+                "weekly": (0.0, 0.0),
+                "monthly": (0.0, 0.0),
+                "ytd": (0.0, 0.0),
+                "spark_week": [],
+                "spark_month": [],
+                "spark_ytd": [],
+            }
 
         # INFO BAR (Toplam Varlık + Son 24 Saat + Haftalık/Aylık/YTD + Sparkline)
         render_kral_infobar(
