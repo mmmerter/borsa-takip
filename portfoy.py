@@ -4,7 +4,7 @@ import pandas as pd
 import time
 import plotly.express as px
 from streamlit_option_menu import option_menu
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- MODÜLLER ---
 from utils import (
@@ -1873,11 +1873,11 @@ if selected == "Dashboard":
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="dashboard_date_toggle")
             if use_custom_date:
                 # En az 60 gün öncesine kadar seçim yapılabilir
-                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
-                max_date = pd.Timestamp.today()
+                min_date = (pd.Timestamp.today() - pd.Timedelta(days=365)).date()
+                max_date = pd.Timestamp.today().date()
                 selected_date = st.date_input(
                     "Başlangıç Tarihi",
-                    value=max_date - pd.Timedelta(days=30),
+                    value=max_date - timedelta(days=30),
                     min_value=min_date,
                     max_value=max_date,
                     key="dashboard_start_date"
@@ -1918,11 +1918,11 @@ elif selected == "Portföy":
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="tumu_date_toggle")
             if use_custom_date:
-                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
-                max_date = pd.Timestamp.today()
+                min_date = (pd.Timestamp.today() - pd.Timedelta(days=365)).date()
+                max_date = pd.Timestamp.today().date()
                 selected_date = st.date_input(
                     "Başlangıç Tarihi",
-                    value=max_date - pd.Timedelta(days=30),
+                    value=max_date - timedelta(days=30),
                     min_value=min_date,
                     max_value=max_date,
                     key="tumu_start_date"
@@ -2006,11 +2006,11 @@ elif selected == "Portföy":
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="bist_date_toggle")
             if use_custom_date:
-                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
-                max_date = pd.Timestamp.today()
+                min_date = (pd.Timestamp.today() - pd.Timedelta(days=365)).date()
+                max_date = pd.Timestamp.today().date()
                 selected_date = st.date_input(
                     "Başlangıç Tarihi",
-                    value=max_date - pd.Timedelta(days=30),
+                    value=max_date - timedelta(days=30),
                     min_value=min_date,
                     max_value=max_date,
                     key="bist_start_date"
@@ -2093,11 +2093,11 @@ elif selected == "Portföy":
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="abd_date_toggle")
             if use_custom_date:
-                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
-                max_date = pd.Timestamp.today()
+                min_date = (pd.Timestamp.today() - pd.Timedelta(days=365)).date()
+                max_date = pd.Timestamp.today().date()
                 selected_date = st.date_input(
                     "Başlangıç Tarihi",
-                    value=max_date - pd.Timedelta(days=30),
+                    value=max_date - timedelta(days=30),
                     min_value=min_date,
                     max_value=max_date,
                     key="abd_start_date"
@@ -2155,11 +2155,11 @@ elif selected == "Portföy":
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="fon_date_toggle")
             if use_custom_date:
-                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
-                max_date = pd.Timestamp.today()
+                min_date = (pd.Timestamp.today() - pd.Timedelta(days=365)).date()
+                max_date = pd.Timestamp.today().date()
                 selected_date = st.date_input(
                     "Başlangıç Tarihi",
-                    value=max_date - pd.Timedelta(days=30),
+                    value=max_date - timedelta(days=30),
                     min_value=min_date,
                     max_value=max_date,
                     key="fon_start_date"
@@ -2217,11 +2217,11 @@ elif selected == "Portföy":
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="emtia_date_toggle")
             if use_custom_date:
-                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
-                max_date = pd.Timestamp.today()
+                min_date = (pd.Timestamp.today() - pd.Timedelta(days=365)).date()
+                max_date = pd.Timestamp.today().date()
                 selected_date = st.date_input(
                     "Başlangıç Tarihi",
-                    value=max_date - pd.Timedelta(days=30),
+                    value=max_date - timedelta(days=30),
                     min_value=min_date,
                     max_value=max_date,
                     key="emtia_start_date"
@@ -2253,11 +2253,11 @@ elif selected == "Portföy":
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="kripto_date_toggle")
             if use_custom_date:
-                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
-                max_date = pd.Timestamp.today()
+                min_date = (pd.Timestamp.today() - pd.Timedelta(days=365)).date()
+                max_date = pd.Timestamp.today().date()
                 selected_date = st.date_input(
                     "Başlangıç Tarihi",
-                    value=max_date - pd.Timedelta(days=30),
+                    value=max_date - timedelta(days=30),
                     min_value=min_date,
                     max_value=max_date,
                     key="kripto_start_date"
@@ -2314,11 +2314,11 @@ elif selected == "Portföy":
         with col_date:
             use_custom_date = st.checkbox("Belirli bir günden itibaren göster", key="nakit_date_toggle")
             if use_custom_date:
-                min_date = pd.Timestamp.today() - pd.Timedelta(days=365)
-                max_date = pd.Timestamp.today()
+                min_date = (pd.Timestamp.today() - pd.Timedelta(days=365)).date()
+                max_date = pd.Timestamp.today().date()
                 selected_date = st.date_input(
                     "Başlangıç Tarihi",
-                    value=max_date - pd.Timedelta(days=30),
+                    value=max_date - timedelta(days=30),
                     min_value=min_date,
                     max_value=max_date,
                     key="nakit_start_date"
