@@ -94,176 +94,16 @@ FON_METRIC_RESET_DATE = _init_fon_reset_date()
 if "ui_theme" not in st.session_state:
     st.session_state["ui_theme"] = "dark"
 
-# Otomatik yenileme ayarları
-if "auto_refresh_enabled" not in st.session_state:
-    st.session_state["auto_refresh_enabled"] = True
+# Otomatik yenileme ayarları - yeni yapılandırma
 if "auto_refresh_interval" not in st.session_state:
-    st.session_state["auto_refresh_interval"] = 60  # Varsayılan 60 saniye
+    st.session_state["auto_refresh_interval"] = None  # Başlangıçta kapalı
+if "auto_refresh_start_time" not in st.session_state:
+    st.session_state["auto_refresh_start_time"] = None
 
-theme_selector_cols = st.columns([0.7, 0.15, 0.15])
+theme_selector_cols = st.columns([0.85, 0.15])
 with theme_selector_cols[0]:
     pass  # Boş alan
 with theme_selector_cols[1]:
-    # Otomatik yenileme kontrolü
-    auto_refresh = st.checkbox(
-        "🔄 Otomatik Yenileme",
-        value=st.session_state["auto_refresh_enabled"],
-        key="auto_refresh_checkbox",
-        help="Verileri belirli aralıklarla otomatik güncelle"
-    )
-    st.session_state["auto_refresh_enabled"] = auto_refresh
-    
-    if auto_refresh:
-        refresh_interval = st.selectbox(
-            "Yenileme Sıklığı",
-            [30, 60, 120, 300],
-            index=1,
-            format_func=lambda x: f"{x//60}dk" if x >= 60 else f"{x}sn",
-            key="refresh_interval_select",
-            help="Verilerin ne sıklıkla güncelleneceği",
-            label_visibility="visible"
-        )
-        st.session_state["auto_refresh_interval"] = refresh_interval
-        
-        # Son yenileme zamanını göster ve kontrol et
-        if "last_refresh_time" not in st.session_state:
-            st.session_state["last_refresh_time"] = time.time()
-        
-        # Süre değiştiğinde yenileme zamanını sıfırla
-        if "previous_refresh_interval" not in st.session_state:
-            st.session_state["previous_refresh_interval"] = refresh_interval
-        elif st.session_state["previous_refresh_interval"] != refresh_interval:
-            st.session_state["last_refresh_time"] = time.time()
-            st.session_state["previous_refresh_interval"] = refresh_interval
-        
-        elapsed = int(time.time() - st.session_state["last_refresh_time"])
-        next_refresh = refresh_interval - elapsed
-        
-        if next_refresh > 0:
-            # JavaScript ile gerçek zamanlı geri sayım ekle
-            # Timer'ı sessionStorage'da saklayarak Streamlit rerun'larda koruyoruz
-            st.markdown(
-                f"""
-                <div id="refresh-countdown" style="font-size: 0.875rem; color: #9da1b3; margin-top: 0.25rem; margin-bottom: 0.5rem;">
-                    ⏱️ <span id="countdown-value">{next_refresh}</span>s sonra yenilenecek
-                </div>
-                <script>
-                (function() {{
-                    function initCountdown() {{
-                        const countdownElement = document.getElementById('countdown-value');
-                        if (!countdownElement) {{
-                            // Element henüz yüklenmemişse, biraz bekle ve tekrar dene
-                            setTimeout(initCountdown, 100);
-                            return;
-                        }}
-                        
-                        const storageKey = 'streamlit_countdown_remaining';
-                        const startTimeKey = 'streamlit_countdown_start';
-                        
-                        // Mevcut timer'ı temizle
-                        if (window.countdownTimer) {{
-                            clearInterval(window.countdownTimer);
-                            window.countdownTimer = null;
-                        }}
-                        
-                        // Başlangıç zamanını ve kalan süreyi al
-                        let startTime = sessionStorage.getItem(startTimeKey);
-                        let initialRemaining = {next_refresh};
-                        
-                        if (startTime) {{
-                            // Eğer daha önce başlatılmışsa, kalan süreyi hesapla
-                            const elapsed = Math.floor((Date.now() - parseInt(startTime)) / 1000);
-                            initialRemaining = Math.max(0, {next_refresh} - elapsed);
-                        }} else {{
-                            // İlk kez başlatılıyorsa, başlangıç zamanını kaydet
-                            sessionStorage.setItem(startTimeKey, Date.now().toString());
-                        }}
-                        
-                        let remainingSeconds = initialRemaining;
-                        
-                        // İlk değeri göster
-                        countdownElement.textContent = remainingSeconds;
-                        
-                        // Geri sayım timer'ı - her saniye güncelle
-                        window.countdownTimer = setInterval(function() {{
-                            remainingSeconds--;
-                            
-                            if (countdownElement && remainingSeconds >= 0) {{
-                                countdownElement.textContent = remainingSeconds;
-                            }}
-                            
-                            if (remainingSeconds <= 0) {{
-                                clearInterval(window.countdownTimer);
-                                window.countdownTimer = null;
-                                sessionStorage.removeItem(startTimeKey);
-                                sessionStorage.removeItem(storageKey);
-                                // Sayfayı yenile
-                                if (window.parent && window.parent !== window) {{
-                                    try {{
-                                        window.parent.postMessage({{
-                                            type: 'streamlit:rerun'
-                                        }}, '*');
-                                    }} catch(e) {{
-                                        window.location.reload();
-                                    }}
-                                }} else {{
-                                    window.location.reload();
-                                }}
-                            }}
-                        }}, 1000);
-                    }}
-                    
-                    // DOM yüklendiğinde başlat
-                    if (document.readyState === 'loading') {{
-                        document.addEventListener('DOMContentLoaded', initCountdown);
-                    }} else {{
-                        initCountdown();
-                    }}
-                    
-                    // Sayfa kapatılırken timer'ı temizle
-                    window.addEventListener('beforeunload', function() {{
-                        if (window.countdownTimer) {{
-                            clearInterval(window.countdownTimer);
-                            window.countdownTimer = null;
-                        }}
-                    }});
-                }})();
-                </script>
-                """,
-                unsafe_allow_html=True
-            )
-        else:
-            # Yenileme zamanı geldi
-            st.session_state["last_refresh_time"] = time.time()
-            # Cache'leri temizle (daha güncel veri için)
-            cache_functions = [
-                get_data_from_sheet,
-                get_usd_try,
-                get_tickers_data,
-            ]
-            for func in cache_functions:
-                try:
-                    func.clear()
-                except Exception:
-                    pass
-            
-            # Portföy analiz cache'lerini de temizle (eğer tanımlanmışsa)
-            optional_cache_functions = [
-                "_fetch_batch_prices_bist_abd",
-                "_fetch_batch_prices_crypto",
-                "_fetch_batch_prices_emtia",
-                "_fetch_sector_info",
-            ]
-            for func_name in optional_cache_functions:
-                try:
-                    func = globals().get(func_name)
-                    if func is not None and hasattr(func, 'clear'):
-                        func.clear()
-                except Exception:
-                    pass
-            st.rerun()
-
-with theme_selector_cols[2]:
     toggle_label = "🌞 Açık Tema" if st.session_state["ui_theme"] == "dark" else "🌙 Koyu Tema"
     if st.button(toggle_label, key="theme_toggle_button"):
         st.session_state["ui_theme"] = "light" if st.session_state["ui_theme"] == "dark" else "dark"
@@ -417,6 +257,73 @@ st.markdown(
     .kral-header-sub {
         font-size: 13px;
         color: #b3b7c6;
+    }
+    
+    /* Otomatik Yenileme Butonu - Sağ Üst Köşe */
+    .auto-refresh-container {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 9999;
+        background: linear-gradient(135deg, #232837, #171b24);
+        border-radius: 12px;
+        padding: 8px 12px;
+        border: 1px solid #2f3440;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        min-width: 120px;
+    }
+    .auto-refresh-button {
+        background: linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%);
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        width: 100%;
+        margin-bottom: 8px;
+        transition: all 0.3s ease;
+    }
+    .auto-refresh-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(107, 127, 215, 0.4);
+    }
+    .auto-refresh-options {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 8px;
+    }
+    .auto-refresh-option {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid #2f3440;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 12px;
+        color: #b0b3c0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+    }
+    .auto-refresh-option:hover {
+        background: rgba(107, 127, 215, 0.2);
+        border-color: #6b7fd7;
+        color: #ffffff;
+    }
+    .auto-refresh-option.active {
+        background: rgba(107, 127, 215, 0.3);
+        border-color: #6b7fd7;
+        color: #ffffff;
+        font-weight: 700;
+    }
+    .auto-refresh-countdown {
+        font-size: 11px;
+        color: #6b7fd7;
+        margin-top: 4px;
+        text-align: center;
+        font-weight: 600;
+        min-height: 16px;
     }
 
     /* Mini Info Bar - Genişletilmiş */
@@ -965,6 +872,229 @@ with st.container():
 
 USD_TRY = get_usd_try()
 sym = "₺" if GORUNUM_PB == "TRY" else "$"
+
+# Otomatik yenileme butonu - sağ üst köşe
+current_interval = st.session_state.get("auto_refresh_interval")
+current_start_time = st.session_state.get("auto_refresh_start_time")
+
+# Sağ üst köşede sabit konumlandırılmış container
+st.markdown(
+    f"""
+    <div style="position: fixed; top: 10px; right: 10px; z-index: 9999; background: linear-gradient(135deg, #232837, #171b24); border-radius: 12px; padding: 10px 14px; border: 1px solid #2f3440; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); min-width: 140px;">
+        <div style="text-align: center; margin-bottom: 8px;">
+            <span style="font-size: 13px; font-weight: 700; color: #6b7fd7;">🔄 Otomatik Yenileme</span>
+        </div>
+        <div id="refresh-options-container" style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="auto-refresh-option" data-interval="30" id="option-30" style="background: {'rgba(107, 127, 215, 0.3)' if current_interval == 30 else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if current_interval == 30 else '#2f3440'}; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: {'#ffffff' if current_interval == 30 else '#b0b3c0'}; cursor: pointer; text-align: center; font-weight: {'700' if current_interval == 30 else '400'}; transition: all 0.2s ease;">
+                30 Saniye
+                <div id="countdown-30" class="auto-refresh-countdown" style="font-size: 10px; color: #6b7fd7; margin-top: 2px; min-height: 14px; font-weight: 600;"></div>
+            </div>
+            <div class="auto-refresh-option" data-interval="60" id="option-60" style="background: {'rgba(107, 127, 215, 0.3)' if current_interval == 60 else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if current_interval == 60 else '#2f3440'}; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: {'#ffffff' if current_interval == 60 else '#b0b3c0'}; cursor: pointer; text-align: center; font-weight: {'700' if current_interval == 60 else '400'}; transition: all 0.2s ease;">
+                1 Dakika
+                <div id="countdown-60" class="auto-refresh-countdown" style="font-size: 10px; color: #6b7fd7; margin-top: 2px; min-height: 14px; font-weight: 600;"></div>
+            </div>
+            <div class="auto-refresh-option" data-interval="120" id="option-120" style="background: {'rgba(107, 127, 215, 0.3)' if current_interval == 120 else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if current_interval == 120 else '#2f3440'}; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: {'#ffffff' if current_interval == 120 else '#b0b3c0'}; cursor: pointer; text-align: center; font-weight: {'700' if current_interval == 120 else '400'}; transition: all 0.2s ease;">
+                2 Dakika
+                <div id="countdown-120" class="auto-refresh-countdown" style="font-size: 10px; color: #6b7fd7; margin-top: 2px; min-height: 14px; font-weight: 600;"></div>
+            </div>
+            <div class="auto-refresh-option" data-interval="300" id="option-300" style="background: {'rgba(107, 127, 215, 0.3)' if current_interval == 300 else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if current_interval == 300 else '#2f3440'}; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: {'#ffffff' if current_interval == 300 else '#b0b3c0'}; cursor: pointer; text-align: center; font-weight: {'700' if current_interval == 300 else '400'}; transition: all 0.2s ease;">
+                5 Dakika
+                <div id="countdown-300" class="auto-refresh-countdown" style="font-size: 10px; color: #6b7fd7; margin-top: 2px; min-height: 14px; font-weight: 600;"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+    (function() {{
+        const options = document.querySelectorAll('.auto-refresh-option');
+        let countdownTimer = null;
+        
+        // Hover efektleri
+        options.forEach(option => {{
+            option.addEventListener('mouseenter', function() {{
+                if (!this.classList.contains('active')) {{
+                    this.style.background = 'rgba(107, 127, 215, 0.2)';
+                    this.style.borderColor = '#6b7fd7';
+                }}
+            }});
+            option.addEventListener('mouseleave', function() {{
+                if (!this.classList.contains('active')) {{
+                    this.style.background = 'rgba(255, 255, 255, 0.05)';
+                    this.style.borderColor = '#2f3440';
+                }}
+            }});
+        }});
+        
+        // Her seçenek için tıklama olayı
+        options.forEach(option => {{
+            option.addEventListener('click', function() {{
+                const interval = parseInt(this.getAttribute('data-interval'));
+                
+                // Streamlit'e mesaj gönder
+                if (window.parent && window.parent !== window) {{
+                    try {{
+                        // Streamlit iframe içindeyse parent'a mesaj gönder
+                        window.parent.postMessage({{
+                            type: 'streamlit:setComponentValue',
+                            value: interval,
+                            key: 'refresh_interval_set'
+                        }}, '*');
+                        
+                        // Alternatif: Streamlit rerun ile query parameter
+                        const url = new URL(window.parent.location.href);
+                        url.searchParams.set('refresh_interval', interval);
+                        window.parent.history.pushState({{}}, '', url);
+                        window.parent.postMessage({{type: 'streamlit:rerun'}}, '*');
+                    }} catch(e) {{
+                        // Fallback: Sayfayı yenile
+                        const url = new URL(window.location);
+                        url.searchParams.set('refresh_interval', interval);
+                        window.location.href = url.toString();
+                    }}
+                }} else {{
+                    // Normal sayfa
+                    const url = new URL(window.location);
+                    url.searchParams.set('refresh_interval', interval);
+                    window.location.href = url.toString();
+                }}
+            }});
+        }});
+        
+        // Geri sayım başlat
+        {f'''
+        if ({current_interval} && {current_start_time}) {{
+            const interval = {current_interval};
+            const startTime = {current_start_time} * 1000;
+            const countdownDiv = document.getElementById('countdown-' + interval);
+            const optionDiv = document.getElementById('option-' + interval);
+            
+            if (countdownDiv && optionDiv) {{
+                optionDiv.classList.add('active');
+                
+                function updateCountdown() {{
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    const remaining = interval - elapsed;
+                    
+                    if (remaining > 0) {{
+                        countdownDiv.textContent = remaining + 's';
+                    }} else {{
+                        countdownDiv.textContent = 'Yenileniyor...';
+                        clearInterval(countdownTimer);
+                        setTimeout(function() {{
+                            if (window.parent && window.parent !== window) {{
+                                try {{
+                                    window.parent.postMessage({{type: 'streamlit:rerun'}}, '*');
+                                }} catch(e) {{
+                                    window.location.reload();
+                                }}
+                            }} else {{
+                                window.location.reload();
+                            }}
+                        }}, 500);
+                    }}
+                }}
+                
+                updateCountdown();
+                countdownTimer = setInterval(updateCountdown, 1000);
+            }}
+        }}
+        ''' if current_interval and current_start_time else ''}
+        
+        // Sayfa kapatılırken temizle
+        window.addEventListener('beforeunload', function() {{
+            if (countdownTimer) {{
+                clearInterval(countdownTimer);
+            }}
+        }});
+    }})();
+    </script>
+    """,
+    unsafe_allow_html=True
+)
+
+# Query parametresinden interval al
+if 'refresh_interval' in st.query_params:
+    try:
+        interval_from_url = int(st.query_params['refresh_interval'])
+        if interval_from_url in [30, 60, 120, 300]:
+            st.session_state["auto_refresh_interval"] = interval_from_url
+            st.session_state["auto_refresh_start_time"] = time.time()
+            # Query parametresini temizle
+            st.query_params.clear()
+            st.rerun()
+    except:
+        pass
+
+# Streamlit butonları - görünmez ama JavaScript tarafından tetiklenebilir (yedek)
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    if st.button("30sn", key="refresh_30", use_container_width=True):
+        st.session_state["auto_refresh_interval"] = 30
+        st.session_state["auto_refresh_start_time"] = time.time()
+        st.rerun()
+with col2:
+    if st.button("1dk", key="refresh_60", use_container_width=True):
+        st.session_state["auto_refresh_interval"] = 60
+        st.session_state["auto_refresh_start_time"] = time.time()
+        st.rerun()
+with col3:
+    if st.button("2dk", key="refresh_120", use_container_width=True):
+        st.session_state["auto_refresh_interval"] = 120
+        st.session_state["auto_refresh_start_time"] = time.time()
+        st.rerun()
+with col4:
+    if st.button("5dk", key="refresh_300", use_container_width=True):
+        st.session_state["auto_refresh_interval"] = 300
+        st.session_state["auto_refresh_start_time"] = time.time()
+        st.rerun()
+
+# Butonları gizle (sadece JavaScript ile erişilebilir)
+st.markdown(
+    """
+    <style>
+    button[data-testid="baseButton-secondary"][id*="refresh_"] {
+        display: none !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Aktif geri sayım kontrolü
+if current_interval is not None and current_start_time is not None:
+    elapsed = int(time.time() - current_start_time)
+    remaining = current_interval - elapsed
+    
+    if remaining <= 0:
+        # Süre doldu, sayfayı yenile ve cache'leri temizle
+        cache_functions = [
+            get_data_from_sheet,
+            get_usd_try,
+            get_tickers_data,
+        ]
+        for func in cache_functions:
+            try:
+                func.clear()
+            except Exception:
+                pass
+        
+        # Portföy analiz cache'lerini de temizle
+        optional_cache_functions = [
+            "_fetch_batch_prices_bist_abd",
+            "_fetch_batch_prices_crypto",
+            "_fetch_batch_prices_emtia",
+            "_fetch_sector_info",
+        ]
+        for func_name in optional_cache_functions:
+            try:
+                func = globals().get(func_name)
+                if func is not None and hasattr(func, 'clear'):
+                    func.clear()
+            except Exception:
+                pass
+        
+        # Timer'ı sıfırla ve yenile
+        st.session_state["auto_refresh_start_time"] = time.time()
+        st.rerun()
 
 mh, ph = get_tickers_data(portfoy_df, USD_TRY)
 st.markdown(
