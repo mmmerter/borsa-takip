@@ -849,7 +849,7 @@ st.markdown(
                 </div>
                 <div onclick="selectRefreshInterval(null)" style="background: rgba(255, 82, 82, 0.1); border: 1px solid #ff5252; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #ff5252; cursor: pointer; text-align: center; font-weight: 700; transition: all 0.2s ease;">Kapat</div>
             </div>
-            
+
             <!-- Geri Sayım Göstergesi -->
             <div id="countdown-display" style="text-align: center; font-size: 11px; color: #6b7fd7; font-weight: 600; min-height: 18px; margin-top: 6px; padding-top: 4px;">
                 <span id="countdown-text" style="display: inline-block; background: rgba(107, 127, 215, 0.15); padding: 2px 8px; border-radius: 4px;">Yükleniyor...</span>
