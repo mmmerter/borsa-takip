@@ -145,19 +145,16 @@ with theme_selector_cols[1]:
             st.markdown(
                 f"""
                 <div id="refresh-countdown" style="font-size: 0.875rem; color: #9da1b3; margin-top: 0.25rem; margin-bottom: 0.5rem;">
-                    ⏱️ <span id="countdown-value">{next_refresh}</span>s sonra yenilenecek
+                    ⏱️ <span id="countdown-value">{next_refresh}</span> saniye sonra yenilenecek
                 </div>
                 <script>
-                (function() {{
                     function initCountdown() {{
                         const countdownElement = document.getElementById('countdown-value');
                         if (!countdownElement) {{
-                            // Element henüz yüklenmemişse, biraz bekle ve tekrar dene
                             setTimeout(initCountdown, 100);
                             return;
                         }}
                         
-                        const storageKey = 'streamlit_countdown_remaining';
                         const startTimeKey = 'streamlit_countdown_start';
                         
                         // Mevcut timer'ı temizle
@@ -171,11 +168,9 @@ with theme_selector_cols[1]:
                         let initialRemaining = {next_refresh};
                         
                         if (startTime) {{
-                            // Eğer daha önce başlatılmışsa, kalan süreyi hesapla
                             const elapsed = Math.floor((Date.now() - parseInt(startTime)) / 1000);
                             initialRemaining = Math.max(0, {next_refresh} - elapsed);
                         }} else {{
-                            // İlk kez başlatılıyorsa, başlangıç zamanını kaydet
                             sessionStorage.setItem(startTimeKey, Date.now().toString());
                         }}
                         
@@ -196,7 +191,6 @@ with theme_selector_cols[1]:
                                 clearInterval(window.countdownTimer);
                                 window.countdownTimer = null;
                                 sessionStorage.removeItem(startTimeKey);
-                                sessionStorage.removeItem(storageKey);
                                 // Sayfayı yenile
                                 if (window.parent && window.parent !== window) {{
                                     try {{
@@ -227,7 +221,6 @@ with theme_selector_cols[1]:
                             window.countdownTimer = null;
                         }}
                     }});
-                }})();
                 </script>
                 """,
                 unsafe_allow_html=True
@@ -1808,8 +1801,8 @@ if selected == "Dashboard":
         # Eski 2 metric (Toplam Varlık + Genel K/Z) yine dursun
         c1, c2 = st.columns(2)
         # Toplam Varlık için: Toplam kâr/zarar yüzdesi (maliyete göre) - zaman aralığı belirtilmeli
-        c1.metric("Toplam Varlık", f"{sym}{t_v:,.0f}", delta=f"{pct:.2f}% (Başlangıçtan Beri)")
-        c2.metric("Genel Kâr/Zarar", f"{sym}{t_p:,.0f}", delta=f"{pct:.2f}% (Maliyete Göre)")
+        c1.metric("Toplam Varlık", f"{sym}{t_v:,.0f}", delta=f"{pct:.2f}%")
+        c2.metric("Genel Kâr/Zarar", f"{sym}{t_p:,.0f}", delta=f"{pct:.2f}%")
 
         st.divider()
 
