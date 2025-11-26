@@ -847,12 +847,12 @@ st.markdown(
                 <div class="refresh-option" data-interval="300" onclick="selectRefreshInterval(300)" style="background: {'rgba(107, 127, 215, 0.3)' if current_interval == 300 else 'rgba(255, 255, 255, 0.05)'}; border: 1px solid {'#6b7fd7' if current_interval == 300 else '#2f3440'}; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: {'#ffffff' if current_interval == 300 else '#b0b3c0'}; cursor: pointer; text-align: center; font-weight: {'700' if current_interval == 300 else '400'}; transition: all 0.2s ease; margin-bottom: 4px;">
                     5 Dakika
                 </div>
-                {'<div onclick="selectRefreshInterval(null)" style="background: rgba(255, 82, 82, 0.1); border: 1px solid #ff5252; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #ff5252; cursor: pointer; text-align: center; font-weight: 700; transition: all 0.2s ease;">Kapat</div>' if current_interval else ''}
+                <div onclick="selectRefreshInterval(null)" style="background: rgba(255, 82, 82, 0.1); border: 1px solid #ff5252; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #ff5252; cursor: pointer; text-align: center; font-weight: 700; transition: all 0.2s ease;">Kapat</div>
             </div>
             
             <!-- Geri Sayım Göstergesi -->
             <div id="countdown-display" style="text-align: center; font-size: 11px; color: #6b7fd7; font-weight: 600; min-height: 18px; margin-top: 6px; padding-top: 4px;">
-                {'<span id="countdown-text" style="display: inline-block; background: rgba(107, 127, 215, 0.15); padding: 2px 8px; border-radius: 4px;">Yükleniyor...</span>' if current_interval else ''}
+                <span id="countdown-text" style="display: inline-block; background: rgba(107, 127, 215, 0.15); padding: 2px 8px; border-radius: 4px;">Yükleniyor...</span>
             </div>
         </div>
     </div>
@@ -892,52 +892,53 @@ st.markdown(
     (function() {{
         const interval = {current_interval if current_interval else 'null'};
         const startTime = {current_start_time if current_start_time else 'null'};
+        const countdownText = document.getElementById('countdown-text');
         
-        if (interval && startTime) {{
-            const countdownText = document.getElementById('countdown-text');
-            if (countdownText) {{
-                function updateCountdown() {{
-                    const now = Math.floor(Date.now() / 1000);
-                    const elapsed = now - startTime;
-                    const remaining = interval - elapsed;
-                    
-                    if (remaining > 0) {{
-                        countdownText.textContent = remaining + 's';
-                        countdownText.style.color = '#6b7fd7';
-                    }} else {{
-                        countdownText.textContent = 'Yenileniyor...';
-                        countdownText.style.color = '#9da1b3';
-                        // Geri sayım bitti, sayfayı yenile
-                        setTimeout(function() {{
-                            if (window.parent && window.parent !== window) {{
-                                try {{
-                                    window.parent.postMessage({{type: 'streamlit:rerun'}}, '*');
-                                }} catch(e) {{
-                                    window.location.reload();
-                                }}
-                            }} else {{
+        if (interval && startTime && countdownText) {{
+            function updateCountdown() {{
+                const now = Math.floor(Date.now() / 1000);
+                const elapsed = now - startTime;
+                const remaining = interval - elapsed;
+                
+                if (remaining > 0) {{
+                    countdownText.textContent = remaining + 's';
+                    countdownText.style.color = '#6b7fd7';
+                }} else {{
+                    countdownText.textContent = 'Yenileniyor...';
+                    countdownText.style.color = '#9da1b3';
+                    // Geri sayım bitti, sayfayı yenile
+                    setTimeout(function() {{
+                        if (window.parent && window.parent !== window) {{
+                            try {{
+                                window.parent.postMessage({{type: 'streamlit:rerun'}}, '*');
+                            }} catch(e) {{
                                 window.location.reload();
                             }}
-                        }}, 500);
-                    }}
+                        }} else {{
+                            window.location.reload();
+                        }}
+                    }}, 500);
                 }}
-                
-                // Hemen güncelle
-                updateCountdown();
-                
-                // Her saniye güncelle
-                const timer = setInterval(function() {{
-                    updateCountdown();
-                    const now = Math.floor(Date.now() / 1000);
-                    const elapsed = now - startTime;
-                    if (elapsed >= interval) {{
-                        clearInterval(timer);
-                    }}
-                }}, 1000);
             }}
+            
+            // Hemen güncelle
+            updateCountdown();
+            
+            // Her saniye güncelle
+            const timer = setInterval(function() {{
+                updateCountdown();
+                const now = Math.floor(Date.now() / 1000);
+                const elapsed = now - startTime;
+                if (elapsed >= interval) {{
+                    clearInterval(timer);
+                }}
+            }}, 1000);
+        }} else if (countdownText) {{
+            // Interval yoksa gizle veya boş göster
+            countdownText.style.display = 'none';
         }}
     }})();
-    ''' if current_interval and current_start_time else ''}
+    '''
     </script>
     """,
     unsafe_allow_html=True
