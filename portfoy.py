@@ -396,6 +396,97 @@ st.markdown(
         margin-top: 4px;
     }
     
+    /* Günlük Kazanan/Kaybeden Kartları */
+    .daily-movers-section {
+        width: 100%;
+        margin: 10px 0 30px;
+    }
+    .daily-movers-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+    }
+    .daily-movers-card {
+        background: linear-gradient(135deg, #1b1f2b 0%, #10131b 100%);
+        border-radius: 16px;
+        border: 1px solid #2f3440;
+        padding: 18px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    }
+    .daily-movers-card.positive-card {
+        border-top: 3px solid #00e676;
+    }
+    .daily-movers-card.negative-card {
+        border-top: 3px solid #ff5252;
+    }
+    .daily-movers-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        font-weight: 800;
+        font-size: 16px;
+        color: #ffffff;
+    }
+    .daily-movers-chip {
+        background: rgba(255, 255, 255, 0.08);
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #b6bad3;
+    }
+    .daily-movers-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .daily-mover-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .daily-mover-row.positive {
+        border-left: 3px solid rgba(0, 230, 118, 0.7);
+    }
+    .daily-mover-row.negative {
+        border-left: 3px solid rgba(255, 82, 82, 0.7);
+    }
+    .daily-mover-symbol {
+        font-size: 16px;
+        font-weight: 800;
+        color: #ffffff;
+    }
+    .daily-mover-change {
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+    }
+    .daily-mover-row.positive .daily-mover-change {
+        color: #00e676;
+    }
+    .daily-mover-row.negative .daily-mover-change {
+        color: #ff5252;
+    }
+    .daily-mover-pl {
+        font-size: 13px;
+        color: #b6bad3;
+        font-weight: 600;
+    }
+    .daily-mover-empty {
+        font-size: 13px;
+        color: #8f93a6;
+        text-align: center;
+        padding: 12px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
+    }
+    
     /* Modern Navigation Menu Styling */
     div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stHorizontalBlock"]) {
         background: transparent !important;
@@ -1835,6 +1926,97 @@ def render_kpi_sparkline(values):
     )
     return fig
 
+
+def _compute_daily_pct(df):
+    """Safely compute günlük yüzde değişimi for hareket listesi."""
+    if df is None or df.empty:
+        return pd.DataFrame()
+    required_cols = {"Kod", "Değer", "Gün. Kâr/Zarar"}
+    if not required_cols.issubset(df.columns):
+        return pd.DataFrame()
+
+    work = df.copy()
+    work["Günlük %"] = 0.0
+    safe_val = work["Değer"] - work["Gün. Kâr/Zarar"]
+    non_zero = safe_val.notna() & (safe_val != 0)
+    if non_zero.any():
+        work.loc[non_zero, "Günlük %"] = (
+            work.loc[non_zero, "Gün. Kâr/Zarar"] / safe_val[non_zero]
+        ) * 100
+    work["Günlük %"] = work["Günlük %"].fillna(0.0)
+    return work
+
+
+def get_daily_movers(df, top_n=5):
+    """Return top gainers/losers DataFrames according to günlük yüzde."""
+    enriched = _compute_daily_pct(df)
+    if enriched.empty:
+        return pd.DataFrame(), pd.DataFrame()
+    winners = enriched.sort_values("Günlük %", ascending=False).head(top_n)
+    losers = enriched.sort_values("Günlük %", ascending=True).head(top_n)
+    return winners, losers
+
+
+def render_daily_movers_section(df, currency_symbol, top_n=5):
+    """Visual block that highlights günlük kazanan ve kaybedenler."""
+    winners, losers = get_daily_movers(df, top_n=top_n)
+    if winners.empty and losers.empty:
+        return
+
+    def _build_rows(dataframe):
+        if dataframe.empty:
+            return '<div class="daily-mover-empty">Veri bulunamadı.</div>'
+        rows = []
+        for _, row in dataframe.iterrows():
+            change_pct = float(row.get("Günlük %", 0.0))
+            change_val = float(row.get("Gün. Kâr/Zarar", 0.0))
+            code = row.get("Kod", "—")
+            direction = "positive" if change_pct >= 0 else "negative"
+            rows.append(
+                f"""
+                <div class="daily-mover-row {direction}">
+                    <div class="daily-mover-symbol">{code}</div>
+                    <div class="daily-mover-change">{change_pct:+.2f}%</div>
+                    <div class="daily-mover-pl">{currency_symbol}{change_val:,.0f}</div>
+                </div>
+                """
+            )
+        return "".join(rows)
+
+    cards = []
+    sections = [
+        ("🏆 Günün Kazananları", winners, "positive-card"),
+        ("⚠️ Günün Kaybedenleri", losers, "negative-card"),
+    ]
+    for title, data, css_class in sections:
+        rows_html = _build_rows(data)
+        display_count = min(top_n, len(data)) if len(data) else top_n
+        cards.append(
+            f"""
+            <div class="daily-movers-card {css_class}">
+                <div class="daily-movers-card-header">
+                    <span>{title}</span>
+                    <span class="daily-movers-chip">Top {display_count}</span>
+                </div>
+                <div class="daily-movers-card-body">
+                    {rows_html}
+                </div>
+            </div>
+            """
+        )
+
+    st.subheader("🔥 Günün Kazananları / Kaybedenleri")
+    st.markdown(
+        f"""
+        <div class="daily-movers-section">
+            <div class="daily-movers-grid">
+                {''.join(cards)}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 # --- GÖRÜNÜM AYARI ---
 TOTAL_SPOT_DEGER = portfoy_only["Değer"].sum()
 st.markdown("---")
@@ -1929,6 +2111,8 @@ if selected == "Dashboard":
         )
 
         st.divider()
+        render_daily_movers_section(spot_only, sym)
+
         c_tree_1, c_tree_2 = st.columns([3, 1])
         with c_tree_1:
             st.subheader("🗺️ Portföy Isı Haritası")
