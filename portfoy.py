@@ -937,6 +937,78 @@ st.markdown(
             font-size: 10px !important;
         }
     }
+    
+    /* Modern Dataframe Stilleri */
+    [data-testid="stDataFrame"] {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    }
+    
+    /* Streamlit dataframe container */
+    [data-testid="stDataFrame"] > div {
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* Dataframe table genel stil */
+    [data-testid="stDataFrame"] table {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        background: linear-gradient(135deg, #1a1c24 0%, #0e1117 100%) !important;
+    }
+    
+    /* Dataframe başlıklar */
+    [data-testid="stDataFrame"] thead th {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        padding: 16px 12px !important;
+        background: linear-gradient(135deg, #232837 0%, #171b24 100%) !important;
+        color: #b0b3c0 !important;
+        border-bottom: 2px solid #6b7fd7 !important;
+    }
+    
+    /* Dataframe hücreler */
+    [data-testid="stDataFrame"] tbody td {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        padding: 14px 12px !important;
+        color: #ffffff !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    /* Dataframe satır hover */
+    [data-testid="stDataFrame"] tbody tr {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        background: transparent !important;
+    }
+    
+    [data-testid="stDataFrame"] tbody tr:hover {
+        background: rgba(107, 127, 215, 0.08) !important;
+        transform: scale(1.005) !important;
+        box-shadow: 0 2px 8px rgba(107, 127, 215, 0.2) !important;
+    }
+    
+    /* Dataframe alternatif satırlar */
+    [data-testid="stDataFrame"] tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.02) !important;
+    }
+    
+    [data-testid="stDataFrame"] tbody tr:nth-child(even):hover {
+        background: rgba(107, 127, 215, 0.08) !important;
+    }
+    
+    /* Sayısal değerler için özel stil */
+    [data-testid="stDataFrame"] tbody td[data-type="number"] {
+        font-weight: 600 !important;
+        font-variant-numeric: tabular-nums !important;
+        text-align: right !important;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -1047,6 +1119,71 @@ LIGHT_OVERRIDE_CSS = """
     .news-filter-chip.active {
         background: linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%);
         color: #ffffff;
+    }
+    
+    /* Modern Dataframe Stilleri - Light Tema */
+    [data-testid="stDataFrame"] {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    }
+    
+    [data-testid="stDataFrame"] > div {
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+    }
+    
+    [data-testid="stDataFrame"] table {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%) !important;
+    }
+    
+    [data-testid="stDataFrame"] thead th {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        padding: 16px 12px !important;
+        background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%) !important;
+        color: #4b5563 !important;
+        border-bottom: 2px solid #6b7fd7 !important;
+    }
+    
+    [data-testid="stDataFrame"] tbody td {
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        padding: 14px 12px !important;
+        color: #111827 !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    [data-testid="stDataFrame"] tbody tr {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        background: transparent !important;
+    }
+    
+    [data-testid="stDataFrame"] tbody tr:hover {
+        background: rgba(107, 127, 215, 0.08) !important;
+        transform: scale(1.005) !important;
+        box-shadow: 0 2px 8px rgba(107, 127, 215, 0.15) !important;
+    }
+    
+    [data-testid="stDataFrame"] tbody tr:nth-child(even) {
+        background: rgba(0, 0, 0, 0.02) !important;
+    }
+    
+    [data-testid="stDataFrame"] tbody tr:nth-child(even):hover {
+        background: rgba(107, 127, 215, 0.08) !important;
+    }
+    
+    [data-testid="stDataFrame"] tbody td[data-type="number"] {
+        font-weight: 600 !important;
+        font-variant-numeric: tabular-nums !important;
+        text-align: right !important;
     }
 </style>
 """

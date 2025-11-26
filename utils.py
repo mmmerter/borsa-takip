@@ -115,8 +115,11 @@ def smart_parse(text_val):
 
 def styled_dataframe(df: pd.DataFrame):
     """
-    Dataframe için ortak stil:
-    - Yazılar daha büyük ve kalın
+    Dataframe için modern stil:
+    - Modern Inter font ailesi
+    - Dengeli font boyutları ve ağırlıkları
+    - Hover efektleri ve yumuşak geçişler
+    - Gradient arka planlar
     - Kâr / Zarar kolonları: pozitif yeşil, negatif kırmızı
     """
     if df.empty:
@@ -130,28 +133,81 @@ def styled_dataframe(df: pd.DataFrame):
 
     styler = df.style.format(format_dict)
 
-    # Genel font boyutu & kalınlık
+    # Modern tablo stilleri
     styler = styler.set_table_styles(
         [
+            # Tablo genel stil
+            {
+                "selector": "table",
+                "props": [
+                    ("border-collapse", "separate"),
+                    ("border-spacing", "0"),
+                    ("width", "100%"),
+                    ("border-radius", "12px"),
+                    ("overflow", "hidden"),
+                    ("box-shadow", "0 4px 12px rgba(0, 0, 0, 0.3)"),
+                    ("background", "linear-gradient(135deg, #1a1c24 0%, #0e1117 100%)"),
+                ],
+            },
+            # Başlık hücresi stil
             {
                 "selector": "th",
                 "props": [
-                    ("font-size", "22px"),
-                    ("font-weight", "900"),
+                    ("font-family", "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"),
+                    ("font-size", "14px"),
+                    ("font-weight", "700"),
                     ("text-align", "center"),
+                    ("padding", "16px 12px"),
+                    ("background", "linear-gradient(135deg, #232837 0%, #171b24 100%)"),
+                    ("color", "#b0b3c0"),
+                    ("text-transform", "uppercase"),
+                    ("letter-spacing", "0.5px"),
+                    ("border-bottom", "2px solid #6b7fd7"),
+                    ("position", "sticky"),
+                    ("top", "0"),
+                    ("z-index", "10"),
                 ],
             },
+            # Veri hücresi stil
             {
                 "selector": "td",
                 "props": [
-                    ("font-size", "20px"),
-                    ("font-weight", "900"),
+                    ("font-family", "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"),
+                    ("font-size", "15px"),
+                    ("font-weight", "500"),
+                    ("padding", "14px 12px"),
+                    ("color", "#ffffff"),
+                    ("border-bottom", "1px solid rgba(255, 255, 255, 0.05)"),
+                    ("transition", "all 0.3s ease"),
+                ],
+            },
+            # Satır hover efekti
+            {
+                "selector": "tbody tr",
+                "props": [
+                    ("transition", "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"),
+                    ("background", "transparent"),
+                ],
+            },
+            {
+                "selector": "tbody tr:hover",
+                "props": [
+                    ("background", "rgba(107, 127, 215, 0.08)"),
+                    ("transform", "scale(1.01)"),
+                    ("box-shadow", "0 2px 8px rgba(107, 127, 215, 0.2)"),
+                ],
+            },
+            # Alternatif satır rengi
+            {
+                "selector": "tbody tr:nth-child(even)",
+                "props": [
+                    ("background", "rgba(255, 255, 255, 0.02)"),
                 ],
             },
         ]
     )
 
-    # Sayısal kolonları sağa hizala
+    # Sayısal kolonları sağa hizala ve daha belirgin yap
     num_cols = [
         col
         for col in df.columns
@@ -160,28 +216,33 @@ def styled_dataframe(df: pd.DataFrame):
     if num_cols:
         styler = styler.set_properties(
             subset=num_cols,
-            **{"text-align": "right"},
+            **{
+                "text-align": "right",
+                "font-weight": "600",
+                "font-variant-numeric": "tabular-nums",
+            },
         )
 
-    # Kâr / Zarar ve yüzde kolonlarını renklendir
+    # Kâr / Zarar ve yüzde kolonlarını modern renklerle renklendir
     def color_pnl(val):
         try:
             v = float(val)
         except Exception:
             return ""
         if v > 0:
-            return "color: #00e676;"  # yeşil
+            return "color: #00e676; font-weight: 700; text-shadow: 0 0 8px rgba(0, 230, 118, 0.3);"
         elif v < 0:
-            return "color: #ff5252;"  # kırmızı
+            return "color: #ff5252; font-weight: 700; text-shadow: 0 0 8px rgba(255, 82, 82, 0.3);"
         else:
-            return "color: #cccccc;"  # nötr gri
+            return "color: #9da1b3; font-weight: 500;"
 
     pnl_cols = [
         "Top. Kâr/Zarar",
         "Top. %",
         "Gün. Kâr/Zarar",
         "Kâr/Zarar",
-        "Değişim %",  # İzleme listesi için
+        "Değişim %",
+        "Pay (%)",
     ]
     for col in pnl_cols:
         if col in df.columns:
