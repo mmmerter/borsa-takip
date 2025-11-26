@@ -128,11 +128,69 @@ with theme_selector_cols[1]:
         if "last_refresh_time" not in st.session_state:
             st.session_state["last_refresh_time"] = time.time()
         
+        # Süre değiştiğinde yenileme zamanını sıfırla
+        if "previous_refresh_interval" not in st.session_state:
+            st.session_state["previous_refresh_interval"] = refresh_interval
+        elif st.session_state["previous_refresh_interval"] != refresh_interval:
+            st.session_state["last_refresh_time"] = time.time()
+            st.session_state["previous_refresh_interval"] = refresh_interval
+        
         elapsed = int(time.time() - st.session_state["last_refresh_time"])
         next_refresh = refresh_interval - elapsed
         
         if next_refresh > 0:
-            st.caption(f"⏱️ {next_refresh}s sonra yenilenecek")
+            # JavaScript ile gerçek zamanlı geri sayım ekle
+            st.markdown(
+                f"""
+                <div id="refresh-countdown" style="font-size: 0.875rem; color: #9da1b3; margin-top: 0.25rem; margin-bottom: 0.5rem;">
+                    ⏱️ <span id="countdown-value">{next_refresh}</span>s sonra yenilenecek
+                </div>
+                <script>
+                (function() {{
+                    let remainingSeconds = {next_refresh};
+                    const countdownElement = document.getElementById('countdown-value');
+                    
+                    // Mevcut timer'ı temizle (çoklu timer'ı önlemek için)
+                    if (window.countdownTimer) {{
+                        clearInterval(window.countdownTimer);
+                    }}
+                    
+                    // Geri sayım timer'ı
+                    window.countdownTimer = setInterval(function() {{
+                        remainingSeconds--;
+                        
+                        if (countdownElement) {{
+                            countdownElement.textContent = remainingSeconds;
+                        }}
+                        
+                        if (remainingSeconds <= 0) {{
+                            clearInterval(window.countdownTimer);
+                            // Sayfayı yenile
+                            if (window.parent && window.parent !== window) {{
+                                try {{
+                                    window.parent.postMessage({{
+                                        type: 'streamlit:rerun'
+                                    }}, '*');
+                                }} catch(e) {{
+                                    window.location.reload();
+                                }}
+                            }} else {{
+                                window.location.reload();
+                            }}
+                        }}
+                    }}, 1000);
+                    
+                    // Sayfa kapatılırken timer'ı temizle
+                    window.addEventListener('beforeunload', function() {{
+                        if (window.countdownTimer) {{
+                            clearInterval(window.countdownTimer);
+                        }}
+                    }});
+                }})();
+                </script>
+                """,
+                unsafe_allow_html=True
+            )
         else:
             # Yenileme zamanı geldi
             st.session_state["last_refresh_time"] = time.time()
