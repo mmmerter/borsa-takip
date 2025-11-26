@@ -58,6 +58,7 @@ from charts import (
     render_pazar_tab,
     render_detail_view,
     get_historical_chart,
+    get_comparison_chart,
 )
 
 # --- SAYFA AYARLARI ---
@@ -1840,6 +1841,26 @@ if selected == "Dashboard":
                 )
             else:
                 st.info("Sektör bilgisi bulunamadı.")
+        
+        st.divider()
+
+        # --- KARŞILAŞTIRMALI GRAFİKLER ---
+        st.subheader("📊 Portföy Karşılaştırmaları")
+        
+        # Buton switch'li seçim
+        comparison_options = ["BIST 100", "Altın", "SP500", "Enflasyon"]
+        selected_comparison = st.radio(
+            "Karşılaştırma:",
+            comparison_options,
+            horizontal=True,
+            key="comparison_selector",
+        )
+        
+        comparison_chart = get_comparison_chart(spot_only, USD_TRY, GORUNUM_PB, selected_comparison)
+        if comparison_chart:
+            st.plotly_chart(comparison_chart, use_container_width=True)
+        else:
+            st.info(f"{selected_comparison} karşılaştırması için veri hazırlanıyor...")
         
         st.divider()
 
