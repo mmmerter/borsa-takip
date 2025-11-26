@@ -115,17 +115,17 @@ def smart_parse(text_val):
 
 def styled_dataframe(df: pd.DataFrame):
     """
-    Dataframe için modern stil:
-    - Modern Inter font ailesi
-    - Dengeli font boyutları ve ağırlıkları
-    - Hover efektleri ve yumuşak geçişler
-    - Gradient arka planlar
-    - Kâr / Zarar kolonları: pozitif yeşil, negatif kırmızı
+    Dataframe için ultra-modern stil:
+    - Modern Inter font ailesi (daha büyük ve okunabilir)
+    - Profesyonel hizalama ve spacing
+    - Zenginleştirilmiş hover efektleri
+    - Premium gradient arka planlar
+    - Kâr / Zarar kolonları: parlak renkler ve glow efektleri
     """
     if df.empty:
         return df
 
-    # Sayısal kolon formatı
+    # Sayısal kolon formatı - büyük sayılar için K/M gösterimi
     format_dict = {}
     for col in df.columns:
         if df[col].dtype in ["float64", "float32", "int64", "int32"]:
@@ -133,75 +133,88 @@ def styled_dataframe(df: pd.DataFrame):
 
     styler = df.style.format(format_dict)
 
-    # Modern tablo stilleri
+    # Ultra-modern tablo stilleri
     styler = styler.set_table_styles(
         [
-            # Tablo genel stil
+            # Tablo genel stil - daha yumuşak köşeler ve derin gölgeler
             {
                 "selector": "table",
                 "props": [
                     ("border-collapse", "separate"),
                     ("border-spacing", "0"),
                     ("width", "100%"),
-                    ("border-radius", "12px"),
+                    ("border-radius", "16px"),
                     ("overflow", "hidden"),
-                    ("box-shadow", "0 4px 12px rgba(0, 0, 0, 0.3)"),
-                    ("background", "linear-gradient(135deg, #1a1c24 0%, #0e1117 100%)"),
+                    ("box-shadow", "0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(107, 127, 215, 0.1)"),
+                    ("background", "linear-gradient(135deg, #1a1e2e 0%, #0f1318 100%)"),
                 ],
             },
-            # Başlık hücresi stil
+            # Başlık hücresi stil - daha büyük ve belirgin
             {
                 "selector": "th",
                 "props": [
-                    ("font-family", "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"),
-                    ("font-size", "14px"),
-                    ("font-weight", "700"),
+                    ("font-family", "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"),
+                    ("font-size", "13px"),
+                    ("font-weight", "800"),
                     ("text-align", "center"),
-                    ("padding", "16px 12px"),
-                    ("background", "linear-gradient(135deg, #232837 0%, #171b24 100%)"),
-                    ("color", "#b0b3c0"),
+                    ("padding", "18px 16px"),
+                    ("background", "linear-gradient(135deg, #2a3142 0%, #1d2230 100%)"),
+                    ("color", "#c5c9d6"),
                     ("text-transform", "uppercase"),
-                    ("letter-spacing", "0.5px"),
-                    ("border-bottom", "2px solid #6b7fd7"),
+                    ("letter-spacing", "1px"),
+                    ("border-bottom", "3px solid #6b7fd7"),
                     ("position", "sticky"),
                     ("top", "0"),
                     ("z-index", "10"),
+                    ("box-shadow", "0 2px 8px rgba(0, 0, 0, 0.2)"),
                 ],
             },
-            # Veri hücresi stil
+            # Veri hücresi stil - daha büyük fontlar ve premium hissiyat
             {
                 "selector": "td",
                 "props": [
-                    ("font-family", "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"),
+                    ("font-family", "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"),
                     ("font-size", "15px"),
                     ("font-weight", "500"),
-                    ("padding", "14px 12px"),
-                    ("color", "#ffffff"),
-                    ("border-bottom", "1px solid rgba(255, 255, 255, 0.05)"),
-                    ("transition", "all 0.3s ease"),
+                    ("padding", "16px 16px"),
+                    ("color", "#f0f2f7"),
+                    ("border-bottom", "1px solid rgba(255, 255, 255, 0.06)"),
+                    ("transition", "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"),
+                    ("line-height", "1.6"),
                 ],
             },
-            # Satır hover efekti
+            # Satır hover efekti - daha parlak ve interaktif
             {
                 "selector": "tbody tr",
                 "props": [
-                    ("transition", "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"),
+                    ("transition", "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"),
                     ("background", "transparent"),
+                    ("cursor", "pointer"),
                 ],
             },
             {
                 "selector": "tbody tr:hover",
                 "props": [
-                    ("background", "rgba(107, 127, 215, 0.08)"),
-                    ("transform", "scale(1.01)"),
-                    ("box-shadow", "0 2px 8px rgba(107, 127, 215, 0.2)"),
+                    ("background", "linear-gradient(90deg, rgba(107, 127, 215, 0.12) 0%, rgba(139, 154, 255, 0.08) 100%)"),
+                    ("transform", "translateX(4px)"),
+                    ("box-shadow", "inset 4px 0 0 #6b7fd7, 0 4px 12px rgba(107, 127, 215, 0.15)"),
                 ],
             },
-            # Alternatif satır rengi
+            # Alternatif satır rengi - daha belirgin
             {
                 "selector": "tbody tr:nth-child(even)",
                 "props": [
-                    ("background", "rgba(255, 255, 255, 0.02)"),
+                    ("background", "rgba(255, 255, 255, 0.03)"),
+                ],
+            },
+            # İlk kolon (genelde Kod/Varlık) - daha belirgin
+            {
+                "selector": "td:first-child",
+                "props": [
+                    ("font-weight", "700"),
+                    ("font-size", "16px"),
+                    ("color", "#ffffff"),
+                    ("letter-spacing", "0.3px"),
                 ],
             },
         ]
@@ -220,29 +233,32 @@ def styled_dataframe(df: pd.DataFrame):
                 "text-align": "right",
                 "font-weight": "600",
                 "font-variant-numeric": "tabular-nums",
+                "font-feature-settings": "'tnum' 1",
             },
         )
 
-    # Kâr / Zarar ve yüzde kolonlarını modern renklerle renklendir
+    # Kâr / Zarar ve yüzde kolonlarını ultra-modern renklerle renklendir
     def color_pnl(val):
         try:
             v = float(val)
         except Exception:
             return ""
         if v > 0:
-            return "color: #00e676; font-weight: 700; text-shadow: 0 0 8px rgba(0, 230, 118, 0.3);"
+            return "color: #00e676; font-weight: 800; text-shadow: 0 0 12px rgba(0, 230, 118, 0.4); font-size: 16px;"
         elif v < 0:
-            return "color: #ff5252; font-weight: 700; text-shadow: 0 0 8px rgba(255, 82, 82, 0.3);"
+            return "color: #ff5252; font-weight: 800; text-shadow: 0 0 12px rgba(255, 82, 82, 0.4); font-size: 16px;"
         else:
-            return "color: #9da1b3; font-weight: 500;"
+            return "color: #9da1b3; font-weight: 600;"
 
+    # Tüm olası K/Z ve yüzde kolonları (hem eski hem yeni isimler)
     pnl_cols = [
-        "Top. Kâr/Zarar",
-        "Top. %",
-        "Gün. Kâr/Zarar",
-        "Kâr/Zarar",
-        "Değişim %",
-        "Pay (%)",
+        "Top. Kâr/Zarar", "📈 Toplam K/Z",
+        "Top. %", "📊 Getiri %",
+        "Gün. Kâr/Zarar", "🔄 Günlük K/Z",
+        "Kâr/Zarar", "📊 Kâr/Zarar",
+        "Değişim %", "📊 Performans",
+        "Pay (%)", "📊 Portföy Payı (%)",
+        "⚡ Günlük Değişim %",
     ]
     for col in pnl_cols:
         if col in df.columns:
