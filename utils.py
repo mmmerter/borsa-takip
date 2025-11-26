@@ -64,6 +64,11 @@ def get_yahoo_symbol(kod, pazar):
         return f"{kod}.IS" if not kod.endswith(".IS") else kod
     elif "KRIPTO" in pazar:
         return f"{kod}-USD" if not kod.endswith("-USD") else kod
+    elif "VADELI" in pazar.upper() or "BINANCE" in pazar.upper() or "FUTURES" in pazar.upper():
+        # Binance USDT-M futures için: BTC -> BTCUSDT formatına çevir
+        if not kod.endswith("USDT"):
+            return f"{kod}USDT"
+        return kod
     elif "EMTIA" in pazar:
         # Gramlar için Ons sembolü döndür, hesaplama charts.py'da yapılacak
         if "Gram Altın" in kod or "GRAM ALTIN" in kod:

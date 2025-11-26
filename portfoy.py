@@ -25,6 +25,8 @@ from data_loader import (
     get_financial_news,
     get_tefas_data,
     get_binance_positions,
+    get_binance_futures_price,
+    sync_binance_futures_to_portfolio,
     read_portfolio_history,
     write_portfolio_history,
     get_timeframe_changes,
@@ -774,12 +776,25 @@ def render_news_section(name, key):
 
 
 # --- ANA DATA ---
+# Binance Futures otomatik senkronizasyonu
+if "binance_sync_done" not in st.session_state:
+    with st.spinner("Binance Futures pozisyonları senkronize ediliyor..."):
+        sync_count, sync_error = sync_binance_futures_to_portfolio()
+        if sync_error:
+            # Hata varsa sadece log'la, kullanıcıyı rahatsız etme
+            pass
+        else:
+            if sync_count > 0:
+                st.session_state["binance_sync_done"] = True
+                # Cache'i temizle ki yeni veriler yüklensin
+                get_data_from_sheet.clear()
+
 portfoy_df = get_data_from_sheet()
 
 # --- HEADER (B ŞIKKI – Hafif renkli kart + Para Birimi) ---
 with st.container():
     st.markdown('<div class="kral-header">', unsafe_allow_html=True)
-    c_title, c_toggle = st.columns([3, 1])
+    c_title, c_toggle, c_sync = st.columns([2.5, 1, 0.5])
     with c_title:
         st.markdown(
             "<div class='kral-header-title'>🏦 MERTER VARLIK TAKİP BOTU</div>",
@@ -792,6 +807,19 @@ with st.container():
     with c_toggle:
         st.write("")
         GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True)
+    with c_sync:
+        st.write("")
+        if st.button("🔄", help="Binance Futures Senkronizasyonu", key="manual_sync"):
+            sync_binance_futures_to_portfolio.clear()  # Cache'i temizle
+            sync_count, sync_error = sync_binance_futures_to_portfolio()
+            if sync_error:
+                st.error(sync_error)
+            else:
+                st.success(f"{sync_count} pozisyon senkronize edildi!")
+                st.session_state["binance_sync_done"] = True
+                get_data_from_sheet.clear()
+                time.sleep(1)
+                st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
 USD_TRY = get_usd_try()
@@ -1080,6 +1108,7 @@ def run_analysis(df, usd_try_rate, view_currency):
     df_work.loc[df_work["Pazar"].str.contains("FON", case=False, na=False), "Sektör"] = "Yatırım Fonu"
     df_work.loc[df_work["Pazar"].str.contains("NAKIT", case=False, na=False), "Sektör"] = "Nakit Varlık"
     df_work.loc[df_work["Pazar"].str.contains("EMTIA", case=False, na=False), "Sektör"] = "Emtia"
+    df_work.loc[df_work["Pazar"].str.contains("VADELI|BINANCE|FUTURES", case=False, na=False), "Sektör"] = "Kripto Vadeli"
     
     # Batch sektör bilgisi çekme
     if bist_abd_mask.any():
@@ -1091,6 +1120,7 @@ def run_analysis(df, usd_try_rate, view_currency):
     bist_abd_symbols = []
     crypto_symbols = []
     emtia_symbols = []
+    binance_futures_symbols = []  # Binance USDT-M futures için
     symbol_map = {}  # idx -> (symbol, asset_type) mapping
     
     for idx, row in df_work.iterrows():
@@ -1110,6 +1140,11 @@ def run_analysis(df, usd_try_rate, view_currency):
             if "GC=F" not in emtia_symbols:
                 emtia_symbols.append("GC=F")
             symbol_map[idx] = ("GC=F", "EMTIA")
+        elif "VADELI" in pazar.upper() or "BINANCE" in pazar.upper() or "FUTURES" in pazar.upper():
+            # Binance USDT-M futures
+            if symbol not in binance_futures_symbols:
+                binance_futures_symbols.append(symbol)
+            symbol_map[idx] = (symbol, "BINANCE_FUTURES")
         elif "KRIPTO" in pazar.upper():
             if symbol not in crypto_symbols:
                 crypto_symbols.append(symbol)
@@ -1130,6 +1165,18 @@ def run_analysis(df, usd_try_rate, view_currency):
     
     # Varlık türüne göre farklı cache süreleri ile fiyat çekme
     batch_prices = {}
+    
+    # Binance USDT-M Futures: 30 saniye cache (get_binance_futures_price içinde)
+    if binance_futures_symbols:
+        for sym in binance_futures_symbols:
+            try:
+                curr_price, price_change, price_change_pct = get_binance_futures_price(sym)
+                if curr_price is not None and curr_price > 0:
+                    # Önceki gün fiyatını hesapla (24 saatlik değişimden)
+                    prev_price = curr_price - price_change if price_change else curr_price
+                    batch_prices[sym] = {"curr": curr_price, "prev": prev_price}
+            except Exception:
+                pass
     
     # BIST ve ABD: 5 dakika cache, borsa kapalıyken de çalışır
     if bist_abd_symbols:
@@ -1250,7 +1297,26 @@ def run_analysis(df, usd_try_rate, view_currency):
             else:
                 if idx in symbol_map:
                     sym_key, asset_type = symbol_map[idx]
-                    if sym_key in batch_prices:
+                    if asset_type == "BINANCE_FUTURES":
+                        # Binance USDT-M futures için özel işleme
+                        if sym_key in batch_prices:
+                            p_data = batch_prices[sym_key]
+                            curr = p_data["curr"]
+                            prev = p_data["prev"]
+                        else:
+                            # Batch'te yoksa, tekrar dene
+                            try:
+                                curr_price, price_change, price_change_pct = get_binance_futures_price(sym_key)
+                                if curr_price is not None and curr_price > 0:
+                                    curr = curr_price
+                                    prev = curr_price - price_change if price_change else curr_price
+                                else:
+                                    curr = maliyet if maliyet > 0 else 0
+                                    prev = curr
+                            except Exception:
+                                curr = maliyet if maliyet > 0 else 0
+                                prev = curr
+                    elif sym_key in batch_prices:
                         p_data = batch_prices[sym_key]
                         curr = p_data["curr"]
                         prev = p_data["prev"]

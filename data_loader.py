@@ -479,6 +479,61 @@ def get_tickers_data(df_portfolio, usd_try):
 def get_binance_pnl_stats(exchange):
     return 0,0,0,0 # Stub
 
+@st.cache_data(ttl=30)  # 30 saniye cache - futures fiyatları sık değişir
+def get_binance_futures_price(symbol):
+    """
+    Binance USDT-M futures için public fiyat verisi çeker.
+    Symbol formatı: BTCUSDT, ETHUSDT, vb.
+    Returns: (current_price, price_change_24h, price_change_pct_24h) veya (None, None, None) hata durumunda
+    """
+    try:
+        # Binance Futures public API endpoint
+        url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
+        params = {"symbol": symbol.upper()}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json"
+        }
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            current_price = float(data.get("lastPrice", 0))
+            price_change = float(data.get("priceChange", 0))
+            price_change_pct = float(data.get("priceChangePercent", 0))
+            return current_price, price_change, price_change_pct
+        else:
+            return None, None, None
+    except Exception as e:
+        # Hata durumunda None döndür
+        return None, None, None
+
+@st.cache_data(ttl=300)  # 5 dakika cache - sembol listesi çok sık değişmez
+def get_binance_futures_symbols():
+    """
+    Binance USDT-M futures için tüm aktif sembolleri çeker.
+    Returns: List of symbols (e.g., ['BTCUSDT', 'ETHUSDT', ...])
+    """
+    try:
+        url = "https://fapi.binance.com/fapi/v1/exchangeInfo"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json"
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            symbols = []
+            for s in data.get("symbols", []):
+                if s.get("status") == "TRADING" and s.get("contractType") == "PERPETUAL":
+                    symbols.append(s.get("symbol"))
+            return sorted(symbols)
+        else:
+            return []
+    except Exception:
+        return []
+
 def get_binance_positions(api_key, api_secret):
     try:
         exchange = ccxt.binance({"apiKey": api_key, "secret": api_secret, "options": {"defaultType": "future"}})
@@ -490,6 +545,107 @@ def get_binance_positions(api_key, api_secret):
                 active.append({"Sembol": pos["symbol"], "Yön": "🟢" if float(pos["info"]["positionAmt"]) > 0 else "🔴", "PNL": float(pos["unrealizedPnl"])})
         return {"wallet": balance["total"]["USDT"]}, pd.DataFrame(active)
     except Exception as e: return None, str(e)
+
+@st.cache_data(ttl=60)  # 1 dakika cache - pozisyonlar sık değişebilir
+def sync_binance_futures_to_portfolio():
+    """
+    Binance USDT-M futures pozisyonlarını otomatik olarak portföye senkronize eder.
+    API key/secret Streamlit secrets'tan alınır: binance_api_key ve binance_api_secret
+    Returns: (success_count, error_message)
+    """
+    try:
+        # API credentials'ı secrets'tan al
+        try:
+            api_key = st.secrets.get("binance_api_key", "")
+            api_secret = st.secrets.get("binance_api_secret", "")
+        except Exception:
+            # Secrets yoksa sessizce çık
+            return 0, "Binance API bilgileri bulunamadı. Streamlit secrets'a 'binance_api_key' ve 'binance_api_secret' ekleyin."
+        
+        if not api_key or not api_secret:
+            return 0, "Binance API bilgileri eksik."
+        
+        # Binance'den pozisyonları çek
+        exchange = ccxt.binance({
+            "apiKey": api_key, 
+            "secret": api_secret, 
+            "options": {"defaultType": "future"},
+            "enableRateLimit": True
+        })
+        
+        positions = exchange.fetch_positions()
+        balance = exchange.fetch_balance()
+        
+        # Mevcut portföyü oku
+        portfoy_df = get_data_from_sheet()
+        
+        # Binance futures pozisyonlarını filtrele (sadece aktif olanlar)
+        binance_positions = []
+        for pos in positions:
+            position_amt = float(pos.get("info", {}).get("positionAmt", 0))
+            if position_amt != 0:
+                symbol = pos.get("symbol", "")
+                entry_price = float(pos.get("info", {}).get("entryPrice", 0))
+                mark_price = float(pos.get("markPrice", 0))
+                unrealized_pnl = float(pos.get("unrealizedPnl", 0))
+                
+                # Sembol formatını düzenle: BTCUSDT -> BTC
+                kod = symbol.replace("USDT", "") if symbol.endswith("USDT") else symbol
+                
+                binance_positions.append({
+                    "Kod": kod,
+                    "Pazar": "VADELI",
+                    "Adet": abs(position_amt),  # Mutlak değer (long/short ayrımı yapmıyoruz)
+                    "Maliyet": entry_price if entry_price > 0 else mark_price,
+                    "Tip": "Portfoy",
+                    "Notlar": f"Binance Futures - {'Long' if position_amt > 0 else 'Short'} - PNL: {unrealized_pnl:.2f} USDT"
+                })
+        
+        # Portföydeki mevcut Binance futures pozisyonlarını temizle
+        if not portfoy_df.empty:
+            # VADELI pazarındaki ve Notlar'ında "Binance Futures" geçen kayıtları sil
+            mask = (portfoy_df["Pazar"].astype(str).str.contains("VADELI|BINANCE|FUTURES", case=False, na=False)) | \
+                   (portfoy_df.get("Notlar", "").astype(str).str.contains("Binance Futures", case=False, na=False))
+            portfoy_df = portfoy_df[~mask].copy()
+        
+        # Yeni pozisyonları ekle
+        if binance_positions:
+            new_rows = pd.DataFrame(binance_positions)
+            portfoy_df = pd.concat([portfoy_df, new_rows], ignore_index=True)
+            save_data_to_sheet(portfoy_df)
+            # Cache'i temizle
+            get_data_from_sheet.clear()
+        
+        # USDT bakiyesini de nakit olarak ekle/güncelle
+        usdt_balance = balance.get("total", {}).get("USDT", 0)
+        if usdt_balance > 0:
+            # USDT nakit kontrolü - Binance'den gelen bakiyeyi güncelle
+            nakit_mask = (portfoy_df["Pazar"].astype(str).str.contains("NAKIT", case=False, na=False)) & \
+                         (portfoy_df["Kod"].astype(str).str.contains("USD", case=False, na=False)) & \
+                         (portfoy_df.get("Notlar", "").astype(str).str.contains("Binance Futures", case=False, na=False))
+            
+            if nakit_mask.any():
+                # Mevcut Binance USDT bakiyesini güncelle
+                portfoy_df.loc[nakit_mask, "Adet"] = usdt_balance
+            else:
+                # USDT yoksa ekle
+                usdt_row = pd.DataFrame([{
+                    "Kod": "USD",
+                    "Pazar": "NAKIT",
+                    "Adet": usdt_balance,
+                    "Maliyet": 1.0,
+                    "Tip": "Portfoy",
+                    "Notlar": "Binance Futures Bakiyesi"
+                }])
+                portfoy_df = pd.concat([portfoy_df, usdt_row], ignore_index=True)
+            
+            save_data_to_sheet(portfoy_df)
+            get_data_from_sheet.clear()
+        
+        return len(binance_positions), None
+        
+    except Exception as e:
+        return 0, f"Hata: {str(e)}"
 # ==========================================================
 #   KRAL ULTRA - Portföy Tarihsel Log & KPI Yardımcıları
 #   (charts.py içindeki import'ları karşılamak için)
