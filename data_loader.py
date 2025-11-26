@@ -11,6 +11,7 @@ import pandas as pd
 import re
 import unicodedata
 import socket
+import urllib.parse
 from utils import get_yahoo_symbol
 
 # Google Sheets / network işlemleri sonsuza kadar beklemesin diye global timeout
@@ -324,6 +325,97 @@ def get_financial_news(topic="finance"):
         feed = feedparser.parse(urls.get(topic, urls["BIST"]))
         return [{"title": e.title, "link": e.link, "date": e.published} for e in feed.entries[:10]]
     except: return []
+
+@st.cache_data(ttl=300)
+def get_portfolio_news(portfolio_df, watchlist_df=None):
+    """
+    Portföydeki ve izleme listesindeki varlıklar için haberleri çeker.
+    Her varlık için ayrı haberler çeker ve birleştirir.
+    """
+    all_news = []
+    seen_titles = set()  # Duplicate haberleri önlemek için
+    
+    # Portföy varlıkları
+    if portfolio_df is not None and not portfolio_df.empty:
+        portfolio_codes = portfolio_df["Kod"].unique().tolist()
+        for code in portfolio_codes:
+            try:
+                if pd.isna(code) or str(code).strip() == "":
+                    continue
+            except (TypeError, ValueError):
+                continue
+            code_str = str(code).strip()
+            # Özel durumlar için temizleme
+            if "Gram" in code_str or "GRAM" in code_str:
+                if "Altın" in code_str or "ALTIN" in code_str:
+                    code_str = "Altın"
+                elif "Gümüş" in code_str or "GÜMÜŞ" in code_str:
+                    code_str = "Gümüş"
+            elif code_str in ["TL", "USD", "EUR"]:
+                continue  # Nakit için haber çekme
+            
+            try:
+                # Google News RSS için Türkçe arama - URL encoding
+                encoded_code = urllib.parse.quote(code_str)
+                url = f"https://news.google.com/rss/search?q={encoded_code}+hisse+haber&hl=tr&gl=TR&ceid=TR:tr"
+                feed = feedparser.parse(url)
+                for entry in feed.entries[:5]:  # Her varlık için en fazla 5 haber
+                    title = entry.title
+                    if title not in seen_titles:
+                        seen_titles.add(title)
+                        all_news.append({
+                            "title": title,
+                            "link": entry.link,
+                            "date": entry.published,
+                            "asset": code_str,
+                            "source": "Portföy"
+                        })
+            except Exception:
+                continue
+    
+    # İzleme listesi varlıkları
+    if watchlist_df is not None and not watchlist_df.empty:
+        watchlist_codes = watchlist_df["Kod"].unique().tolist()
+        for code in watchlist_codes:
+            try:
+                if pd.isna(code) or str(code).strip() == "":
+                    continue
+            except (TypeError, ValueError):
+                continue
+            code_str = str(code).strip()
+            # Özel durumlar için temizleme
+            if "Gram" in code_str or "GRAM" in code_str:
+                if "Altın" in code_str or "ALTIN" in code_str:
+                    code_str = "Altın"
+                elif "Gümüş" in code_str or "GÜMÜŞ" in code_str:
+                    code_str = "Gümüş"
+            elif code_str in ["TL", "USD", "EUR"]:
+                continue
+            
+            try:
+                url = f"https://news.google.com/rss/search?q={code_str}+hisse+haber&hl=tr&gl=TR&ceid=TR:tr"
+                feed = feedparser.parse(url)
+                for entry in feed.entries[:3]:  # İzleme listesi için daha az haber
+                    title = entry.title
+                    if title not in seen_titles:
+                        seen_titles.add(title)
+                        all_news.append({
+                            "title": title,
+                            "link": entry.link,
+                            "date": entry.published,
+                            "asset": code_str,
+                            "source": "İzleme"
+                        })
+            except Exception:
+                continue
+    
+    # Tarihe göre sırala (en yeni önce)
+    try:
+        all_news.sort(key=lambda x: x["date"], reverse=True)
+    except Exception:
+        pass
+    
+    return all_news[:30]  # En fazla 30 haber döndür
 
 @st.cache_data(ttl=60)  # 1 dakika cache - ticker verileri sık güncellenir
 def get_tickers_data(df_portfolio, usd_try):

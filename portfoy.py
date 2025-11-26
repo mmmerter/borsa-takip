@@ -23,6 +23,7 @@ from data_loader import (
     get_usd_try,
     get_tickers_data,
     get_financial_news,
+    get_portfolio_news,
     get_tefas_data,
     get_binance_positions,
     read_portfolio_history,
@@ -213,27 +214,128 @@ st.markdown(
         content: attr(data-content);
     }
 
-    /* Haber Kartları */
+    /* Modern Haber Kartları */
     .news-card {
-        background-color: #1E1E1E;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid #FF4B4B;
-        margin-bottom: 10px;
+        background: linear-gradient(135deg, #1a1c24 0%, #0e1117 100%);
+        padding: 20px;
+        border-radius: 12px;
+        border-left: 4px solid #6b7fd7;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .news-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, #6b7fd7 0%, #8b9aff 100%);
+    }
+    .news-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(107, 127, 215, 0.4);
+        border-left-color: #8b9aff;
     }
     .news-title {
-        font-size: 16px;
-        font-weight: bold;
+        font-size: 17px;
+        font-weight: 700;
         color: #ffffff;
+        text-decoration: none;
+        line-height: 1.5;
+        display: block;
+        margin-bottom: 10px;
+        transition: color 0.3s ease;
+    }
+    .news-title:hover {
+        color: #8b9aff;
         text-decoration: none;
     }
     .news-meta {
-        font-size: 12px;
-        color: #888;
-        margin-top: 5px;
+        font-size: 13px;
+        color: #b0b3c0;
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .news-asset-badge {
+        display: inline-block;
+        background: rgba(107, 127, 215, 0.2);
+        color: #8b9aff;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-left: auto;
+    }
+    .news-source-badge {
+        display: inline-block;
+        background: rgba(0, 230, 118, 0.2);
+        color: #00e676;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        margin-right: 8px;
+    }
+    .news-source-badge.izleme {
+        background: rgba(255, 165, 0, 0.2);
+        color: #ffa500;
     }
     a { text-decoration: none !important; }
-    a:hover { text-decoration: underline !important; }
+    a:hover { text-decoration: none !important; }
+    
+    /* Portföy Haberleri Özel Stil */
+    .portfolio-news-header {
+        background: linear-gradient(135deg, #232837, #171b24);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #2f3440;
+    }
+    .portfolio-news-header h3 {
+        color: #ffffff;
+        font-size: 24px;
+        font-weight: 900;
+        margin-bottom: 10px;
+    }
+    .portfolio-news-header p {
+        color: #b3b7c6;
+        font-size: 14px;
+        margin: 0;
+    }
+    .news-filter-container {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .news-filter-chip {
+        background: rgba(107, 127, 215, 0.15);
+        color: #8b9aff;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(107, 127, 215, 0.3);
+    }
+    .news-filter-chip:hover {
+        background: rgba(107, 127, 215, 0.25);
+        transform: translateY(-2px);
+    }
+    .news-filter-chip.active {
+        background: linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%);
+        color: #ffffff;
+        border-color: #8b9aff;
+    }
 
     /* KRAL HEADER */
     .kral-header {
@@ -663,16 +765,56 @@ LIGHT_OVERRIDE_CSS = """
         color: #111827 !important;
     }
     .news-card {
-        background-color: #ffffff;
+        background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
         color: #1f2937;
-        border-left-color: #f97316;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+        border-left-color: #6b7fd7;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    }
+    .news-card::before {
+        background: linear-gradient(180deg, #6b7fd7 0%, #8b9aff 100%);
     }
     .news-title {
-        color: #1f2937;
+        color: #111827;
+    }
+    .news-title:hover {
+        color: #405bbb;
     }
     .news-meta {
-        color: #6b7280;
+        color: #4b5563;
+    }
+    .news-asset-badge {
+        background: rgba(64, 91, 187, 0.15);
+        color: #405bbb;
+    }
+    .news-source-badge {
+        background: rgba(34, 197, 94, 0.15);
+        color: #22c55e;
+    }
+    .news-source-badge.izleme {
+        background: rgba(249, 115, 22, 0.15);
+        color: #f97316;
+    }
+    .portfolio-news-header {
+        background: linear-gradient(135deg, #ffffff, #edf1fb);
+        border: 1px solid #d5d9ea;
+    }
+    .portfolio-news-header h3 {
+        color: #111827;
+    }
+    .portfolio-news-header p {
+        color: #4b5563;
+    }
+    .news-filter-chip {
+        background: rgba(64, 91, 187, 0.1);
+        color: #405bbb;
+        border: 1px solid rgba(64, 91, 187, 0.2);
+    }
+    .news-filter-chip:hover {
+        background: rgba(64, 91, 187, 0.15);
+    }
+    .news-filter-chip.active {
+        background: linear-gradient(135deg, #6b7fd7 0%, #8b9aff 100%);
+        color: #ffffff;
     }
 </style>
 """
@@ -759,23 +901,114 @@ def get_menu_styles(theme: str):
 
 # --- HABER UI ---
 def render_news_section(name, key):
-    st.subheader(f"📰 {name}")
+    st.markdown(f'<div style="margin-bottom: 20px;"><h2 style="color: #ffffff; font-size: 28px; font-weight: 900; margin-bottom: 5px;">📰 {name}</h2></div>', unsafe_allow_html=True)
     news = get_financial_news(key)
     if news:
         for n in news:
+            # Tarihi formatla
+            try:
+                from datetime import datetime
+                date_obj = datetime.strptime(n['date'][:25], '%a, %d %b %Y %H:%M:%S')
+                formatted_date = date_obj.strftime('%d %b %Y, %H:%M')
+            except:
+                formatted_date = n['date']
+            
             st.markdown(
                 f"""
                 <div class="news-card">
                     <a href="{n['link']}" target="_blank" class="news-title">
                         {n['title']}
                     </a>
-                    <div class="news-meta">🕒 {n['date']}</div>
+                    <div class="news-meta">
+                        <span>🕒 {formatted_date}</span>
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
     else:
         st.info("Haber akışı yüklenemedi.")
+
+def render_portfolio_news_section(portfolio_df, watchlist_df=None):
+    """Portföy haberleri için özel render fonksiyonu"""
+    st.markdown(
+        """
+        <div class="portfolio-news-header">
+            <h3>💼 Portföy Haberleri</h3>
+            <p>Portföyünüzdeki ve izleme listesindeki varlıklar için güncel haberler ve güncellemeler</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Haberleri çek
+    all_news = get_portfolio_news(portfolio_df, watchlist_df)
+    
+    if not all_news:
+        st.info("Portföy haberleri yüklenemedi veya portföyde varlık bulunmuyor.")
+        return
+    
+    # Varlık filtreleme için benzersiz varlıkları al
+    unique_assets = sorted(set([n.get("asset", "") for n in all_news if n.get("asset")]))
+    unique_sources = sorted(set([n.get("source", "") for n in all_news if n.get("source")]))
+    
+    # Filtreleme seçenekleri
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        selected_asset = st.selectbox(
+            "Varlığa Göre Filtrele",
+            ["Tümü"] + unique_assets,
+            key="portfolio_news_asset_filter"
+        )
+    with col2:
+        selected_source = st.selectbox(
+            "Kaynağa Göre Filtrele",
+            ["Tümü"] + unique_sources,
+            key="portfolio_news_source_filter"
+        )
+    
+    # Filtreleme uygula
+    filtered_news = all_news
+    if selected_asset != "Tümü":
+        filtered_news = [n for n in filtered_news if n.get("asset") == selected_asset]
+    if selected_source != "Tümü":
+        filtered_news = [n for n in filtered_news if n.get("source") == selected_source]
+    
+    if not filtered_news:
+        st.info("Seçilen filtreler için haber bulunamadı.")
+        return
+    
+    # Haberleri göster
+    st.markdown(f'<div style="margin-top: 20px; margin-bottom: 10px;"><p style="color: #b0b3c0; font-size: 14px;">Toplam <strong style="color: #8b9aff;">{len(filtered_news)}</strong> haber bulundu</p></div>', unsafe_allow_html=True)
+    
+    for n in filtered_news:
+        # Tarihi formatla
+        try:
+            from datetime import datetime
+            date_obj = datetime.strptime(n['date'][:25], '%a, %d %b %Y %H:%M:%S')
+            formatted_date = date_obj.strftime('%d %b %Y, %H:%M')
+        except:
+            formatted_date = n['date']
+        
+        asset = n.get("asset", "Bilinmiyor")
+        source = n.get("source", "Portföy")
+        source_class = "izleme" if source == "İzleme" else ""
+        
+        st.markdown(
+            f"""
+            <div class="news-card">
+                <a href="{n['link']}" target="_blank" class="news-title">
+                    {n['title']}
+                </a>
+                <div class="news-meta">
+                    <span class="news-source-badge {source_class}">{source}</span>
+                    <span>🕒 {formatted_date}</span>
+                    <span class="news-asset-badge">{asset}</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 # --- ANA DATA ---
@@ -2345,14 +2578,30 @@ elif selected == "Portföy":
             st.plotly_chart(hist_chart, use_container_width=True)
 
 elif selected == "Haberler":
-    tab1, tab2, tab3, tab4 = st.tabs(["BIST", "Kripto", "Global", "Döviz"])
-    with tab1:
+    tab_portfolio, tab_bist, tab_kripto, tab_global, tab_doviz = st.tabs([
+        "💼 Portföy Haberleri", 
+        "📈 BIST", 
+        "₿ Kripto", 
+        "🌍 Global", 
+        "💱 Döviz"
+    ])
+    
+    # Portföy Haberleri Sekmesi
+    with tab_portfolio:
+        # Portföy ve izleme listesi verilerini hazırla
+        portfolio_assets = portfoy_only if not portfoy_only.empty else pd.DataFrame()
+        watchlist_assets = takip_only if not takip_only.empty else pd.DataFrame()
+        
+        render_portfolio_news_section(portfolio_assets, watchlist_assets)
+    
+    # Diğer sekmeler
+    with tab_bist:
         render_news_section("BIST Haberleri", "BIST")
-    with tab2:
+    with tab_kripto:
         render_news_section("Kripto Haberleri", "KRIPTO")
-    with tab3:
+    with tab_global:
         render_news_section("Global Piyasalar", "GLOBAL")
-    with tab4:
+    with tab_doviz:
         render_news_section("Döviz / Altın", "DOVIZ")
 
 elif selected == "İzleme":
