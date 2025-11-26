@@ -838,10 +838,14 @@ def get_comparison_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, compari
     """
     Portföy vs karşılaştırma grafiği oluşturur.
     comparison_type: "BIST 100", "Altın", "SP500", "Enflasyon"
-    Tüm seriler normalize edilir (başlangıç değeri = 100).
+    Tüm seriler dünden itibaren normalize edilir (dünün değeri = 100).
     """
     if df is None or df.empty:
         return None
+    
+    # Dünü başlangıç noktası olarak belirle
+    today = pd.Timestamp.today().normalize()
+    yesterday = today - pd.Timedelta(days=1)
     
     # Portföy serisini al (get_historical_chart'tan portföy serisini çıkar)
     # Önce portföy serisini oluştur
@@ -898,7 +902,6 @@ def get_comparison_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, compari
     batch_prices = _fetch_historical_prices_batch(yahoo_symbols, period="60d", interval="1d")
     
     all_series = []
-    today = pd.Timestamp.today().normalize()
     
     for case_type, idx, kod, pazar, adet, asset_currency in special_cases:
         prices = None
@@ -1009,15 +1012,35 @@ def get_comparison_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, compari
     if len(portfolio_aligned) < 2:
         return None
     
-    # Normalize et (başlangıç değeri = 100)
-    portfolio_start = portfolio_aligned.iloc[0]
-    comp_start = comp_aligned.iloc[0]
+    # Dünden itibaren filtrele
+    yesterday_mask = portfolio_aligned.index >= yesterday
+    portfolio_filtered = portfolio_aligned[yesterday_mask]
+    comp_filtered = comp_aligned[yesterday_mask]
+    
+    if len(portfolio_filtered) < 2:
+        return None
+    
+    # Dünün değerini başlangıç noktası olarak kullan
+    # Eğer dünün verisi yoksa, en yakın önceki günü kullan
+    if yesterday in portfolio_filtered.index:
+        portfolio_start = portfolio_filtered[yesterday]
+        comp_start = comp_filtered[yesterday] if yesterday in comp_filtered.index else comp_filtered.iloc[0]
+        start_date = yesterday
+        days_since = (today - yesterday).days
+    else:
+        # Dünün verisi yoksa, ilk mevcut günü başlangıç olarak kullan
+        portfolio_start = portfolio_filtered.iloc[0]
+        comp_start = comp_filtered.iloc[0]
+        # Başlangıç tarihini güncelle
+        start_date = portfolio_filtered.index[0]
+        days_since = (today - start_date).days
     
     if portfolio_start == 0 or comp_start == 0:
         return None
     
-    portfolio_normalized = (portfolio_aligned / portfolio_start) * 100
-    comp_normalized = (comp_aligned / comp_start) * 100
+    # Normalize et (dünün değeri = 100)
+    portfolio_normalized = (portfolio_filtered / portfolio_start) * 100
+    comp_normalized = (comp_filtered / comp_start) * 100
     
     # Grafik oluştur
     fig = go.Figure()
@@ -1064,7 +1087,17 @@ def get_comparison_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, compari
         )
     )
     
-    # Başlangıç çizgisi (100%)
+    # Başlangıç çizgisi (100%) - dünün tarihine
+    if start_date in portfolio_normalized.index:
+        fig.add_vline(
+            x=start_date,
+            line_dash="dash",
+            line_color="#9da1b3",
+            opacity=0.5,
+            annotation_text=f"Başlangıç ({start_date.strftime('%d %b')})",
+            annotation_position="top",
+        )
+    
     fig.add_hline(
         y=100,
         line_dash="dash",
@@ -1081,12 +1114,18 @@ def get_comparison_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, compari
     portfolio_change = portfolio_final - 100
     comp_change = comp_final - 100
     
+    # Gün sayısını hesapla
+    if start_date == yesterday:
+        days_text = "1 günden beri"
+    else:
+        days_text = f"{days_since} günden beri"
+    
     # Modern layout
     fig.update_layout(
         title=dict(
             text=f"<b>Portföy vs {comparison_type}</b><br>" +
                  f"<span style='font-size: 12px; color: #9da1b3;'>" +
-                 f"Portföy: {portfolio_change:+.2f}% | {comparison_type}: {comp_change:+.2f}%</span>",
+                 f"{days_text} | Portföy: {portfolio_change:+.2f}% | {comparison_type}: {comp_change:+.2f}%</span>",
             font=dict(
                 family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                 size=18,
