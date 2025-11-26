@@ -396,95 +396,236 @@ st.markdown(
         margin-top: 4px;
     }
     
-    /* Günlük Kazanan/Kaybeden Kartları */
+    /* Günlük Kazanan/Kaybeden Kartları - Modern ve Dikkat Çekici */
     .daily-movers-section {
         width: 100%;
-        margin: 10px 0 30px;
+        margin: 20px 0 40px;
     }
     .daily-movers-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 24px;
     }
     .daily-movers-card {
         background: linear-gradient(135deg, #1b1f2b 0%, #10131b 100%);
-        border-radius: 16px;
+        border-radius: 20px;
         border: 1px solid #2f3440;
-        padding: 18px;
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+        padding: 24px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .daily-movers-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, transparent, currentColor, transparent);
+        opacity: 0.6;
+    }
+    .daily-movers-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
     }
     .daily-movers-card.positive-card {
-        border-top: 3px solid #00e676;
+        border-top: 4px solid #00e676;
+        color: #00e676;
+    }
+    .daily-movers-card.positive-card::before {
+        background: linear-gradient(90deg, transparent, #00e676, transparent);
     }
     .daily-movers-card.negative-card {
-        border-top: 3px solid #ff5252;
+        border-top: 4px solid #ff5252;
+        color: #ff5252;
+    }
+    .daily-movers-card.negative-card::before {
+        background: linear-gradient(90deg, transparent, #ff5252, transparent);
     }
     .daily-movers-card-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 12px;
-        font-weight: 800;
-        font-size: 16px;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+    }
+    .daily-movers-card-title {
+        font-weight: 900;
+        font-size: 20px;
         color: #ffffff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        letter-spacing: -0.5px;
+    }
+    .daily-movers-card-title-icon {
+        font-size: 24px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
     }
     .daily-movers-chip {
-        background: rgba(255, 255, 255, 0.08);
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 11px;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 1px;
         color: #b6bad3;
+        font-weight: 700;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
     }
     .daily-movers-card-body {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 12px;
     }
     .daily-mover-row {
-        display: flex;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
         align-items: center;
-        justify-content: space-between;
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.04);
+        gap: 16px;
+        padding: 16px 18px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .daily-mover-row::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: currentColor;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    .daily-mover-row:hover {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+        border-color: rgba(255, 255, 255, 0.12);
+        transform: translateX(4px);
+    }
+    .daily-mover-row:hover::before {
+        opacity: 1;
     }
     .daily-mover-row.positive {
-        border-left: 3px solid rgba(0, 230, 118, 0.7);
+        border-left: 4px solid rgba(0, 230, 118, 0.8);
+        color: #00e676;
+    }
+    .daily-mover-row.positive::before {
+        background: #00e676;
     }
     .daily-mover-row.negative {
-        border-left: 3px solid rgba(255, 82, 82, 0.7);
+        border-left: 4px solid rgba(255, 82, 82, 0.8);
+        color: #ff5252;
+    }
+    .daily-mover-row.negative::before {
+        background: #ff5252;
     }
     .daily-mover-symbol {
-        font-size: 16px;
+        font-size: 18px;
+        font-weight: 900;
+        color: #ffffff;
+        letter-spacing: -0.3px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .daily-mover-symbol-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 12px;
         font-weight: 800;
         color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
     .daily-mover-change {
-        font-size: 15px;
-        font-weight: 800;
-        letter-spacing: 0.2px;
+        font-size: 17px;
+        font-weight: 900;
+        letter-spacing: -0.2px;
+        text-align: right;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+    .daily-mover-change-icon {
+        font-size: 14px;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
     }
     .daily-mover-row.positive .daily-mover-change {
         color: #00e676;
+        text-shadow: 0 0 10px rgba(0, 230, 118, 0.3);
     }
     .daily-mover-row.negative .daily-mover-change {
         color: #ff5252;
+        text-shadow: 0 0 10px rgba(255, 82, 82, 0.3);
     }
     .daily-mover-pl {
-        font-size: 13px;
+        font-size: 14px;
         color: #b6bad3;
-        font-weight: 600;
+        font-weight: 700;
+        text-align: right;
+        letter-spacing: -0.2px;
     }
     .daily-mover-empty {
-        font-size: 13px;
+        font-size: 14px;
         color: #8f93a6;
         text-align: center;
-        padding: 12px;
-        border-radius: 10px;
+        padding: 24px;
+        border-radius: 14px;
         background: rgba(255, 255, 255, 0.03);
+        border: 1px dashed rgba(255, 255, 255, 0.1);
+        font-weight: 600;
+    }
+    .daily-movers-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .daily-movers-table thead th {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+        color: #b6bad3;
+        font-weight: 800;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding: 14px 18px;
+        text-align: left;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    }
+    .daily-movers-table thead th:first-child {
+        border-top-left-radius: 12px;
+    }
+    .daily-movers-table thead th:last-child {
+        border-top-right-radius: 12px;
+        text-align: right;
+    }
+    .daily-movers-table tbody td {
+        padding: 16px 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: 15px;
+        font-weight: 700;
+    }
+    .daily-movers-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .daily-movers-table tbody tr:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    .daily-movers-table tbody td:last-child {
+        text-align: right;
     }
     
     /* Modern Navigation Menu Styling */
@@ -1958,65 +2099,145 @@ def get_daily_movers(df, top_n=5):
 
 
 def render_daily_movers_section(df, currency_symbol, top_n=5):
-    """Render günlük kazanan/kaybeden listesini Streamlit tablosu olarak göster."""
+    """Render günlük kazanan/kaybeden listesini modern ve dikkat çekici HTML tablosu olarak göster."""
     winners, losers = get_daily_movers(df, top_n=top_n)
     if winners.empty and losers.empty:
         st.info("Günlük kazanan/kaybeden verisi bulunamadı.")
         return
 
-    def _format_table(dataframe: pd.DataFrame) -> pd.DataFrame:
-        if dataframe.empty:
-            return pd.DataFrame(columns=["Sembol", "Günlük %", "Günlük K/Z"])
+    def _fmt_pct(value):
+        try:
+            return f"{float(value):+.2f}%"
+        except (TypeError, ValueError):
+            return "0.00%"
 
-        table = dataframe[["Kod", "Günlük %", "Gün. Kâr/Zarar"]].copy()
-        table = table.rename(
-            columns={
-                "Kod": "Sembol",
-                "Günlük %": "Günlük %",
-                "Gün. Kâr/Zarar": "Günlük K/Z",
-            }
-        )
+    def _fmt_currency(value):
+        try:
+            return f"{currency_symbol}{float(value):,.0f}"
+        except (TypeError, ValueError):
+            return f"{currency_symbol}0"
 
-        def _fmt_pct(value):
-            try:
-                return f"{float(value):+.2f}%"
-            except (TypeError, ValueError):
-                return "0.00%"
+    def _get_first_letter(symbol):
+        """Sembolün ilk harfini al"""
+        try:
+            return str(symbol)[0].upper()
+        except:
+            return "?"
+    
+    def _escape_html(text):
+        """HTML özel karakterlerini escape et"""
+        if text is None:
+            return ""
+        return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#x27;")
 
-        def _fmt_currency(value):
-            try:
-                return f"{currency_symbol}{float(value):,.0f}"
-            except (TypeError, ValueError):
-                return f"{currency_symbol}0"
-
-        table["Günlük %"] = table["Günlük %"].apply(_fmt_pct)
-        table["Günlük K/Z"] = table["Günlük K/Z"].apply(_fmt_currency)
-        return table
-
-    st.subheader("🔥 Günün Kazananları / Kaybedenleri")
+    st.markdown('<div class="daily-movers-section">', unsafe_allow_html=True)
+    st.markdown('<h2 style="font-size: 28px; font-weight: 900; color: #ffffff; margin-bottom: 24px; display: flex; align-items: center; gap: 12px;"><span style="font-size: 32px;">🔥</span> Günün Kazananları / Kaybedenleri</h2>', unsafe_allow_html=True)
+    
     col_pos, col_neg = st.columns(2)
 
     with col_pos:
-        st.markdown("**🏆 Günün Kazananları**")
+        # Kazananlar
+        card_class = "positive-card"
+        card_icon = "🏆"
+        card_title = "Günün Kazananları"
+        
+        html_content = f'''
+        <div class="daily-movers-card {card_class}">
+            <div class="daily-movers-card-header">
+                <div class="daily-movers-card-title">
+                    <span class="daily-movers-card-title-icon">{card_icon}</span>
+                    {card_title}
+                </div>
+                <span class="daily-movers-chip">Top {min(top_n, len(winners))}</span>
+            </div>
+            <div class="daily-movers-card-body">
+        '''
+        
         if winners.empty:
-            st.caption("Veri bulunamadı.")
+            html_content += '<div class="daily-mover-empty">📊 Veri bulunamadı</div>'
         else:
-            st.caption(f"Top {min(top_n, len(winners))} varlık listeleniyor.")
-            st.dataframe(
-                _format_table(winners),
-                use_container_width=True,
-            )
+            for idx, row in winners.iterrows():
+                symbol = str(row.get("Kod", ""))
+                daily_pct = row.get("Günlük %", 0)
+                daily_pl = row.get("Gün. Kâr/Zarar", 0)
+                
+                pct_formatted = _fmt_pct(daily_pct)
+                pl_formatted = _fmt_currency(daily_pl)
+                first_letter = _get_first_letter(symbol)
+                symbol_escaped = _escape_html(symbol)
+                
+                html_content += f'''
+                <div class="daily-mover-row positive">
+                    <div class="daily-mover-symbol">
+                        <span class="daily-mover-symbol-badge">{first_letter}</span>
+                        {symbol_escaped}
+                    </div>
+                    <div class="daily-mover-change">
+                        <span class="daily-mover-change-icon">📈</span>
+                        {pct_formatted}
+                    </div>
+                    <div class="daily-mover-pl">{pl_formatted}</div>
+                </div>
+                '''
+        
+        html_content += '''
+            </div>
+        </div>
+        '''
+        st.markdown(html_content, unsafe_allow_html=True)
 
     with col_neg:
-        st.markdown("**⚠️ Günün Kaybedenleri**")
+        # Kaybedenler
+        card_class = "negative-card"
+        card_icon = "⚠️"
+        card_title = "Günün Kaybedenleri"
+        
+        html_content = f'''
+        <div class="daily-movers-card {card_class}">
+            <div class="daily-movers-card-header">
+                <div class="daily-movers-card-title">
+                    <span class="daily-movers-card-title-icon">{card_icon}</span>
+                    {card_title}
+                </div>
+                <span class="daily-movers-chip">Top {min(top_n, len(losers))}</span>
+            </div>
+            <div class="daily-movers-card-body">
+        '''
+        
         if losers.empty:
-            st.caption("Veri bulunamadı.")
+            html_content += '<div class="daily-mover-empty">📊 Veri bulunamadı</div>'
         else:
-            st.caption(f"Top {min(top_n, len(losers))} varlık listeleniyor.")
-            st.dataframe(
-                _format_table(losers),
-                use_container_width=True,
-            )
+            for idx, row in losers.iterrows():
+                symbol = str(row.get("Kod", ""))
+                daily_pct = row.get("Günlük %", 0)
+                daily_pl = row.get("Gün. Kâr/Zarar", 0)
+                
+                pct_formatted = _fmt_pct(daily_pct)
+                pl_formatted = _fmt_currency(daily_pl)
+                first_letter = _get_first_letter(symbol)
+                symbol_escaped = _escape_html(symbol)
+                
+                html_content += f'''
+                <div class="daily-mover-row negative">
+                    <div class="daily-mover-symbol">
+                        <span class="daily-mover-symbol-badge">{first_letter}</span>
+                        {symbol_escaped}
+                    </div>
+                    <div class="daily-mover-change">
+                        <span class="daily-mover-change-icon">📉</span>
+                        {pct_formatted}
+                    </div>
+                    <div class="daily-mover-pl">{pl_formatted}</div>
+                </div>
+                '''
+        
+        html_content += '''
+            </div>
+        </div>
+        '''
+        st.markdown(html_content, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- GÖRÜNÜM AYARI ---
 TOTAL_SPOT_DEGER = portfoy_only["Değer"].sum()
