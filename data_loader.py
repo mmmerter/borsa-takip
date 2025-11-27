@@ -650,6 +650,58 @@ def read_portfolio_history():
         return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
 
 
+def get_history_summary():
+    """
+    Tarihsel veri özeti döndürür (debugging için).
+    Dönüş: dict with 'status', 'days', 'oldest', 'newest', 'records'
+    """
+    try:
+        df = read_portfolio_history()
+        if df is None or df.empty:
+            return {
+                "status": "empty",
+                "days": 0,
+                "oldest": None,
+                "newest": None,
+                "records": 0,
+                "message": "Tarihsel veri bulunamadı. Lütfen uygulamayı birkaç gün çalıştırın."
+            }
+        
+        oldest = df["Tarih"].min()
+        newest = df["Tarih"].max()
+        days = (newest - oldest).days + 1
+        records = len(df)
+        
+        status = "good" if days >= 30 else "insufficient"
+        message = f"{records} kayıt, {days} günlük veri ({oldest.strftime('%Y-%m-%d')} - {newest.strftime('%Y-%m-%d')})"
+        
+        if days < 7:
+            message += " ⚠️ Haftalık performans için yetersiz."
+        elif days < 30:
+            message += " ⚠️ Aylık performans için yetersiz."
+        else:
+            message += " ✅ Tüm metrikler için yeterli veri."
+        
+        return {
+            "status": status,
+            "days": days,
+            "oldest": oldest.strftime('%Y-%m-%d'),
+            "newest": newest.strftime('%Y-%m-%d'),
+            "records": records,
+            "message": message,
+            "data": df  # Detaylı inceleme için
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "days": 0,
+            "oldest": None,
+            "newest": None,
+            "records": 0,
+            "message": f"Hata: {str(e)}"
+        }
+
+
 def write_portfolio_history(value_try, value_usd):
     """
     Bugünün tarihine karşılık portföy toplamını (TRY / USD) ekler.
@@ -688,6 +740,9 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
         "spark_week": [seri],
         "spark_month": [seri],
         "spark_ytd": [seri],
+        "data_days": kaç günlük veri var,
+        "oldest_date": en eski tarih,
+        "newest_date": en yeni tarih,
       }
     """
     if history_df is None or history_df.empty:
@@ -735,14 +790,20 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
         target_date = today_date - timedelta(days=days)
         sub = df[df["Tarih"] >= target_date]
         if sub.empty:
-            # Eğer hedef tarihten sonra veri yoksa, en eski kaydı kullan
-            if not df.empty:
-                start_val = float(df["Değer_TRY"].iloc[0])
-                diff = today_val - start_val
-                pct = (diff / start_val * 100) if start_val > 0 else 0.0
-                spark = list(df["Değer_TRY"])
-                return diff, pct, spark
-            return 0.0, 0.0, []
+            # Eğer hedef tarihten sonra veri yoksa, None döndür (yetersiz veri)
+            return None, None, []
+        
+        # En az 2 gün veri olmalı ki değişim hesaplanabilsin
+        if len(sub) < 2:
+            # Tek veri noktası varsa anlamsız, None döndür
+            return None, None, []
+        
+        # Hedef tarihten önce veri var mı kontrol et
+        # Eğer en eski veri hedef tarihten çok sonraysa, yetersiz veri demektir
+        oldest_date = sub["Tarih"].min()
+        if (oldest_date - target_date).days > days * 0.3:  # %30'dan fazla fark varsa yetersiz veri
+            return None, None, []
+        
         start_val = float(sub["Değer_TRY"].iloc[0])
         diff = today_val - start_val
         pct = (diff / start_val * 100) if start_val > 0 else 0.0
@@ -775,13 +836,21 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
         else:
             y_val, y_pct, y_spark = 0.0, 0.0, []
 
+    # Veri günü sayısı ve tarih aralığı
+    oldest_date = df["Tarih"].min()
+    newest_date = df["Tarih"].max()
+    data_days = (newest_date - oldest_date).days + 1
+    
     return {
-        "weekly": (w_val, w_pct),
-        "monthly": (m_val, m_pct),
-        "ytd": (y_val, y_pct),
+        "weekly": (w_val, w_pct) if w_val is not None else None,
+        "monthly": (m_val, m_pct) if m_val is not None else None,
+        "ytd": (y_val, y_pct) if y_val is not None else None,
         "spark_week": w_spark,
         "spark_month": m_spark,
         "spark_ytd": y_spark,
+        "data_days": data_days,
+        "oldest_date": oldest_date.strftime("%Y-%m-%d"),
+        "newest_date": newest_date.strftime("%Y-%m-%d"),
     }
 # ==========================================================
 #   Pazar Bazlı Tarihsel Log (BIST / ABD / FON / EMTIA / NAKIT)

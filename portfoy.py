@@ -29,6 +29,7 @@ from data_loader import (
     read_portfolio_history,
     write_portfolio_history,
     get_timeframe_changes,
+    get_history_summary,
     read_history_bist,
     write_history_bist,
     read_history_abd,
@@ -2122,27 +2123,79 @@ def render_kral_infobar(df, sym, gorunum_pb=None, usd_try_rate=None, timeframe=N
     w_pct, m_pct, y_pct = 0, 0, 0
     if timeframe is not None:
         try:
-            w_val, w_pct = timeframe.get("weekly", (0, 0))
-            m_val, m_pct = timeframe.get("monthly", (0, 0))
-            y_val, y_pct = timeframe.get("ytd", (0, 0))
+            weekly_data = timeframe.get("weekly", None)
+            monthly_data = timeframe.get("monthly", None)
+            ytd_data = timeframe.get("ytd", None)
 
             # Haftalık / Aylık / YTD değerler her zaman TRY bazlı tutuluyor
             # Görünüm USD ise, gösterirken USD'ye çeviriyoruz.
             show_sym = sym
-            if gorunum_pb == "USD" and usd_try_rate:
-                weekly_txt = f"{show_sym}{(w_val / usd_try_rate):,.0f} ({w_pct:+.2f}%)"
-                monthly_txt = f"{show_sym}{(m_val / usd_try_rate):,.0f} ({m_pct:+.2f}%)"
-                ytd_txt = f"{show_sym}{(y_val / usd_try_rate):,.0f} ({y_pct:+.2f}%)"
+            
+            # Haftalık
+            if weekly_data is not None:
+                w_val, w_pct = weekly_data
+                if gorunum_pb == "USD" and usd_try_rate:
+                    weekly_txt = f"{show_sym}{(w_val / usd_try_rate):,.0f} ({w_pct:+.2f}%)"
+                else:
+                    weekly_txt = f"{show_sym}{w_val:,.0f} ({w_pct:+.2f}%)"
             else:
-                weekly_txt = f"{show_sym}{w_val:,.0f} ({w_pct:+.2f}%)"
-                monthly_txt = f"{show_sym}{m_val:,.0f} ({m_pct:+.2f}%)"
-                ytd_txt = f"{show_sym}{y_val:,.0f} ({y_pct:+.2f}%)"
+                weekly_txt = "⚠️ Yetersiz Veri"
+                w_pct = 0
+            
+            # Aylık
+            if monthly_data is not None:
+                m_val, m_pct = monthly_data
+                if gorunum_pb == "USD" and usd_try_rate:
+                    monthly_txt = f"{show_sym}{(m_val / usd_try_rate):,.0f} ({m_pct:+.2f}%)"
+                else:
+                    monthly_txt = f"{show_sym}{m_val:,.0f} ({m_pct:+.2f}%)"
+            else:
+                monthly_txt = "⚠️ Yetersiz Veri"
+                m_pct = 0
+            
+            # YTD
+            if ytd_data is not None:
+                y_val, y_pct = ytd_data
+                if gorunum_pb == "USD" and usd_try_rate:
+                    ytd_txt = f"{show_sym}{(y_val / usd_try_rate):,.0f} ({y_pct:+.2f}%)"
+                else:
+                    ytd_txt = f"{show_sym}{y_val:,.0f} ({y_pct:+.2f}%)"
+            else:
+                ytd_txt = "⚠️ Yetersiz Veri"
+                y_pct = 0
         except Exception:
             # Herhangi bir sorun olursa placeholder'da kalsın
             weekly_txt = "—"
             monthly_txt = "—"
             ytd_txt = "—"
 
+    # Veri durumu bilgisi (varsa)
+    data_info_html = ""
+    if timeframe is not None and "data_days" in timeframe:
+        data_days = timeframe.get("data_days", 0)
+        oldest_date = timeframe.get("oldest_date", "")
+        newest_date = timeframe.get("newest_date", "")
+        
+        if data_days < 30:
+            data_info_html = f"""
+            <div style="
+                background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 152, 0, 0.1) 100%);
+                border-left: 3px solid #ffc107;
+                border-radius: 8px;
+                padding: 12px 16px;
+                margin-bottom: 16px;
+                color: #ffc107;
+                font-size: 13px;
+                font-weight: 600;
+            ">
+                ⚠️ <b>Tarihsel Veri Uyarısı:</b> Sadece {data_days} günlük veri var ({oldest_date} - {newest_date}). 
+                Doğru haftalık/aylık performans için en az 30 gün veri gerekiyor. 
+                Uygulamanın her gün çalışmasıyla veri birikecek.
+            </div>
+            """
+    
+    st.markdown(data_info_html, unsafe_allow_html=True)
+    
     st.markdown(
         f"""
         <div class="kral-infobar">
