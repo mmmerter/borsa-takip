@@ -4,7 +4,10 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, timedelta
 import requests
 import feedparser
-from tefas import Crawler
+try:
+    from tefas import Crawler
+except (ImportError, AttributeError):
+    Crawler = None  # tefas kütüphanesi yüklü değilse None
 import yfinance as yf
 import ccxt
 import pandas as pd
@@ -13,11 +16,13 @@ import unicodedata
 import socket
 import urllib.parse
 from utils import get_yahoo_symbol
+import pytz
 
 # Google Sheets / network işlemleri sonsuza kadar beklemesin diye global timeout
 socket.setdefaulttimeout(15)
 
 SHEET_NAME = "PortfoyData"
+DAILY_BASE_SHEET_NAME = "daily_base_prices"  # Günlük baz fiyatlar için
 
 # Google Sheets client cache
 _client_cache = None
@@ -196,22 +201,23 @@ def get_tefas_data(fund_code):
     except Exception:
         pass
     
-    # İKİNCİ: tefas-crawler ile dene
+    # İKİNCİ: tefas-crawler ile dene (eğer yüklüyse)
     try:
-        crawler = Crawler()
-        end = datetime.now().strftime("%Y-%m-%d")
-        start = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
-        res = crawler.fetch(start=start, end=end, name=fund_code, columns=["Price"])
-        if not res.empty and len(res) > 0:
-            res = res.sort_index()
-            valid_prices = res["Price"].dropna()
-            if len(valid_prices) > 0:
-                # Son kapanış fiyatı (bugünün fiyatı yoksa en son geçerli fiyat)
-                curr_price = float(valid_prices.iloc[-1])
-                # Önceki günün kapanış fiyatı (günlük kar/zarar hesaplaması için)
-                prev_price = float(valid_prices.iloc[-2]) if len(valid_prices) > 1 else curr_price
-                if curr_price > 0 and curr_price < 100:
-                    return curr_price, prev_price
+        if Crawler is not None:
+            crawler = Crawler()
+            end = datetime.now().strftime("%Y-%m-%d")
+            start = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+            res = crawler.fetch(start=start, end=end, name=fund_code, columns=["Price"])
+            if not res.empty and len(res) > 0:
+                res = res.sort_index()
+                valid_prices = res["Price"].dropna()
+                if len(valid_prices) > 0:
+                    # Son kapanış fiyatı (bugünün fiyatı yoksa en son geçerli fiyat)
+                    curr_price = float(valid_prices.iloc[-1])
+                    # Önceki günün kapanış fiyatı (günlük kar/zarar hesaplaması için)
+                    prev_price = float(valid_prices.iloc[-2]) if len(valid_prices) > 1 else curr_price
+                    if curr_price > 0 and curr_price < 100:
+                        return curr_price, prev_price
     except Exception:
         pass
     
@@ -650,6 +656,58 @@ def read_portfolio_history():
         return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
 
 
+def get_history_summary():
+    """
+    Tarihsel veri özeti döndürür (debugging için).
+    Dönüş: dict with 'status', 'days', 'oldest', 'newest', 'records'
+    """
+    try:
+        df = read_portfolio_history()
+        if df is None or df.empty:
+            return {
+                "status": "empty",
+                "days": 0,
+                "oldest": None,
+                "newest": None,
+                "records": 0,
+                "message": "Tarihsel veri bulunamadı. Lütfen uygulamayı birkaç gün çalıştırın."
+            }
+        
+        oldest = df["Tarih"].min()
+        newest = df["Tarih"].max()
+        days = (newest - oldest).days + 1
+        records = len(df)
+        
+        status = "good" if days >= 30 else "insufficient"
+        message = f"{records} kayıt, {days} günlük veri ({oldest.strftime('%Y-%m-%d')} - {newest.strftime('%Y-%m-%d')})"
+        
+        if days < 7:
+            message += " ⚠️ Haftalık performans için yetersiz."
+        elif days < 30:
+            message += " ⚠️ Aylık performans için yetersiz."
+        else:
+            message += " ✅ Tüm metrikler için yeterli veri."
+        
+        return {
+            "status": status,
+            "days": days,
+            "oldest": oldest.strftime('%Y-%m-%d'),
+            "newest": newest.strftime('%Y-%m-%d'),
+            "records": records,
+            "message": message,
+            "data": df  # Detaylı inceleme için
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "days": 0,
+            "oldest": None,
+            "newest": None,
+            "records": 0,
+            "message": f"Hata: {str(e)}"
+        }
+
+
 def write_portfolio_history(value_try, value_usd):
     """
     Bugünün tarihine karşılık portföy toplamını (TRY / USD) ekler.
@@ -688,6 +746,9 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
         "spark_week": [seri],
         "spark_month": [seri],
         "spark_ytd": [seri],
+        "data_days": kaç günlük veri var,
+        "oldest_date": en eski tarih,
+        "newest_date": en yeni tarih,
       }
     """
     if history_df is None or history_df.empty:
@@ -735,14 +796,20 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
         target_date = today_date - timedelta(days=days)
         sub = df[df["Tarih"] >= target_date]
         if sub.empty:
-            # Eğer hedef tarihten sonra veri yoksa, en eski kaydı kullan
-            if not df.empty:
-                start_val = float(df["Değer_TRY"].iloc[0])
-                diff = today_val - start_val
-                pct = (diff / start_val * 100) if start_val > 0 else 0.0
-                spark = list(df["Değer_TRY"])
-                return diff, pct, spark
-            return 0.0, 0.0, []
+            # Eğer hedef tarihten sonra veri yoksa, None döndür (yetersiz veri)
+            return None, None, []
+        
+        # En az 2 gün veri olmalı ki değişim hesaplanabilsin
+        if len(sub) < 2:
+            # Tek veri noktası varsa anlamsız, None döndür
+            return None, None, []
+        
+        # Hedef tarihten önce veri var mı kontrol et
+        # Eğer en eski veri hedef tarihten çok sonraysa, yetersiz veri demektir
+        oldest_date = sub["Tarih"].min()
+        if (oldest_date - target_date).days > days * 0.3:  # %30'dan fazla fark varsa yetersiz veri
+            return None, None, []
+        
         start_val = float(sub["Değer_TRY"].iloc[0])
         diff = today_val - start_val
         pct = (diff / start_val * 100) if start_val > 0 else 0.0
@@ -775,13 +842,21 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
         else:
             y_val, y_pct, y_spark = 0.0, 0.0, []
 
+    # Veri günü sayısı ve tarih aralığı
+    oldest_date = df["Tarih"].min()
+    newest_date = df["Tarih"].max()
+    data_days = (newest_date - oldest_date).days + 1
+    
     return {
-        "weekly": (w_val, w_pct),
-        "monthly": (m_val, m_pct),
-        "ytd": (y_val, y_pct),
+        "weekly": (w_val, w_pct) if w_val is not None else None,
+        "monthly": (m_val, m_pct) if m_val is not None else None,
+        "ytd": (y_val, y_pct) if y_val is not None else None,
         "spark_week": w_spark,
         "spark_month": m_spark,
         "spark_ytd": y_spark,
+        "data_days": data_days,
+        "oldest_date": oldest_date.strftime("%Y-%m-%d"),
+        "newest_date": newest_date.strftime("%Y-%m-%d"),
     }
 # ==========================================================
 #   Pazar Bazlı Tarihsel Log (BIST / ABD / FON / EMTIA / NAKIT)
@@ -883,3 +958,132 @@ def read_history_nakit():
 
 def write_history_nakit(value_try, value_usd):
     _write_market_history("history_nakit", value_try, value_usd)
+
+
+# ==========================================================
+#   Günlük Baz Fiyatlar (00:30'da sıfırlama için)
+# ==========================================================
+
+def _get_daily_base_sheet():
+    """Günlük baz fiyatlar sheet'ine erişim."""
+    try:
+        client = _get_gspread_client()
+        if client is None:
+            return None
+        spreadsheet = client.open(SHEET_NAME)
+        try:
+            sheet = spreadsheet.worksheet(DAILY_BASE_SHEET_NAME)
+        except Exception:
+            # Sheet yoksa oluştur
+            sheet = spreadsheet.add_worksheet(title=DAILY_BASE_SHEET_NAME, rows=1000, cols=10)
+            # Header ekle
+            sheet.append_row(["Tarih", "Saat", "Kod", "Fiyat", "PB"])
+        return sheet
+    except Exception:
+        return None
+
+
+def get_daily_base_prices():
+    """
+    Bugün için günlük baz fiyatları getirir (00:30'da kaydedilmiş).
+    Dönüş: DataFrame with columns: Kod, Fiyat, PB
+    """
+    sheet = _get_daily_base_sheet()
+    if sheet is None:
+        return pd.DataFrame(columns=["Kod", "Fiyat", "PB"])
+    
+    try:
+        # Türkiye saati
+        turkey_tz = pytz.timezone('Europe/Istanbul')
+        now_turkey = datetime.now(turkey_tz)
+        
+        # Bugünün tarihi
+        today_str = now_turkey.strftime("%Y-%m-%d")
+        
+        # Saat 00:30'dan önceyse, dünkü baz fiyatları kullan
+        if now_turkey.hour == 0 and now_turkey.minute < 30:
+            yesterday = now_turkey - timedelta(days=1)
+            target_date = yesterday.strftime("%Y-%m-%d")
+        else:
+            target_date = today_str
+        
+        # Sheet'ten bugünün verilerini çek
+        data = sheet.get_all_records()
+        if not data:
+            return pd.DataFrame(columns=["Kod", "Fiyat", "PB"])
+        
+        df = pd.DataFrame(data)
+        # Bugünün tarihine ait kayıtları filtrele
+        df_today = df[df["Tarih"] == target_date].copy()
+        
+        if df_today.empty:
+            return pd.DataFrame(columns=["Kod", "Fiyat", "PB"])
+        
+        # En son kaydedilen değerleri al (her kod için)
+        df_today = df_today.groupby("Kod").last().reset_index()
+        return df_today[["Kod", "Fiyat", "PB"]]
+    
+    except Exception:
+        return pd.DataFrame(columns=["Kod", "Fiyat", "PB"])
+
+
+def should_update_daily_base():
+    """
+    Günlük baz fiyatların güncellenmesi gerekip gerekmediğini kontrol eder.
+    00:30'dan sonra ve henüz bugün için kayıt yoksa True döner.
+    """
+    try:
+        turkey_tz = pytz.timezone('Europe/Istanbul')
+        now_turkey = datetime.now(turkey_tz)
+        
+        # Saat 00:30'dan önceyse güncelleme
+        if now_turkey.hour == 0 and now_turkey.minute < 30:
+            return False
+        
+        # Bugün için kayıt var mı kontrol et
+        sheet = _get_daily_base_sheet()
+        if sheet is None:
+            return True
+        
+        today_str = now_turkey.strftime("%Y-%m-%d")
+        data = sheet.get_all_records()
+        
+        # Bugünün tarihi ile kayıt var mı?
+        for row in data:
+            if str(row.get("Tarih", "")) == today_str:
+                return False  # Bugün zaten kayıt var
+        
+        return True  # Bugün için kayıt yok, güncelle
+    except Exception:
+        return False
+
+
+def update_daily_base_prices(current_prices_df):
+    """
+    Günlük baz fiyatları günceller (00:30'da çağrılmalı).
+    current_prices_df: DataFrame with columns: Kod, Fiyat, PB
+    """
+    if not should_update_daily_base():
+        return
+    
+    sheet = _get_daily_base_sheet()
+    if sheet is None:
+        return
+    
+    try:
+        turkey_tz = pytz.timezone('Europe/Istanbul')
+        now_turkey = datetime.now(turkey_tz)
+        today_str = now_turkey.strftime("%Y-%m-%d")
+        time_str = now_turkey.strftime("%H:%M:%S")
+        
+        # Her varlık için kayıt ekle
+        for _, row in current_prices_df.iterrows():
+            kod = row["Kod"]
+            fiyat = float(row["Fiyat"])
+            pb = row.get("PB", "TRY")
+            
+            new_row = [today_str, time_str, kod, fiyat, pb]
+            sheet.append_row(new_row)
+    
+    except Exception:
+        pass
