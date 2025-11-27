@@ -25,7 +25,6 @@ from data_loader import (
     get_financial_news,
     get_portfolio_news,
     get_tefas_data,
-    get_binance_positions,
     read_portfolio_history,
     write_portfolio_history,
     get_timeframe_changes,
@@ -1483,7 +1482,6 @@ selected = option_menu(
     options=[
         "Dashboard",
         "Portföy",
-        "Binance Futures",
         "İzleme",
         "Satışlar",
         "Haberler",
@@ -1492,7 +1490,6 @@ selected = option_menu(
     icons=[
         "speedometer2",
         "pie-chart-fill",
-        "graph-up-arrow",
         "eye",
         "receipt",
         "newspaper",
@@ -3390,11 +3387,6 @@ elif selected == "Portföy":
         hist_chart = get_historical_chart(nakit_df, USD_TRY, GORUNUM_PB, start_date=start_date)
         if hist_chart:
             st.plotly_chart(hist_chart, use_container_width=True)
-
-elif selected == "Binance Futures":
-    # Binance Futures Dashboard
-    from futures_page import show_futures_dashboard
-    show_futures_dashboard()
 
 elif selected == "Haberler":
     tab_portfolio, tab_bist, tab_kripto, tab_global, tab_doviz = st.tabs([
