@@ -146,23 +146,34 @@ def show_futures_dashboard():
     with st.sidebar:
         st.header("⚙️ API Ayarları")
         
+        # Secrets'tan yükle (varsa)
+        try:
+            default_api_key = st.secrets["binance_futures"]["api_key"]
+            default_api_secret = st.secrets["binance_futures"]["api_secret"]
+            default_testnet = st.secrets["binance_futures"].get("testnet", False)
+            st.success("✅ API bilgileri secrets'tan yüklendi")
+        except:
+            default_api_key = st.session_state.get('futures_api_key', '')
+            default_api_secret = st.session_state.get('futures_api_secret', '')
+            default_testnet = st.session_state.get('futures_testnet', False)
+        
         # API credentials
         api_key = st.text_input(
             "API Key", 
-            value=st.session_state.get('futures_api_key', ''),
+            value=default_api_key,
             type='password',
             help="Binance Futures API anahtarınız"
         )
         api_secret = st.text_input(
             "API Secret",
-            value=st.session_state.get('futures_api_secret', ''),
+            value=default_api_secret,
             type='password',
             help="Binance Futures API secret"
         )
         
         testnet = st.checkbox(
             "Testnet Kullan",
-            value=st.session_state.get('futures_testnet', False),
+            value=default_testnet,
             help="Test ağında çalıştır"
         )
         

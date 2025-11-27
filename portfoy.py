@@ -1477,12 +1477,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- MENÜ (6 Buton) - Modern ---
+# --- MENÜ (7 Buton) - Modern ---
 selected = option_menu(
     menu_title=None,
     options=[
         "Dashboard",
         "Portföy",
+        "Binance Futures",
         "İzleme",
         "Satışlar",
         "Haberler",
@@ -1491,6 +1492,7 @@ selected = option_menu(
     icons=[
         "speedometer2",
         "pie-chart-fill",
+        "graph-up-arrow",
         "eye",
         "receipt",
         "newspaper",
@@ -3388,6 +3390,11 @@ elif selected == "Portföy":
         hist_chart = get_historical_chart(nakit_df, USD_TRY, GORUNUM_PB, start_date=start_date)
         if hist_chart:
             st.plotly_chart(hist_chart, use_container_width=True)
+
+elif selected == "Binance Futures":
+    # Binance Futures Dashboard
+    from futures_page import show_futures_dashboard
+    show_futures_dashboard()
 
 elif selected == "Haberler":
     tab_portfolio, tab_bist, tab_kripto, tab_global, tab_doviz = st.tabs([
