@@ -2315,8 +2315,19 @@ def render_kpi_sparkline(values):
     return fig
 
 
-def _compute_daily_pct(df):
-    """Safely compute günlük yüzde değişimi for hareket listesi."""
+def _compute_daily_pct(df, daily_base_prices=None, usd_try_rate=None, gorunum_pb=None):
+    """
+    Günlük yüzde değişimi hesaplar.
+    
+    00:30'da reset edilen baz fiyatları kullanır (varsa).
+    Baz fiyatlar yoksa, eski yöntemi kullanır (önceki günün kapanış fiyatı).
+    
+    Args:
+        df: Portfolio dataframe
+        daily_base_prices: 00:30'da kaydedilen baz fiyatlar (opsiyonel)
+        usd_try_rate: USD/TRY kuru (opsiyonel, baz fiyat kullanımı için gerekli)
+        gorunum_pb: Görünüm para birimi (opsiyonel, baz fiyat kullanımı için gerekli)
+    """
     if df is None or df.empty:
         return pd.DataFrame()
     required_cols = {"Kod", "Değer", "Gün. Kâr/Zarar"}
@@ -2325,19 +2336,69 @@ def _compute_daily_pct(df):
 
     work = df.copy()
     work["Günlük %"] = 0.0
-    safe_val = work["Değer"] - work["Gün. Kâr/Zarar"]
-    non_zero = safe_val.notna() & (safe_val != 0)
-    if non_zero.any():
-        work.loc[non_zero, "Günlük %"] = (
-            work.loc[non_zero, "Gün. Kâr/Zarar"] / safe_val[non_zero]
-        ) * 100
+    
+    # Baz fiyatlar varsa, bunları kullanarak günlük değişim hesapla
+    if daily_base_prices is not None and not daily_base_prices.empty and usd_try_rate is not None and gorunum_pb is not None:
+        for idx, row in work.iterrows():
+            kod = row["Kod"]
+            current_value = row["Değer"]
+            adet = row.get("Adet", 0)
+            
+            # Baz fiyatı bul
+            base_row = daily_base_prices[daily_base_prices["Kod"] == kod]
+            if not base_row.empty and adet > 0:
+                base_price = float(base_row.iloc[0]["Fiyat"])
+                base_pb = base_row.iloc[0].get("PB", "TRY")
+                
+                # Para birimi dönüşümü
+                pb = row.get("PB", "TRY")
+                if gorunum_pb == "TRY":
+                    if base_pb == "USD":
+                        base_value = base_price * adet * usd_try_rate
+                    else:
+                        base_value = base_price * adet
+                else:  # USD
+                    if base_pb == "TRY":
+                        base_value = base_price * adet / usd_try_rate
+                    else:
+                        base_value = base_price * adet
+                
+                # Günlük değişim yüzdesi (00:30 baz fiyatına göre)
+                if base_value > 0:
+                    work.at[idx, "Günlük %"] = ((current_value - base_value) / base_value) * 100
+                    # Günlük K/Z'ı da güncelle (00:30 bazında)
+                    work.at[idx, "Gün. Kâr/Zarar"] = current_value - base_value
+            else:
+                # Baz fiyat bulunamazsa, eski yöntemi kullan
+                safe_val = current_value - row["Gün. Kâr/Zarar"]
+                if safe_val != 0:
+                    work.at[idx, "Günlük %"] = (row["Gün. Kâr/Zarar"] / safe_val) * 100
+    else:
+        # Baz fiyatlar yoksa, eski yöntemi kullan
+        safe_val = work["Değer"] - work["Gün. Kâr/Zarar"]
+        non_zero = safe_val.notna() & (safe_val != 0)
+        if non_zero.any():
+            work.loc[non_zero, "Günlük %"] = (
+                work.loc[non_zero, "Gün. Kâr/Zarar"] / safe_val[non_zero]
+            ) * 100
+    
     work["Günlük %"] = work["Günlük %"].fillna(0.0)
     return work
 
 
-def get_daily_movers(df, top_n=5):
-    """Return top gainers/losers DataFrames according to günlük yüzde."""
-    enriched = _compute_daily_pct(df)
+def get_daily_movers(df, top_n=5, daily_base_prices=None, usd_try_rate=None, gorunum_pb=None):
+    """
+    Günün kazananları ve kaybedenleri listesini döndürür.
+    00:30'da reset edilen baz fiyatlara göre sıralanır.
+    
+    Args:
+        df: Portfolio dataframe
+        top_n: Kaç varlık gösterilecek
+        daily_base_prices: 00:30'da kaydedilen baz fiyatlar (opsiyonel)
+        usd_try_rate: USD/TRY kuru (opsiyonel)
+        gorunum_pb: Görünüm para birimi (opsiyonel)
+    """
+    enriched = _compute_daily_pct(df, daily_base_prices, usd_try_rate, gorunum_pb)
     if enriched.empty:
         return pd.DataFrame(), pd.DataFrame()
     winners = enriched.sort_values("Günlük %", ascending=False).head(top_n)
@@ -2345,9 +2406,21 @@ def get_daily_movers(df, top_n=5):
     return winners, losers
 
 
-def render_daily_movers_section(df, currency_symbol, top_n=5):
-    """Render günlük kazanan/kaybeden listesini modern kart formatında göster."""
-    winners, losers = get_daily_movers(df, top_n=top_n)
+def render_daily_movers_section(df, currency_symbol, top_n=5, daily_base_prices=None, usd_try_rate=None, gorunum_pb=None):
+    """
+    Günlük kazanan/kaybeden listesini modern kart formatında göster.
+    00:30'da reset edilen baz fiyatlara göre sıralanır.
+    
+    Args:
+        df: Portfolio dataframe
+        currency_symbol: Para birimi sembolü (₺ veya $)
+        top_n: Kaç varlık gösterilecek
+        daily_base_prices: 00:30'da kaydedilen baz fiyatlar (opsiyonel)
+        usd_try_rate: USD/TRY kuru (opsiyonel)
+        gorunum_pb: Görünüm para birimi (opsiyonel)
+    """
+    winners, losers = get_daily_movers(df, top_n=top_n, daily_base_prices=daily_base_prices, 
+                                       usd_try_rate=usd_try_rate, gorunum_pb=gorunum_pb)
     if winners.empty and losers.empty:
         st.info("Günlük kazanan/kaybeden verisi bulunamadı.")
         return
@@ -2653,7 +2726,10 @@ if selected == "Dashboard":
         )
 
         st.divider()
-        render_daily_movers_section(spot_only, sym)
+        render_daily_movers_section(spot_only, sym, top_n=5, 
+                                   daily_base_prices=daily_base_prices,
+                                   usd_try_rate=USD_TRY, 
+                                   gorunum_pb=GORUNUM_PB)
 
         render_modern_list_header(
             title="Portföy Isı Haritası",
@@ -2701,19 +2777,38 @@ if selected == "Dashboard":
         else:
             # Renk kolonu: Top. % veya Gün. %
             color_col = "Top. %"
-            heat_df["Gün. %"] = 0.0
-            safe_val = heat_df["Değer"] - heat_df["Gün. Kâr/Zarar"]
-            non_zero = safe_val != 0
-            heat_df.loc[non_zero, "Gün. %"] = (
-                heat_df.loc[non_zero, "Gün. Kâr/Zarar"] / safe_val[non_zero]
-            ) * 100
+            
+            # Günlük değişim hesaplama - 00:30 baz fiyatlarını kullan
+            if daily_base_prices is not None and not daily_base_prices.empty and map_mode == "Günlük Değişim %":
+                # Baz fiyatları kullanarak günlük değişim hesapla
+                heat_df = _compute_daily_pct(heat_df, daily_base_prices, USD_TRY, GORUNUM_PB)
+                color_col = "Günlük %"
+            else:
+                # Eski yöntemi kullan (baz fiyatlar yoksa veya genel kâr modu seçiliyse)
+                heat_df["Gün. %"] = 0.0
+                safe_val = heat_df["Değer"] - heat_df["Gün. Kâr/Zarar"]
+                non_zero = safe_val != 0
+                heat_df.loc[non_zero, "Gün. %"] = (
+                    heat_df.loc[non_zero, "Gün. Kâr/Zarar"] / safe_val[non_zero]
+                ) * 100
 
-            if map_mode == "Günlük Değişim %":
-                color_col = "Gün. %"
+                if map_mode == "Günlük Değişim %":
+                    color_col = "Gün. %"
 
             # Yüzdeleri 1 ondalık basamağa yuvarla (görüntü için)
             heat_df["Top. %_formatted"] = heat_df["Top. %"].round(1)
+            
+            # Günlük % kolonunu normalize et (hem "Günlük %" hem "Gün. %" olabilir)
+            if "Günlük %" in heat_df.columns and "Gün. %" not in heat_df.columns:
+                heat_df["Gün. %"] = heat_df["Günlük %"]
+            elif "Gün. %" not in heat_df.columns:
+                heat_df["Gün. %"] = 0.0
+            
             heat_df["Gün. %_formatted"] = heat_df["Gün. %"].round(1)
+            
+            # Renk kolonu ayarla
+            if color_col == "Günlük %":
+                color_col = "Gün. %"
 
             # Modern renk skalası için simetrik aralık
             vmax = float(heat_df[color_col].max())
