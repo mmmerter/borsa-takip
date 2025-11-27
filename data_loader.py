@@ -4,7 +4,10 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, timedelta
 import requests
 import feedparser
-from tefas import Crawler
+try:
+    from tefas import Crawler
+except (ImportError, AttributeError):
+    Crawler = None  # tefas kütüphanesi yüklü değilse None
 import yfinance as yf
 import ccxt
 import pandas as pd
@@ -196,22 +199,23 @@ def get_tefas_data(fund_code):
     except Exception:
         pass
     
-    # İKİNCİ: tefas-crawler ile dene
+    # İKİNCİ: tefas-crawler ile dene (eğer yüklüyse)
     try:
-        crawler = Crawler()
-        end = datetime.now().strftime("%Y-%m-%d")
-        start = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
-        res = crawler.fetch(start=start, end=end, name=fund_code, columns=["Price"])
-        if not res.empty and len(res) > 0:
-            res = res.sort_index()
-            valid_prices = res["Price"].dropna()
-            if len(valid_prices) > 0:
-                # Son kapanış fiyatı (bugünün fiyatı yoksa en son geçerli fiyat)
-                curr_price = float(valid_prices.iloc[-1])
-                # Önceki günün kapanış fiyatı (günlük kar/zarar hesaplaması için)
-                prev_price = float(valid_prices.iloc[-2]) if len(valid_prices) > 1 else curr_price
-                if curr_price > 0 and curr_price < 100:
-                    return curr_price, prev_price
+        if Crawler is not None:
+            crawler = Crawler()
+            end = datetime.now().strftime("%Y-%m-%d")
+            start = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+            res = crawler.fetch(start=start, end=end, name=fund_code, columns=["Price"])
+            if not res.empty and len(res) > 0:
+                res = res.sort_index()
+                valid_prices = res["Price"].dropna()
+                if len(valid_prices) > 0:
+                    # Son kapanış fiyatı (bugünün fiyatı yoksa en son geçerli fiyat)
+                    curr_price = float(valid_prices.iloc[-1])
+                    # Önceki günün kapanış fiyatı (günlük kar/zarar hesaplaması için)
+                    prev_price = float(valid_prices.iloc[-2]) if len(valid_prices) > 1 else curr_price
+                    if curr_price > 0 and curr_price < 100:
+                        return curr_price, prev_price
     except Exception:
         pass
     
