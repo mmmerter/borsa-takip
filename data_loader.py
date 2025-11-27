@@ -16,11 +16,13 @@ import unicodedata
 import socket
 import urllib.parse
 from utils import get_yahoo_symbol
+import pytz
 
 # Google Sheets / network işlemleri sonsuza kadar beklemesin diye global timeout
 socket.setdefaulttimeout(15)
 
 SHEET_NAME = "PortfoyData"
+DAILY_BASE_SHEET_NAME = "daily_base_prices"  # Günlük baz fiyatlar için
 
 # Google Sheets client cache
 _client_cache = None
@@ -956,3 +958,132 @@ def read_history_nakit():
 
 def write_history_nakit(value_try, value_usd):
     _write_market_history("history_nakit", value_try, value_usd)
+
+
+# ==========================================================
+#   Günlük Baz Fiyatlar (00:30'da sıfırlama için)
+# ==========================================================
+
+def _get_daily_base_sheet():
+    """Günlük baz fiyatlar sheet'ine erişim."""
+    try:
+        client = _get_gspread_client()
+        if client is None:
+            return None
+        spreadsheet = client.open(SHEET_NAME)
+        try:
+            sheet = spreadsheet.worksheet(DAILY_BASE_SHEET_NAME)
+        except Exception:
+            # Sheet yoksa oluştur
+            sheet = spreadsheet.add_worksheet(title=DAILY_BASE_SHEET_NAME, rows=1000, cols=10)
+            # Header ekle
+            sheet.append_row(["Tarih", "Saat", "Kod", "Fiyat", "PB"])
+        return sheet
+    except Exception:
+        return None
+
+
+def get_daily_base_prices():
+    """
+    Bugün için günlük baz fiyatları getirir (00:30'da kaydedilmiş).
+    Dönüş: DataFrame with columns: Kod, Fiyat, PB
+    """
+    sheet = _get_daily_base_sheet()
+    if sheet is None:
+        return pd.DataFrame(columns=["Kod", "Fiyat", "PB"])
+    
+    try:
+        # Türkiye saati
+        turkey_tz = pytz.timezone('Europe/Istanbul')
+        now_turkey = datetime.now(turkey_tz)
+        
+        # Bugünün tarihi
+        today_str = now_turkey.strftime("%Y-%m-%d")
+        
+        # Saat 00:30'dan önceyse, dünkü baz fiyatları kullan
+        if now_turkey.hour == 0 and now_turkey.minute < 30:
+            yesterday = now_turkey - timedelta(days=1)
+            target_date = yesterday.strftime("%Y-%m-%d")
+        else:
+            target_date = today_str
+        
+        # Sheet'ten bugünün verilerini çek
+        data = sheet.get_all_records()
+        if not data:
+            return pd.DataFrame(columns=["Kod", "Fiyat", "PB"])
+        
+        df = pd.DataFrame(data)
+        # Bugünün tarihine ait kayıtları filtrele
+        df_today = df[df["Tarih"] == target_date].copy()
+        
+        if df_today.empty:
+            return pd.DataFrame(columns=["Kod", "Fiyat", "PB"])
+        
+        # En son kaydedilen değerleri al (her kod için)
+        df_today = df_today.groupby("Kod").last().reset_index()
+        return df_today[["Kod", "Fiyat", "PB"]]
+    
+    except Exception:
+        return pd.DataFrame(columns=["Kod", "Fiyat", "PB"])
+
+
+def should_update_daily_base():
+    """
+    Günlük baz fiyatların güncellenmesi gerekip gerekmediğini kontrol eder.
+    00:30'dan sonra ve henüz bugün için kayıt yoksa True döner.
+    """
+    try:
+        turkey_tz = pytz.timezone('Europe/Istanbul')
+        now_turkey = datetime.now(turkey_tz)
+        
+        # Saat 00:30'dan önceyse güncelleme
+        if now_turkey.hour == 0 and now_turkey.minute < 30:
+            return False
+        
+        # Bugün için kayıt var mı kontrol et
+        sheet = _get_daily_base_sheet()
+        if sheet is None:
+            return True
+        
+        today_str = now_turkey.strftime("%Y-%m-%d")
+        data = sheet.get_all_records()
+        
+        # Bugünün tarihi ile kayıt var mı?
+        for row in data:
+            if str(row.get("Tarih", "")) == today_str:
+                return False  # Bugün zaten kayıt var
+        
+        return True  # Bugün için kayıt yok, güncelle
+    except Exception:
+        return False
+
+
+def update_daily_base_prices(current_prices_df):
+    """
+    Günlük baz fiyatları günceller (00:30'da çağrılmalı).
+    current_prices_df: DataFrame with columns: Kod, Fiyat, PB
+    """
+    if not should_update_daily_base():
+        return
+    
+    sheet = _get_daily_base_sheet()
+    if sheet is None:
+        return
+    
+    try:
+        turkey_tz = pytz.timezone('Europe/Istanbul')
+        now_turkey = datetime.now(turkey_tz)
+        today_str = now_turkey.strftime("%Y-%m-%d")
+        time_str = now_turkey.strftime("%H:%M:%S")
+        
+        # Her varlık için kayıt ekle
+        for _, row in current_prices_df.iterrows():
+            kod = row["Kod"]
+            fiyat = float(row["Fiyat"])
+            pb = row.get("PB", "TRY")
+            
+            new_row = [today_str, time_str, kod, fiyat, pb]
+            sheet.append_row(new_row)
+    
+    except Exception:
+        pass

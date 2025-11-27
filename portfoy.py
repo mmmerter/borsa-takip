@@ -40,6 +40,8 @@ from data_loader import (
     write_history_emtia,
     read_history_nakit,
     write_history_nakit,
+    get_daily_base_prices,
+    update_daily_base_prices,
 )
 
 # Fon getirilerinin yeniden dahil edilme tarihi (varsayılan: yarın)
@@ -2091,11 +2093,11 @@ def get_pnl_indicator(pct_value):
         return '<span style="color: #888; font-size: 16px;">⚪</span>'
 
 # --- GLOBAL INFO BAR ---
-def render_kral_infobar(df, sym, gorunum_pb=None, usd_try_rate=None, timeframe=None, show_sparklines=False):
+def render_kral_infobar(df, sym, gorunum_pb=None, usd_try_rate=None, timeframe=None, show_sparklines=False, daily_base_prices=None):
     """
     KRAL infobar:
     - Toplam Varlık
-    - Son 24 Saat K/Z
+    - Günlük K/Z (00:30'da sıfırlanan)
     - Haftalık / Aylık / YTD (opsiyonel, timeframe ile)
     - İstenirse altında mini sparkline'lar
     """
@@ -2104,7 +2106,41 @@ def render_kral_infobar(df, sym, gorunum_pb=None, usd_try_rate=None, timeframe=N
 
     # Mevcut görünümdeki toplam değer (df'nin para biriminde)
     total_value_view = df["Değer"].sum()
-    daily_pnl = df["Gün. Kâr/Zarar"].sum()
+    
+    # Günlük K/Z hesaplama - 00:30 baz fiyatlarını kullan
+    if daily_base_prices is not None and not daily_base_prices.empty:
+        # Baz fiyatlardan günlük K/Z hesapla
+        daily_pnl = 0.0
+        for _, row in df.iterrows():
+            kod = row["Kod"]
+            current_value = row["Değer"]
+            adet = row.get("Adet", 0)
+            
+            # Baz fiyatı bul
+            base_row = daily_base_prices[daily_base_prices["Kod"] == kod]
+            if not base_row.empty:
+                base_price = float(base_row.iloc[0]["Fiyat"])
+                
+                # Para birimi dönüşümü
+                pb = row.get("PB", "TRY")
+                if gorunum_pb == "TRY":
+                    if pb == "USD":
+                        base_value = base_price * adet * usd_try_rate
+                    else:
+                        base_value = base_price * adet
+                else:  # USD
+                    if pb == "TRY":
+                        base_value = base_price * adet / usd_try_rate
+                    else:
+                        base_value = base_price * adet
+                
+                daily_pnl += (current_value - base_value)
+            else:
+                # Baz fiyat yoksa, eski yöntemi kullan (önceki günün kapanışı)
+                daily_pnl += row.get("Gün. Kâr/Zarar", 0)
+    else:
+        # Baz fiyatlar yoksa, eski yöntemi kullan
+        daily_pnl = df["Gün. Kâr/Zarar"].sum()
 
     # Görsel işaretler - kırmızı/yeşil
     if daily_pnl > 0:
@@ -2205,9 +2241,9 @@ def render_kral_infobar(df, sym, gorunum_pb=None, usd_try_rate=None, timeframe=N
                 <div class="kral-infobox-sub">Bu görünümdeki toplam varlık</div>
             </div>
             <div class="kral-infobox">
-                <div class="kral-infobox-label">Son 24 Saat K/Z</div>
+                <div class="kral-infobox-label">Günlük K/Z</div>
                 <span class="kral-infobox-value">{daily_sign} {sym}{abs(daily_pnl):,.0f}</span>
-                <div class="kral-infobox-sub">Günlük toplam portföy hareketi</div>
+                <div class="kral-infobox-sub">Bugün saat 00:30'dan beri</div>
             </div>
             <div class="kral-infobox">
                 <div class="kral-infobox-label">Haftalık K/Z</div>
@@ -2570,7 +2606,18 @@ if selected == "Dashboard":
         except Exception:
             kpi_timeframe = None
 
-        # INFO BAR (Toplam Varlık + Son 24 Saat + Haftalık/Aylık/YTD + Sparkline)
+        # Günlük baz fiyatları al (00:30'da kaydedilen)
+        daily_base_prices = None
+        try:
+            daily_base_prices = get_daily_base_prices()
+            
+            # 00:30'dan sonraysa ve henüz bugün için kayıt yoksa, baz fiyatları güncelle
+            current_prices_for_base = spot_only[["Kod", "Fiyat", "PB"]].copy()
+            update_daily_base_prices(current_prices_for_base)
+        except Exception:
+            daily_base_prices = None
+
+        # INFO BAR (Toplam Varlık + Günlük K/Z + Haftalık/Aylık/YTD + Sparkline)
         render_kral_infobar(
             spot_only,
             sym,
@@ -2578,6 +2625,7 @@ if selected == "Dashboard":
             usd_try_rate=USD_TRY,
             timeframe=kpi_timeframe,
             show_sparklines=True,
+            daily_base_prices=daily_base_prices,
         )
 
         # Eski 2 metric (Toplam Varlık + Genel K/Z) yine dursun
