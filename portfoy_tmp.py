@@ -24,7 +24,6 @@ from data_loader import (
     get_tickers_data,
     get_financial_news,
     get_tefas_data,
-    get_binance_positions,
     read_portfolio_history,
     write_portfolio_history,
     get_timeframe_changes,

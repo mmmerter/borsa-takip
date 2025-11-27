@@ -597,20 +597,6 @@ def get_tickers_data(df_portfolio, usd_try):
     
     return f'<div class="ticker-text animate-market">{market_html_doubled}</div>', f'<div class="ticker-text animate-portfolio">{portfolio_html_doubled}</div>'
 
-def get_binance_pnl_stats(exchange):
-    return 0,0,0,0 # Stub
-
-def get_binance_positions(api_key, api_secret):
-    try:
-        exchange = ccxt.binance({"apiKey": api_key, "secret": api_secret, "options": {"defaultType": "future"}})
-        balance = exchange.fetch_balance()
-        positions = exchange.fetch_positions()
-        active = []
-        for pos in positions:
-            if float(pos["info"]["positionAmt"]) != 0:
-                active.append({"Sembol": pos["symbol"], "Yön": "🟢" if float(pos["info"]["positionAmt"]) > 0 else "🔴", "PNL": float(pos["unrealizedPnl"])})
-        return {"wallet": balance["total"]["USDT"]}, pd.DataFrame(active)
-    except Exception as e: return None, str(e)
 # ==========================================================
 #   KRAL ULTRA - Portföy Tarihsel Log & KPI Yardımcıları
 #   (charts.py içindeki import'ları karşılamak için)
