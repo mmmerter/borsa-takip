@@ -99,54 +99,11 @@ def _ensure_sheet_exists(client, sheet_name: str):
     except Exception:
         pass
 
-@st.cache_data(ttl=30)
-def get_data_from_sheet(profile: str = "ANA PROFİL"):
+def _get_data_from_sheet_uncached(profile: str = "ANA PROFİL"):
     """
-    Profil bazlı veri yükleme.
-    profile: "ANA PROFİL", "MERT", "BERGÜZAR", "ANNEM", "TOTAL"
+    Internal uncached version of get_data_from_sheet.
+    This is used to avoid recursive caching issues.
     """
-    # Total profil için tüm profillerin verilerini birleştir
-    # ANA PROFİL ve MERT aynı olduğu için sadece birini al
-    if profile == "TOTAL":
-        all_dfs = []
-        # ANA PROFİL ve MERT aynı, sadece ANA PROFİL'i al
-        for prof_name in ["ANA PROFİL", "BERGÜZAR", "ANNEM"]:
-            prof_df = get_data_from_sheet(prof_name)
-            if not prof_df.empty:
-                all_dfs.append(prof_df)
-        
-        if not all_dfs:
-            return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
-        
-        # Tüm profilleri birleştir
-        combined_df = pd.concat(all_dfs, ignore_index=True)
-        
-        # Aynı Kod+Pazar kombinasyonlarını birleştir (Adet ve Maliyet topla)
-        if not combined_df.empty:
-            # Önce Adet ve Maliyet'i sayısal yap
-            combined_df["Adet"] = pd.to_numeric(combined_df["Adet"], errors="coerce").fillna(0)
-            combined_df["Maliyet"] = pd.to_numeric(combined_df["Maliyet"], errors="coerce").fillna(0)
-            
-            # Gruplama yaparken Tip ve Notlar'ı da koru (ilk değeri al)
-            grouped = combined_df.groupby(["Kod", "Pazar"], as_index=False).agg({
-                "Adet": "sum",
-                "Tip": "first",
-                "Notlar": "first"
-            })
-            
-            # Maliyet'i yeniden hesapla (ağırlıklı ortalama)
-            grouped["Maliyet"] = 0.0
-            for idx, row in grouped.iterrows():
-                kod = row["Kod"]
-                pazar = row["Pazar"]
-                matching_rows = combined_df[(combined_df["Kod"] == kod) & (combined_df["Pazar"] == pazar)]
-                if len(matching_rows) > 0:
-                    total_adet = matching_rows["Adet"].sum()
-                    total_maliyet = (matching_rows["Adet"] * matching_rows["Maliyet"]).sum()
-                    if total_adet > 0:
-                        grouped.at[idx, "Maliyet"] = total_maliyet / total_adet
-            return grouped
-    
     # Normal profil için sheet'ten oku
     try:
         client = _get_gspread_client()
@@ -198,6 +155,58 @@ def get_data_from_sheet(profile: str = "ANA PROFİL"):
             "Google Sheets verisi okunurken hata oluştu. Lütfen tekrar deneyin.",
         )
         return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+
+@st.cache_data(ttl=30, show_spinner=False)
+def get_data_from_sheet(profile: str = "ANA PROFİL"):
+    """
+    Profil bazlı veri yükleme.
+    profile: "ANA PROFİL", "MERT", "BERGÜZAR", "ANNEM", "TOTAL"
+    """
+    # Total profil için tüm profillerin verilerini birleştir
+    # ANA PROFİL ve MERT aynı olduğu için sadece birini al
+    if profile == "TOTAL":
+        all_dfs = []
+        # ANA PROFİL ve MERT aynı, sadece ANA PROFİL'i al
+        # Use cached version for individual profiles to benefit from caching
+        for prof_name in ["ANA PROFİL", "BERGÜZAR", "ANNEM"]:
+            prof_df = get_data_from_sheet(prof_name)
+            if not prof_df.empty:
+                all_dfs.append(prof_df)
+        
+        if not all_dfs:
+            return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+        
+        # Tüm profilleri birleştir
+        combined_df = pd.concat(all_dfs, ignore_index=True)
+        
+        # Aynı Kod+Pazar kombinasyonlarını birleştir (Adet ve Maliyet topla)
+        if not combined_df.empty:
+            # Önce Adet ve Maliyet'i sayısal yap
+            combined_df["Adet"] = pd.to_numeric(combined_df["Adet"], errors="coerce").fillna(0)
+            combined_df["Maliyet"] = pd.to_numeric(combined_df["Maliyet"], errors="coerce").fillna(0)
+            
+            # Gruplama yaparken Tip ve Notlar'ı da koru (ilk değeri al)
+            grouped = combined_df.groupby(["Kod", "Pazar"], as_index=False).agg({
+                "Adet": "sum",
+                "Tip": "first",
+                "Notlar": "first"
+            })
+            
+            # Maliyet'i yeniden hesapla (ağırlıklı ortalama)
+            grouped["Maliyet"] = 0.0
+            for idx, row in grouped.iterrows():
+                kod = row["Kod"]
+                pazar = row["Pazar"]
+                matching_rows = combined_df[(combined_df["Kod"] == kod) & (combined_df["Pazar"] == pazar)]
+                if len(matching_rows) > 0:
+                    total_adet = matching_rows["Adet"].sum()
+                    total_maliyet = (matching_rows["Adet"] * matching_rows["Maliyet"]).sum()
+                    if total_adet > 0:
+                        grouped.at[idx, "Maliyet"] = total_maliyet / total_adet
+            return grouped
+    
+    # Normal profil için uncached helper'ı kullan
+    return _get_data_from_sheet_uncached(profile)
 
 def save_data_to_sheet(df, profile: str = "ANA PROFİL"):
     """
@@ -1232,3 +1241,185 @@ def update_daily_base_prices(current_prices_df):
     
     except Exception:
         pass
+
+
+def check_and_fix_sheets_structure():
+    """
+    Google Sheets yapısını kontrol eder ve eksik sheet'leri/kolonları düzenler.
+    Streamlit uygulaması içinden çağrılabilir.
+    """
+    results = []
+    all_ok = True
+    
+    try:
+        client = _get_gspread_client()
+        if client is None:
+            return {
+                "success": False,
+                "message": "Google Sheets'e bağlanılamadı. İnternet bağlantısını veya servis hesabı ayarlarını kontrol edin.",
+                "results": []
+            }
+        
+        spreadsheet = client.open(SHEET_NAME)
+        results.append(f"✓ Spreadsheet '{SHEET_NAME}' bulundu")
+        
+        # 1. Ana portföy sheet'leri kontrol et
+        for profile_name, sheet_name in PROFILE_SHEETS.items():
+            if sheet_name == SHEET_NAME:
+                # Ana sheet için sheet1 kullan
+                try:
+                    sheet = spreadsheet.sheet1
+                    headers = sheet.row_values(1)
+                    expected_headers = ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
+                    
+                    if not headers or headers != expected_headers:
+                        if headers:
+                            sheet.delete_rows(1)
+                        sheet.insert_row(expected_headers, 1)
+                        results.append(f"✓ '{profile_name}' (sheet1) - Header'lar düzeltildi")
+                        all_ok = False
+                    else:
+                        results.append(f"✓ '{profile_name}' (sheet1) - OK")
+                except Exception as e:
+                    results.append(f"✗ '{profile_name}' (sheet1) - Hata: {e}")
+                    all_ok = False
+            else:
+                # Diğer profil sheet'leri
+                try:
+                    sheet = spreadsheet.worksheet(sheet_name)
+                    headers = sheet.row_values(1)
+                    expected_headers = ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
+                    
+                    if not headers or headers != expected_headers:
+                        if headers:
+                            sheet.delete_rows(1)
+                        sheet.insert_row(expected_headers, 1)
+                        results.append(f"✓ '{profile_name}' ({sheet_name}) - Header'lar düzeltildi")
+                        all_ok = False
+                    else:
+                        results.append(f"✓ '{profile_name}' ({sheet_name}) - OK")
+                except Exception:
+                    # Sheet yoksa oluştur
+                    try:
+                        sheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=10)
+                        sheet.append_row(["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+                        results.append(f"✓ '{profile_name}' ({sheet_name}) - Sheet oluşturuldu")
+                        all_ok = False
+                    except Exception as e:
+                        results.append(f"✗ '{profile_name}' ({sheet_name}) - Sheet oluşturulamadı: {e}")
+                        all_ok = False
+        
+        # 2. Satışlar sheet'i kontrol et
+        try:
+            sheet = spreadsheet.worksheet("Satislar")
+            headers = sheet.row_values(1)
+            expected_headers = ["Tarih", "Kod", "Pazar", "Satılan Adet", "Satış Fiyatı", "Maliyet", "Kâr/Zarar"]
+            
+            if not headers or headers != expected_headers:
+                if headers:
+                    sheet.delete_rows(1)
+                sheet.insert_row(expected_headers, 1)
+                results.append(f"✓ 'Satislar' - Header'lar düzeltildi")
+                all_ok = False
+            else:
+                results.append(f"✓ 'Satislar' - OK")
+        except Exception:
+            try:
+                sheet = spreadsheet.add_worksheet(title="Satislar", rows=1000, cols=10)
+                sheet.append_row(["Tarih", "Kod", "Pazar", "Satılan Adet", "Satış Fiyatı", "Maliyet", "Kâr/Zarar"])
+                results.append(f"✓ 'Satislar' - Sheet oluşturuldu")
+                all_ok = False
+            except Exception as e:
+                results.append(f"✗ 'Satislar' - Sheet oluşturulamadı: {e}")
+                all_ok = False
+        
+        # 3. Portfolio history sheet'i kontrol et
+        try:
+            sheet = spreadsheet.worksheet("portfolio_history")
+            headers = sheet.row_values(1)
+            expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+            
+            if not headers or headers != expected_headers:
+                if headers:
+                    sheet.delete_rows(1)
+                sheet.insert_row(expected_headers, 1)
+                results.append(f"✓ 'portfolio_history' - Header'lar düzeltildi")
+                all_ok = False
+            else:
+                results.append(f"✓ 'portfolio_history' - OK")
+        except Exception:
+            try:
+                sheet = spreadsheet.add_worksheet(title="portfolio_history", rows=1000, cols=10)
+                sheet.append_row(["Tarih", "Değer_TRY", "Değer_USD"])
+                results.append(f"✓ 'portfolio_history' - Sheet oluşturuldu")
+                all_ok = False
+            except Exception as e:
+                results.append(f"✗ 'portfolio_history' - Sheet oluşturulamadı: {e}")
+                all_ok = False
+        
+        # 4. Pazar bazlı history sheet'leri kontrol et
+        market_sheets = ["history_bist", "history_abd", "history_fon", "history_emtia", "history_nakit"]
+        expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+        
+        for sheet_name in market_sheets:
+            try:
+                sheet = spreadsheet.worksheet(sheet_name)
+                headers = sheet.row_values(1)
+                
+                if not headers or headers != expected_headers:
+                    if headers:
+                        sheet.delete_rows(1)
+                    sheet.insert_row(expected_headers, 1)
+                    results.append(f"✓ '{sheet_name}' - Header'lar düzeltildi")
+                    all_ok = False
+                else:
+                    results.append(f"✓ '{sheet_name}' - OK")
+            except Exception:
+                try:
+                    sheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=10)
+                    sheet.append_row(expected_headers)
+                    results.append(f"✓ '{sheet_name}' - Sheet oluşturuldu")
+                    all_ok = False
+                except Exception as e:
+                    results.append(f"✗ '{sheet_name}' - Sheet oluşturulamadı: {e}")
+                    all_ok = False
+        
+        # 5. Günlük baz fiyatlar sheet'i kontrol et
+        try:
+            sheet = spreadsheet.worksheet(DAILY_BASE_SHEET_NAME)
+            headers = sheet.row_values(1)
+            expected_headers = ["Tarih", "Saat", "Kod", "Fiyat", "PB"]
+            
+            if not headers or headers != expected_headers:
+                if headers:
+                    sheet.delete_rows(1)
+                sheet.insert_row(expected_headers, 1)
+                results.append(f"✓ '{DAILY_BASE_SHEET_NAME}' - Header'lar düzeltildi")
+                all_ok = False
+            else:
+                results.append(f"✓ '{DAILY_BASE_SHEET_NAME}' - OK")
+        except Exception:
+            try:
+                sheet = spreadsheet.add_worksheet(title=DAILY_BASE_SHEET_NAME, rows=1000, cols=10)
+                sheet.append_row(["Tarih", "Saat", "Kod", "Fiyat", "PB"])
+                results.append(f"✓ '{DAILY_BASE_SHEET_NAME}' - Sheet oluşturuldu")
+                all_ok = False
+            except Exception as e:
+                results.append(f"✗ '{DAILY_BASE_SHEET_NAME}' - Sheet oluşturulamadı: {e}")
+                all_ok = False
+        
+        # Cache'i temizle
+        get_data_from_sheet.clear()
+        
+        return {
+            "success": True,
+            "all_ok": all_ok,
+            "message": "Tüm sheet'ler kontrol edildi ve düzenlendi." if not all_ok else "Tüm sheet'ler ve kolonlar doğru!",
+            "results": results
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Hata oluştu: {str(e)}",
+            "results": results
+        }

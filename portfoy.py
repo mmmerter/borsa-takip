@@ -41,6 +41,7 @@ from data_loader import (
     write_history_nakit,
     get_daily_base_prices,
     update_daily_base_prices,
+    check_and_fix_sheets_structure,
 )
 
 # Fon getirilerinin yeniden dahil edilme tarihi (varsayılan: yarın)
@@ -1441,6 +1442,32 @@ if "gorunum_pb" not in st.session_state:
 GORUNUM_PB = st.session_state["gorunum_pb"]
 sym = "₺" if GORUNUM_PB == "TRY" else "$"
 SELECTED_PROFILE = st.session_state["selected_profile"]
+
+# --- GOOGLE SHEETS YAPISI KONTROLÜ ---
+if "sheets_checked" not in st.session_state:
+    st.session_state["sheets_checked"] = False
+
+# Kontrol butonu (sadece bir kez göster)
+if not st.session_state["sheets_checked"]:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🔧 Google Sheets Yapısını Kontrol Et ve Düzelt", use_container_width=True, type="primary"):
+            with st.spinner("Sheet yapısı kontrol ediliyor..."):
+                result = check_and_fix_sheets_structure()
+                if result["success"]:
+                    st.success(result["message"])
+                    if result["results"]:
+                        with st.expander("Detaylı Sonuçlar", expanded=True):
+                            for res in result["results"]:
+                                st.text(res)
+                    st.session_state["sheets_checked"] = True
+                    st.rerun()
+                else:
+                    st.error(result["message"])
+                    if result["results"]:
+                        with st.expander("Detaylı Sonuçlar"):
+                            for res in result["results"]:
+                                st.text(res)
 
 # --- ANA DATA ---
 portfoy_df = get_data_from_sheet(profile=SELECTED_PROFILE)
