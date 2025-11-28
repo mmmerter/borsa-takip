@@ -31,6 +31,7 @@ from datetime import datetime, timedelta
 def _get_profile_sheet(sheet_type="main", profile_name=None):
     """
     Get Google Sheet worksheet for a specific profile.
+    Uses existing sheets: ana sayfa (MERT), annem, berguzar, total
     
     Args:
         sheet_type: Type of sheet ('main', 'sales', 'portfolio_history', etc.)
@@ -42,44 +43,72 @@ def _get_profile_sheet(sheet_type="main", profile_name=None):
     if profile_name is None:
         profile_name = get_current_profile()
     
-    # TOTAL profile doesn't have its own sheet
-    if profile_name == "TOTAL":
-        return None
-    
     try:
         client = _get_gspread_client()
         if client is None:
             return None
         
-        sheet_name = get_sheet_name_for_profile(sheet_type, profile_name)
-        if sheet_name is None:
-            return None
-        
         spreadsheet = client.open(SHEET_NAME)
         
-        try:
-            # Try to get existing worksheet
-            worksheet = spreadsheet.worksheet(sheet_name)
-        except Exception:
-            # Worksheet doesn't exist, create it
-            worksheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=20)
+        # Determine sheet name based on profile and type
+        if sheet_type == "main":
+            # Use existing sheets for main portfolio data
+            if profile_name == "MERT":
+                # Ana profil için sheet1 (ana sayfa)
+                worksheet = spreadsheet.sheet1
+            elif profile_name == "ANNEM":
+                worksheet = spreadsheet.worksheet("annem")
+            elif profile_name == "BERGUZAR":
+                worksheet = spreadsheet.worksheet("berguzar")
+            elif profile_name == "TOTAL":
+                # TOTAL için de sekme var ama otomatik hesaplanacak
+                # Sadece okuma için kullanılabilir
+                try:
+                    worksheet = spreadsheet.worksheet("total")
+                except:
+                    return None
+            else:
+                return None
+        else:
+            # Diğer sheet tipleri için profil-specific isimler kullan
+            sheet_name = get_sheet_name_for_profile(sheet_type, profile_name)
+            if sheet_name is None:
+                return None
             
-            # Add headers based on sheet type
-            if sheet_type == "main":
-                headers = ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
-                worksheet.append_row(headers)
-            elif sheet_type == "sales":
-                headers = ["Tarih", "Kod", "Pazar", "Satılan Adet", "Satış Fiyatı", "Maliyet", "Kâr/Zarar"]
-                worksheet.append_row(headers)
-            elif sheet_type in ["portfolio_history", "history_bist", "history_abd", "history_fon", "history_emtia", "history_nakit"]:
-                headers = ["Tarih", "Değer_TRY", "Değer_USD"]
-                worksheet.append_row(headers)
-            elif sheet_type == "daily_base_prices":
-                headers = ["Tarih", "Saat", "Kod", "Fiyat", "PB"]
-                worksheet.append_row(headers)
+            # MERT profili için özel isimler (underscore'suz)
+            if profile_name == "MERT":
+                # MERT için orijinal isimleri kullan
+                base_names = {
+                    "sales": "Satislar",
+                    "portfolio_history": "portfolio_history",
+                    "history_bist": "history_bist",
+                    "history_abd": "history_abd",
+                    "history_fon": "history_fon",
+                    "history_emtia": "history_emtia",
+                    "history_nakit": "history_nakit",
+                    "daily_base_prices": "daily_base_prices"
+                }
+                sheet_name = base_names.get(sheet_type, sheet_name)
+            
+            try:
+                worksheet = spreadsheet.worksheet(sheet_name)
+            except Exception:
+                # Worksheet doesn't exist, create it
+                worksheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=20)
+                
+                # Add headers based on sheet type
+                if sheet_type == "sales":
+                    headers = ["Tarih", "Kod", "Pazar", "Satılan Adet", "Satış Fiyatı", "Maliyet", "Kâr/Zarar"]
+                    worksheet.append_row(headers)
+                elif sheet_type in ["portfolio_history", "history_bist", "history_abd", "history_fon", "history_emtia", "history_nakit"]:
+                    headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+                    worksheet.append_row(headers)
+                elif sheet_type == "daily_base_prices":
+                    headers = ["Tarih", "Saat", "Kod", "Fiyat", "PB"]
+                    worksheet.append_row(headers)
         
         return worksheet
-    except Exception:
+    except Exception as e:
         return None
 
 
@@ -163,15 +192,16 @@ def _get_aggregated_data():
 def save_data_to_sheet_profile(df, profile_name=None):
     """
     Save portfolio data for a specific profile.
-    TOTAL profile cannot be saved (it's computed).
+    TOTAL profile is computed but can also be saved to the 'total' sheet.
     """
     if profile_name is None:
         profile_name = get_current_profile()
     
-    # Cannot save to TOTAL profile
+    # TOTAL profili için uyarı göster ama kaydetmeye izin ver (otomatik güncellemeler için)
     if is_aggregate_profile(profile_name):
-        st.error("TOTAL profili hesaplanmış bir profil olduğu için değiştirilemez.")
-        return
+        # TOTAL'i sessizce kaydet (arka planda otomatik güncellemeler için)
+        # Kullanıcı manuel düzenleme yapamaz ama sistem yazabilir
+        pass
     
     try:
         worksheet = _get_profile_sheet("main", profile_name)
@@ -179,11 +209,12 @@ def save_data_to_sheet_profile(df, profile_name=None):
             return
         
         # Remove profile column if it exists
-        if "_profile" in df.columns:
-            df = df.drop(columns=["_profile"])
+        df_to_save = df.copy()
+        if "_profile" in df_to_save.columns:
+            df_to_save = df_to_save.drop(columns=["_profile"])
         
         worksheet.clear()
-        worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+        worksheet.update([df_to_save.columns.values.tolist()] + df_to_save.values.tolist())
         
         # Clear cache
         get_data_from_sheet_profile.clear()
