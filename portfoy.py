@@ -1427,11 +1427,12 @@ def render_portfolio_news_section(portfolio_df, watchlist_df=None):
         )
 
 
-# --- ANA DATA ---
-portfoy_df = get_data_from_sheet()
-
 # --- HEADER ---
 USD_TRY = get_usd_try()
+
+# Profil seçimi için session state
+if "selected_profile" not in st.session_state:
+    st.session_state["selected_profile"] = "ANA PROFİL"
 
 # Para birimi seçimi için session state
 if "gorunum_pb" not in st.session_state:
@@ -1439,11 +1440,15 @@ if "gorunum_pb" not in st.session_state:
 
 GORUNUM_PB = st.session_state["gorunum_pb"]
 sym = "₺" if GORUNUM_PB == "TRY" else "$"
+SELECTED_PROFILE = st.session_state["selected_profile"]
+
+# --- ANA DATA ---
+portfoy_df = get_data_from_sheet(profile=SELECTED_PROFILE)
 
 # Header - Başlık
 with st.container():
     st.markdown('<div class="kral-header">', unsafe_allow_html=True)
-    c_title, c_toggle = st.columns([3, 1])
+    c_title, c_profile, c_toggle = st.columns([2.5, 1, 1])
     with c_title:
         st.markdown(
             "<div class='kral-header-title'>🏦 MERTER VARLIK TAKİP BOTU</div>",
@@ -1453,6 +1458,20 @@ with st.container():
             "<div class='kral-header-sub'>Toplam portföyünü tek ekranda izlemek için kişisel kontrol panelin.</div>",
             unsafe_allow_html=True,
         )
+    with c_profile:
+        st.write("")
+        st.markdown("<div style='font-size: 12px; color: #9da1b3; margin-bottom: 5px;'>Profil:</div>", unsafe_allow_html=True)
+        profile_options = ["ANA PROFİL", "MERT", "BERGÜZAR", "ANNEM", "TOTAL"]
+        selected_profile = st.selectbox(
+            "",
+            profile_options,
+            index=profile_options.index(SELECTED_PROFILE) if SELECTED_PROFILE in profile_options else 0,
+            key="profile_select",
+            label_visibility="collapsed"
+        )
+        if selected_profile != st.session_state.get("selected_profile"):
+            st.session_state["selected_profile"] = selected_profile
+            st.rerun()
     with c_toggle:
         st.write("")
         GORUNUM_PB = st.radio("Para Birimi:", ["TRY", "USD"], horizontal=True, key="pb_radio")
@@ -3655,7 +3674,7 @@ elif selected == "İzleme":
                     # portfoy_df'den bu kodu ve Tip="Takip" olan satırı sil
                     kod = row['Kod']
                     portfoy_df = portfoy_df[~((portfoy_df["Kod"] == kod) & (portfoy_df["Tip"] == "Takip"))]
-                    save_data_to_sheet(portfoy_df)
+                    save_data_to_sheet(portfoy_df, profile=SELECTED_PROFILE)
                     st.success(f"{kod} izleme listesinden silindi!")
                     time.sleep(1)
                     st.rerun()
@@ -3883,7 +3902,7 @@ elif selected == "Ekle/Çıkar":
                     portfoy_df = pd.concat(
                         [portfoy_df, new_row], ignore_index=True
                     )
-                    save_data_to_sheet(portfoy_df)
+                    save_data_to_sheet(portfoy_df, profile=SELECTED_PROFILE)
                     st.success("Güncellendi!")
                     time.sleep(1)
                     st.rerun()
@@ -3903,7 +3922,7 @@ elif selected == "Ekle/Çıkar":
                 s = st.selectbox("Silinecek Kod", portfoy_df["Kod"].unique(), key="del")
                 if st.button("🗑️ Sil"):
                     portfoy_df = portfoy_df[portfoy_df["Kod"] != s]
-                    save_data_to_sheet(portfoy_df)
+                    save_data_to_sheet(portfoy_df, profile=SELECTED_PROFILE)
                     st.success("Silindi!")
                     time.sleep(1)
                     st.rerun()
@@ -3958,7 +3977,7 @@ elif selected == "Ekle/Çıkar":
                                 portfoy_df["Kod"] == kod_sec, "Adet"
                             ] = kalan_adet
 
-                        save_data_to_sheet(portfoy_df)
+                        save_data_to_sheet(portfoy_df, profile=SELECTED_PROFILE)
 
                         st.success(
                             f"Satış kaydedildi. Toplam satış: {toplam_satis:,.2f}, "
