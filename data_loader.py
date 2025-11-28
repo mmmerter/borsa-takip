@@ -24,6 +24,16 @@ socket.setdefaulttimeout(15)
 SHEET_NAME = "PortfoyData"
 DAILY_BASE_SHEET_NAME = "daily_base_prices"  # Günlük baz fiyatlar için
 
+# Profil sistemi - Her profil için ayrı sheet
+# ANA PROFİL ve MERT aynı sheet'i kullanır (zaten aynı kişi)
+PROFILE_SHEETS = {
+    "ANA PROFİL": "PortfoyData",  # Mevcut sheet, hiçbir şeye dokunulmayacak
+    "MERT": "PortfoyData",  # ANA PROFİL ile aynı sheet
+    "BERGÜZAR": "PortfoyData_BERGÜZAR",
+    "ANNEM": "PortfoyData_ANNEM",
+    "TOTAL": None  # Total profil için sheet yok, hepsini birleştireceğiz
+}
+
 # Google Sheets client cache
 _client_cache = None
 
@@ -71,8 +81,73 @@ def _get_gspread_client():
             _client_cache = None
     return _client_cache
 
+def _get_profile_sheet_name(profile: str) -> str:
+    """Profil adına göre sheet adını döndürür"""
+    return PROFILE_SHEETS.get(profile, SHEET_NAME)
+
+def _ensure_sheet_exists(client, sheet_name: str):
+    """Sheet yoksa oluşturur"""
+    try:
+        spreadsheet = client.open(SHEET_NAME)
+        try:
+            spreadsheet.worksheet(sheet_name)
+        except Exception:
+            # Sheet yoksa oluştur
+            worksheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=10)
+            # Header ekle
+            worksheet.append_row(["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+    except Exception:
+        pass
+
 @st.cache_data(ttl=30)
-def get_data_from_sheet():
+def get_data_from_sheet(profile: str = "ANA PROFİL"):
+    """
+    Profil bazlı veri yükleme.
+    profile: "ANA PROFİL", "MERT", "BERGÜZAR", "ANNEM", "TOTAL"
+    """
+    # Total profil için tüm profillerin verilerini birleştir
+    # ANA PROFİL ve MERT aynı olduğu için sadece birini al
+    if profile == "TOTAL":
+        all_dfs = []
+        # ANA PROFİL ve MERT aynı, sadece ANA PROFİL'i al
+        for prof_name in ["ANA PROFİL", "BERGÜZAR", "ANNEM"]:
+            prof_df = get_data_from_sheet(prof_name)
+            if not prof_df.empty:
+                all_dfs.append(prof_df)
+        
+        if not all_dfs:
+            return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+        
+        # Tüm profilleri birleştir
+        combined_df = pd.concat(all_dfs, ignore_index=True)
+        
+        # Aynı Kod+Pazar kombinasyonlarını birleştir (Adet ve Maliyet topla)
+        if not combined_df.empty:
+            # Önce Adet ve Maliyet'i sayısal yap
+            combined_df["Adet"] = pd.to_numeric(combined_df["Adet"], errors="coerce").fillna(0)
+            combined_df["Maliyet"] = pd.to_numeric(combined_df["Maliyet"], errors="coerce").fillna(0)
+            
+            # Gruplama yaparken Tip ve Notlar'ı da koru (ilk değeri al)
+            grouped = combined_df.groupby(["Kod", "Pazar"], as_index=False).agg({
+                "Adet": "sum",
+                "Tip": "first",
+                "Notlar": "first"
+            })
+            
+            # Maliyet'i yeniden hesapla (ağırlıklı ortalama)
+            grouped["Maliyet"] = 0.0
+            for idx, row in grouped.iterrows():
+                kod = row["Kod"]
+                pazar = row["Pazar"]
+                matching_rows = combined_df[(combined_df["Kod"] == kod) & (combined_df["Pazar"] == pazar)]
+                if len(matching_rows) > 0:
+                    total_adet = matching_rows["Adet"].sum()
+                    total_maliyet = (matching_rows["Adet"] * matching_rows["Maliyet"]).sum()
+                    if total_adet > 0:
+                        grouped.at[idx, "Maliyet"] = total_maliyet / total_adet
+            return grouped
+    
+    # Normal profil için sheet'ten oku
     try:
         client = _get_gspread_client()
         if client is None:
@@ -81,7 +156,28 @@ def get_data_from_sheet():
                 "Google Sheets verisine ulaşılamadı. İnternet bağlantısını veya servis hesabı ayarlarını kontrol et.",
             )
             return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
-        sheet = client.open(SHEET_NAME).sheet1
+        
+        sheet_name = _get_profile_sheet_name(profile)
+        if sheet_name is None:
+            return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+        
+        # Sheet yoksa oluştur (ANA PROFİL ve MERT hariç - aynı sheet'i kullanırlar)
+        if profile not in ["ANA PROFİL", "MERT"]:
+            _ensure_sheet_exists(client, sheet_name)
+        
+        # Ana sheet için sheet1, diğerleri için worksheet kullan
+        if profile in ["ANA PROFİL", "MERT"]:
+            sheet = client.open(SHEET_NAME).sheet1
+        else:
+            spreadsheet = client.open(SHEET_NAME)
+            try:
+                sheet = spreadsheet.worksheet(sheet_name)
+            except Exception:
+                # Sheet yoksa oluştur
+                sheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=10)
+                sheet.append_row(["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+                return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+        
         data = sheet.get_all_records()
         if not data: 
             return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
@@ -103,14 +199,49 @@ def get_data_from_sheet():
         )
         return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
 
-def save_data_to_sheet(df):
+def save_data_to_sheet(df, profile: str = "ANA PROFİL"):
+    """
+    Profil bazlı veri kaydetme.
+    profile: "ANA PROFİL", "MERT", "BERGÜZAR", "ANNEM"
+    TOTAL profil için kayıt yapılmaz.
+    """
+    if profile == "TOTAL":
+        return  # Total profil için kayıt yapma
+    
     try:
         client = _get_gspread_client()
         if client is None:
             return
-        sheet = client.open(SHEET_NAME).sheet1
+        
+        sheet_name = _get_profile_sheet_name(profile)
+        if sheet_name is None:
+            return
+        
+        # Sheet yoksa oluştur (ANA PROFİL ve MERT hariç - aynı sheet'i kullanırlar)
+        if profile not in ["ANA PROFİL", "MERT"]:
+            _ensure_sheet_exists(client, sheet_name)
+        
+        # Ana sheet için sheet1, diğerleri için worksheet kullan
+        if profile in ["ANA PROFİL", "MERT"]:
+            sheet = client.open(SHEET_NAME).sheet1
+        else:
+            spreadsheet = client.open(SHEET_NAME)
+            try:
+                sheet = spreadsheet.worksheet(sheet_name)
+            except Exception:
+                # Sheet yoksa oluştur
+                sheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=10)
+                sheet.append_row(["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+        
         sheet.clear()
-        sheet.update([df.columns.values.tolist()] + df.values.tolist())
+        if not df.empty:
+            sheet.update([df.columns.values.tolist()] + df.values.tolist())
+        else:
+            # Boş dataframe için sadece header ekle
+            sheet.update([df.columns.values.tolist()])
+        
+        # Cache'i temizle
+        get_data_from_sheet.clear()
     except Exception:
         pass
 
