@@ -99,54 +99,11 @@ def _ensure_sheet_exists(client, sheet_name: str):
     except Exception:
         pass
 
-@st.cache_data(ttl=30)
-def get_data_from_sheet(profile: str = "ANA PROFİL"):
+def _get_data_from_sheet_uncached(profile: str = "ANA PROFİL"):
     """
-    Profil bazlı veri yükleme.
-    profile: "ANA PROFİL", "MERT", "BERGÜZAR", "ANNEM", "TOTAL"
+    Internal uncached version of get_data_from_sheet.
+    This is used to avoid recursive caching issues.
     """
-    # Total profil için tüm profillerin verilerini birleştir
-    # ANA PROFİL ve MERT aynı olduğu için sadece birini al
-    if profile == "TOTAL":
-        all_dfs = []
-        # ANA PROFİL ve MERT aynı, sadece ANA PROFİL'i al
-        for prof_name in ["ANA PROFİL", "BERGÜZAR", "ANNEM"]:
-            prof_df = get_data_from_sheet(prof_name)
-            if not prof_df.empty:
-                all_dfs.append(prof_df)
-        
-        if not all_dfs:
-            return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
-        
-        # Tüm profilleri birleştir
-        combined_df = pd.concat(all_dfs, ignore_index=True)
-        
-        # Aynı Kod+Pazar kombinasyonlarını birleştir (Adet ve Maliyet topla)
-        if not combined_df.empty:
-            # Önce Adet ve Maliyet'i sayısal yap
-            combined_df["Adet"] = pd.to_numeric(combined_df["Adet"], errors="coerce").fillna(0)
-            combined_df["Maliyet"] = pd.to_numeric(combined_df["Maliyet"], errors="coerce").fillna(0)
-            
-            # Gruplama yaparken Tip ve Notlar'ı da koru (ilk değeri al)
-            grouped = combined_df.groupby(["Kod", "Pazar"], as_index=False).agg({
-                "Adet": "sum",
-                "Tip": "first",
-                "Notlar": "first"
-            })
-            
-            # Maliyet'i yeniden hesapla (ağırlıklı ortalama)
-            grouped["Maliyet"] = 0.0
-            for idx, row in grouped.iterrows():
-                kod = row["Kod"]
-                pazar = row["Pazar"]
-                matching_rows = combined_df[(combined_df["Kod"] == kod) & (combined_df["Pazar"] == pazar)]
-                if len(matching_rows) > 0:
-                    total_adet = matching_rows["Adet"].sum()
-                    total_maliyet = (matching_rows["Adet"] * matching_rows["Maliyet"]).sum()
-                    if total_adet > 0:
-                        grouped.at[idx, "Maliyet"] = total_maliyet / total_adet
-            return grouped
-    
     # Normal profil için sheet'ten oku
     try:
         client = _get_gspread_client()
@@ -198,6 +155,58 @@ def get_data_from_sheet(profile: str = "ANA PROFİL"):
             "Google Sheets verisi okunurken hata oluştu. Lütfen tekrar deneyin.",
         )
         return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+
+@st.cache_data(ttl=30, show_spinner=False)
+def get_data_from_sheet(profile: str = "ANA PROFİL"):
+    """
+    Profil bazlı veri yükleme.
+    profile: "ANA PROFİL", "MERT", "BERGÜZAR", "ANNEM", "TOTAL"
+    """
+    # Total profil için tüm profillerin verilerini birleştir
+    # ANA PROFİL ve MERT aynı olduğu için sadece birini al
+    if profile == "TOTAL":
+        all_dfs = []
+        # ANA PROFİL ve MERT aynı, sadece ANA PROFİL'i al
+        # Use cached version for individual profiles to benefit from caching
+        for prof_name in ["ANA PROFİL", "BERGÜZAR", "ANNEM"]:
+            prof_df = get_data_from_sheet(prof_name)
+            if not prof_df.empty:
+                all_dfs.append(prof_df)
+        
+        if not all_dfs:
+            return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
+        
+        # Tüm profilleri birleştir
+        combined_df = pd.concat(all_dfs, ignore_index=True)
+        
+        # Aynı Kod+Pazar kombinasyonlarını birleştir (Adet ve Maliyet topla)
+        if not combined_df.empty:
+            # Önce Adet ve Maliyet'i sayısal yap
+            combined_df["Adet"] = pd.to_numeric(combined_df["Adet"], errors="coerce").fillna(0)
+            combined_df["Maliyet"] = pd.to_numeric(combined_df["Maliyet"], errors="coerce").fillna(0)
+            
+            # Gruplama yaparken Tip ve Notlar'ı da koru (ilk değeri al)
+            grouped = combined_df.groupby(["Kod", "Pazar"], as_index=False).agg({
+                "Adet": "sum",
+                "Tip": "first",
+                "Notlar": "first"
+            })
+            
+            # Maliyet'i yeniden hesapla (ağırlıklı ortalama)
+            grouped["Maliyet"] = 0.0
+            for idx, row in grouped.iterrows():
+                kod = row["Kod"]
+                pazar = row["Pazar"]
+                matching_rows = combined_df[(combined_df["Kod"] == kod) & (combined_df["Pazar"] == pazar)]
+                if len(matching_rows) > 0:
+                    total_adet = matching_rows["Adet"].sum()
+                    total_maliyet = (matching_rows["Adet"] * matching_rows["Maliyet"]).sum()
+                    if total_adet > 0:
+                        grouped.at[idx, "Maliyet"] = total_maliyet / total_adet
+            return grouped
+    
+    # Normal profil için uncached helper'ı kullan
+    return _get_data_from_sheet_uncached(profile)
 
 def save_data_to_sheet(df, profile: str = "ANA PROFİL"):
     """
