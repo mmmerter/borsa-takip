@@ -8,7 +8,7 @@ Mevcut Google Sheets yapınız kullanılıyor:
 PortfoyData (Spreadsheet)
 ├── Sheet1 (Ana sayfa)  → 🎯 MERT Profili
 ├── annem               → 👩 ANNEM Profili
-├── berguzar            → 👤 BERGUZAR Profili
+├── berguzar            → 👑 BERGUZAR Profili
 └── total               → 📊 TOTAL Profili (otomatik)
 ```
 

@@ -10,7 +10,7 @@ Portföy uygulamanıza **çoklu profil sistemi** eklendi. Artık 4 farklı profi
 |--------|------|----------|-------|
 | **MERT** | 🎯 | Ana profil, varsayılan | ✅ Çalışıyor |
 | **ANNEM** | 👩 | Anne portföyü | ⚠️ Worksheet eksik olabilir |
-| **BERGUZAR** | 👤 | Bergüzar portföyü | ⚠️ Worksheet eksik olabilir |
+| **BERGUZAR** | 👑 | Bergüzar portföyü | ⚠️ Worksheet eksik olabilir |
 | **TOTAL** | 📊 | Tüm profillerin toplamı | ✅ Otomatik hesaplanıyor |
 
 ## ⚠️ Mevcut Sorun
@@ -221,7 +221,7 @@ possible_names = ["berguzar", "Berguzar", "BERGUZAR", "bergüzar", "Bergüzar"]
 ```
 🎯 MERT → Kişisel varlıklarımı görüyorum
 👩 ANNEM → Annemin portföyünü yönetiyorum
-👤 BERGUZAR → Bergüzar'ın varlıklarını takip ediyorum
+👑 BERGUZAR → Bergüzar'ın varlıklarını takip ediyorum
 📊 TOTAL → Hepsinin toplamını analiz ediyorum
 ```
 

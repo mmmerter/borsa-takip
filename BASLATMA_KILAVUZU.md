@@ -7,7 +7,7 @@ Profil sisteminiz mevcut Google Sheets yapınızı kullanacak şekilde yapıland
 ```
 ✅ Sheet1 (Ana sayfa)  → 🎯 MERT Profili (mevcut verileriniz)
 ✅ annem               → 👩 ANNEM Profili  
-✅ berguzar            → 👤 BERGUZAR Profili
+✅ berguzar            → 👑 BERGUZAR Profili
 ✅ total               → 📊 TOTAL Profili (otomatik toplam)
 ```
 
@@ -62,7 +62,7 @@ streamlit run portfoy.py
 - **Durum:** Boş (ekleyeceksiniz)
 - **Özellik:** Tamamen ayrı portföy
 
-### 👤 BERGUZAR
+### 👑 BERGUZAR
 - **Sheet:** berguzar
 - **Renk:** Yeşil
 - **Durum:** Boş (ekleyeceksiniz)

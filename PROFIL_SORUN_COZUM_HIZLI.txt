@@ -66,7 +66,7 @@ SİSTEM NASIL ÇALIŞIYOR?
 PROFİLLER:
   🎯 MERT      → sheet1 (ana sayfa)       ✅ ÇALIŞIYOR
   👩 ANNEM     → annem worksheet          ⚠️  Eksik olabilir
-  👤 BERGUZAR  → berguzar worksheet       ⚠️  Eksik olabilir
+  👑 BERGUZAR  → berguzar worksheet       ⚠️  Eksik olabilir
   📊 TOTAL     → Otomatik toplam          ✅ ÇALIŞIYOR
 
 VERİ İZOLASYONU:

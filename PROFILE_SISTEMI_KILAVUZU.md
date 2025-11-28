@@ -8,7 +8,7 @@ Portföy takip uygulamanıza **4 profil sistemi** eklenmiştir:
 
 1. **🎯 MERT (Ana Profil)** - Varsayılan profil, her açılışta otomatik seçilir
 2. **👩 ANNEM** - Anneniz için ayrı portföy
-3. **👤 BERGUZAR** - Bergüzar için ayrı portföy
+3. **👑 BERGUZAR** - Bergüzar için ayrı portföy
 4. **📊 TOTAL** - Tüm profillerin toplamı (salt okunur, otomatik hesaplanır)
 
 ## ✨ Özellikler
@@ -152,7 +152,7 @@ TOTAL profili, her veri çekme işleminde:
 |--------|------|------|----------|
 | MERT | 🎯 | Mavi (#6b7fd7) | Ana profil |
 | ANNEM | 👩 | Pembe (#ec4899) | Anne portföyü |
-| BERGUZAR | 👤 | Yeşil (#10b981) | Bergüzar portföyü |
+| BERGUZAR | 👑 | Yeşil (#10b981) | Bergüzar portföyü |
 | TOTAL | 📊 | Turuncu (#f59e0b) | Toplam görünüm |
 
 ## 🔒 Güvenlik ve Veri İzolasyonu

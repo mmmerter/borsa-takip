@@ -17,7 +17,7 @@ PortfoyData (Google Spreadsheet)
 ├── 📄 annem                  → 👩 ANNEM Profili
 │   └── Annenizin portföyü (şimdi ekleyeceksiniz)
 │
-├── 📄 berguzar               → 👤 BERGUZAR Profili
+├── 📄 berguzar               → 👑 BERGUZAR Profili
 │   └── Bergüzar'ın portföyü (şimdi ekleyeceksiniz)
 │
 └── 📄 total                  → 📊 TOTAL Profili

@@ -117,7 +117,7 @@ def _find_worksheet_flexible(spreadsheet, possible_names):
 ```
 🎯 MERT     → sheet1 (ana sayfa)     ✅ Çalışıyor
 👩 ANNEM    → annem worksheet        ⚠️ Artık otomatik oluşturuluyor
-👤 BERGUZAR → berguzar worksheet     ⚠️ Artık otomatik oluşturuluyor
+👑 BERGUZAR → berguzar worksheet     ⚠️ Artık otomatik oluşturuluyor
 📊 TOTAL    → Otomatik hesaplanan    ✅ Çalışıyor
 ```
 

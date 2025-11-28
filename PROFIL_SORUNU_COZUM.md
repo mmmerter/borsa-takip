@@ -126,7 +126,7 @@ Sisteminizde **4 profil** var:
 |--------|------|----------------|-----------|
 | **MERT** | 🎯 | `sheet1` (ana sayfa) | Ana profil, varsayılan |
 | **ANNEM** | 👩 | `annem` | Anne portföyü |
-| **BERGUZAR** | 👤 | `berguzar` | Bergüzar portföyü |
+| **BERGUZAR** | 👑 | `berguzar` | Bergüzar portföyü |
 | **TOTAL** | 📊 | `total` (otomatik) | Tüm profillerin toplamı |
 
 ### 🔄 Veri İzolasyonu
