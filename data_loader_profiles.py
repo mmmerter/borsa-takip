@@ -28,10 +28,24 @@ from profile_manager import (
 from datetime import datetime, timedelta
 
 
+def _find_worksheet_flexible(spreadsheet, possible_names):
+    """
+    Try to find a worksheet by trying multiple possible names.
+    Returns (worksheet, found_name) or (None, None) if not found.
+    """
+    for name in possible_names:
+        try:
+            ws = spreadsheet.worksheet(name)
+            return ws, name
+        except:
+            continue
+    return None, None
+
+
 def _get_profile_sheet(sheet_type="main", profile_name=None):
     """
     Get Google Sheet worksheet for a specific profile.
-    Uses existing sheets: ana sayfa (MERT), annem, berguzar, total
+    Uses existing sheets with flexible name matching: ana sayfa (MERT), annem/Annem, berguzar/Berguzar, total
     
     Args:
         sheet_type: Type of sheet ('main', 'sales', 'portfolio_history', etc.)
@@ -57,15 +71,44 @@ def _get_profile_sheet(sheet_type="main", profile_name=None):
                 # Ana profil için sheet1 (ana sayfa)
                 worksheet = spreadsheet.sheet1
             elif profile_name == "ANNEM":
-                worksheet = spreadsheet.worksheet("annem")
+                # Farklı olası isimleri dene
+                possible_names = ["annem", "Annem", "ANNEM", "Anne", "anne"]
+                worksheet, found_name = _find_worksheet_flexible(spreadsheet, possible_names)
+                if worksheet is None:
+                    # Worksheet bulunamadı, oluştur
+                    try:
+                        worksheet = spreadsheet.add_worksheet(title="annem", rows=1000, cols=20)
+                        headers = ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
+                        worksheet.append_row(headers)
+                        _warn_once(f"sheet_created_annem", 
+                                 f"✅ 'annem' worksheet'i otomatik oluşturuldu. Artık ANNEM profiline varlık ekleyebilirsiniz!")
+                    except Exception as e:
+                        _warn_once(f"sheet_missing_annem", 
+                                 f"❌ ANNEM profili worksheet'i bulunamadı ve oluşturulamadı. Google Sheets'te 'annem' adlı bir worksheet oluşturun.")
+                        return None
             elif profile_name == "BERGUZAR":
-                worksheet = spreadsheet.worksheet("berguzar")
+                # Farklı olası isimleri dene (ü/u varyasyonları)
+                possible_names = ["berguzar", "Berguzar", "BERGUZAR", "bergüzar", "Bergüzar", "BERGÜZAR"]
+                worksheet, found_name = _find_worksheet_flexible(spreadsheet, possible_names)
+                if worksheet is None:
+                    # Worksheet bulunamadı, oluştur
+                    try:
+                        worksheet = spreadsheet.add_worksheet(title="berguzar", rows=1000, cols=20)
+                        headers = ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
+                        worksheet.append_row(headers)
+                        _warn_once(f"sheet_created_berguzar", 
+                                 f"✅ 'berguzar' worksheet'i otomatik oluşturuldu. Artık BERGUZAR profiline varlık ekleyebilirsiniz!")
+                    except Exception as e:
+                        _warn_once(f"sheet_missing_berguzar", 
+                                 f"❌ BERGUZAR profili worksheet'i bulunamadı ve oluşturulamadı. Google Sheets'te 'berguzar' adlı bir worksheet oluşturun.")
+                        return None
             elif profile_name == "TOTAL":
                 # TOTAL için de sekme var ama otomatik hesaplanacak
                 # Sadece okuma için kullanılabilir
-                try:
-                    worksheet = spreadsheet.worksheet("total")
-                except:
+                possible_names = ["total", "Total", "TOTAL", "Toplam", "toplam"]
+                worksheet, found_name = _find_worksheet_flexible(spreadsheet, possible_names)
+                if worksheet is None:
+                    # TOTAL için worksheet opsiyonel
                     return None
             else:
                 return None
