@@ -15,32 +15,47 @@ from utils import (
     styled_dataframe,
     get_yahoo_symbol,
 )
+
+# Profile management
+from profile_manager import (
+    init_session_state as init_profile_session,
+    get_current_profile,
+    render_profile_selector,
+    is_aggregate_profile,
+    get_profile_display_name,
+)
+
+# Use profile-aware data loader
+from data_loader_profiles import (
+    get_data_from_sheet_profile as get_data_from_sheet,
+    save_data_to_sheet_profile as save_data_to_sheet,
+    get_sales_history_profile as get_sales_history,
+    add_sale_record_profile as add_sale_record,
+    read_portfolio_history_profile as read_portfolio_history,
+    write_portfolio_history_profile as write_portfolio_history,
+    read_history_bist_profile as read_history_bist,
+    write_history_bist_profile as write_history_bist,
+    read_history_abd_profile as read_history_abd,
+    write_history_abd_profile as write_history_abd,
+    read_history_fon_profile as read_history_fon,
+    write_history_fon_profile as write_history_fon,
+    read_history_emtia_profile as read_history_emtia,
+    write_history_emtia_profile as write_history_emtia,
+    read_history_nakit_profile as read_history_nakit,
+    write_history_nakit_profile as write_history_nakit,
+    get_daily_base_prices_profile as get_daily_base_prices,
+    update_daily_base_prices_profile as update_daily_base_prices,
+)
+
+# Import non-profile specific functions from data_loader
 from data_loader import (
-    get_data_from_sheet,
-    save_data_to_sheet,
-    get_sales_history,
-    add_sale_record,
     get_usd_try,
     get_tickers_data,
     get_financial_news,
     get_portfolio_news,
     get_tefas_data,
-    read_portfolio_history,
-    write_portfolio_history,
     get_timeframe_changes,
     get_history_summary,
-    read_history_bist,
-    write_history_bist,
-    read_history_abd,
-    write_history_abd,
-    read_history_fon,
-    write_history_fon,
-    read_history_emtia,
-    write_history_emtia,
-    read_history_nakit,
-    write_history_nakit,
-    get_daily_base_prices,
-    update_daily_base_prices,
 )
 
 # Fon getirilerinin yeniden dahil edilme tarihi (varsayılan: yarın)
@@ -92,6 +107,9 @@ def _configure_page():
 
 
 _configure_page()
+
+# Initialize profile system
+init_profile_session()
 
 FON_METRIC_RESET_DATE = _init_fon_reset_date()
 
@@ -1460,6 +1478,18 @@ with st.container():
             st.session_state["gorunum_pb"] = GORUNUM_PB
             st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
+
+# --- PROFİL SEÇİCİ ---
+st.markdown("---")
+render_profile_selector()
+current_profile = get_current_profile()
+is_total = is_aggregate_profile(current_profile)
+
+# TOTAL profili için uyarı göster
+if is_total:
+    st.info("📊 **TOPLAM Profili**: Tüm profillerin birleşik görünümü. Veri eklenemez veya düzenlenemez.")
+
+st.markdown("---")
 
 mh, ph = get_tickers_data(portfoy_df, USD_TRY)
 st.markdown(
@@ -3746,6 +3776,12 @@ elif selected == "Satışlar":
 
 elif selected == "Ekle/Çıkar":
     st.header("Varlık Yönetimi")
+    
+    # TOTAL profili için düzenleme engeli
+    if is_total:
+        st.error("⛔ **TOPLAM Profili** salt okunurdur. Varlık eklemek/düzenlemek için bireysel bir profil seçin (MERT, ANNEM veya BERGUZAR).")
+        st.stop()
+    
     tab1, tab2, tab3 = st.tabs(["Ekle", "Düzenle", "Sil/Sat"])
 
     # ---------------- EKLE ----------------
