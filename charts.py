@@ -6,6 +6,69 @@ import pandas as pd
 
 from utils import styled_dataframe, get_yahoo_symbol
 from data_loader import get_tefas_data
+from profile_manager import get_current_profile
+
+
+def get_profile_colors(profile_name: str = None):
+    """
+    Profil bazında renk paleti döndürür.
+    Bergüzar profili için pembe tonları, diğerleri için standart renkler.
+    """
+    if profile_name is None:
+        profile_name = get_current_profile()
+    
+    if profile_name == "BERGUZAR":
+        # 👸 Prensese Layık Pembe Renk Paleti
+        return {
+            "primary": "#ec4899",  # Hot pink
+            "secondary": "#f472b6",  # Pink
+            "accent": "#ff69b4",  # Hot pink bright
+            "soft": "#f9a8d4",  # Pink soft
+            "purple": "#d946ef",  # Fuchsia
+            "rose": "#fb7185",  # Rose
+            "chart_colors": [
+                "#ec4899",  # Hot pink
+                "#f472b6",  # Pink
+                "#ff69b4",  # Hot pink bright
+                "#d946ef",  # Fuchsia
+                "#fb7185",  # Rose
+                "#f9a8d4",  # Pink soft
+                "#db2777",  # Pink dark
+                "#fbbf24",  # Amber (contrast)
+                "#be185d",  # Pink darker
+                "#ff1493",  # Deep pink
+            ]
+        }
+    else:
+        # Standart Renk Paleti
+        return {
+            "primary": "#6b7fd7",  # Indigo
+            "secondary": "#8b9aff",  # Light indigo
+            "accent": "#6366f1",  # Indigo bright
+            "soft": "#8b5cf6",  # Purple
+            "purple": "#a78bfa",  # Purple light
+            "rose": "#ec4899",  # Pink
+            "chart_colors": [
+                "#6366f1",  # Indigo
+                "#8b5cf6",  # Purple
+                "#ec4899",  # Pink
+                "#f59e0b",  # Amber
+                "#10b981",  # Emerald
+                "#3b82f6",  # Blue
+                "#f97316",  # Orange
+                "#06b6d4",  # Cyan
+                "#84cc16",  # Lime
+                "#ef4444",  # Red
+            ]
+        }
+
+
+def get_hover_color(profile_name: str = None):
+    """Profil bazında hover rengi döndürür."""
+    if profile_name is None:
+        profile_name = get_current_profile()
+    colors = get_profile_colors(profile_name)
+    return colors["primary"]
 
 
 def render_pie_bar_charts(
@@ -70,19 +133,10 @@ def render_pie_bar_charts(
     else:
         grouped["SirketListesi"] = ""
 
-    # Modern renk paleti - profesyonel ve tutarlı
-    modern_colors = [
-        "#6366f1",  # Indigo
-        "#8b5cf6",  # Purple
-        "#ec4899",  # Pink
-        "#f59e0b",  # Amber
-        "#10b981",  # Emerald
-        "#3b82f6",  # Blue
-        "#f97316",  # Orange
-        "#06b6d4",  # Cyan
-        "#84cc16",  # Lime
-        "#ef4444",  # Red
-    ]
+    # Modern renk paleti - profil bazlı
+    profile_colors = get_profile_colors()
+    modern_colors = profile_colors["chart_colors"]
+    hover_color = profile_colors["primary"]
     
     # Donut + Bar layout
     col_pie, col_bar = st.columns([1.2, 1])
@@ -96,20 +150,20 @@ def render_pie_bar_charts(
             sirket_listesi = grouped["SirketListesi"].fillna("").astype(str)
             # Boş olmayan değerler varsa göster
             if not sirket_listesi.empty and sirket_listesi.str.strip().ne("").any():
-                hover_template = "<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{label}</b><br>" + \
-                                "<span style='color: #6b7fd7;'>Değer:</span> <b>%{value:,.0f}</b><br>" + \
-                                "<span style='color: #6b7fd7;'>Pay:</span> <b>%{percent:.1%}</b><br>" + \
-                                "<span style='color: #6b7fd7;'>Şirketler:</span> <span style='font-size: 12px; color: #ffffff;'>%{customdata[0]}</span><extra></extra>"
+                hover_template = f"<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{{label}}</b><br>" + \
+                                f"<span style='color: {hover_color};'>Değer:</span> <b>%{{value:,.0f}}</b><br>" + \
+                                f"<span style='color: {hover_color};'>Pay:</span> <b>%{{percent:.1%}}</b><br>" + \
+                                f"<span style='color: {hover_color};'>Şirketler:</span> <span style='font-size: 12px; color: #ffffff;'>%{{customdata[0]}}</span><extra></extra>"
                 customdata_list = sirket_listesi.tolist()
             else:
-                hover_template = "<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{label}</b><br>" + \
-                                "<span style='color: #6b7fd7;'>Değer:</span> <b>%{value:,.0f}</b><br>" + \
-                                "<span style='color: #6b7fd7;'>Pay:</span> <b>%{percent:.1%}</b><extra></extra>"
+                hover_template = f"<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{{label}}</b><br>" + \
+                                f"<span style='color: {hover_color};'>Değer:</span> <b>%{{value:,.0f}}</b><br>" + \
+                                f"<span style='color: {hover_color};'>Pay:</span> <b>%{{percent:.1%}}</b><extra></extra>"
                 customdata_list = None
         else:
-            hover_template = "<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{label}</b><br>" + \
-                            "<span style='color: #6b7fd7;'>Değer:</span> <b>%{value:,.0f}</b><br>" + \
-                            "<span style='color: #6b7fd7;'>Pay:</span> <b>%{percent:.1%}</b><extra></extra>"
+            hover_template = f"<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{{label}}</b><br>" + \
+                            f"<span style='color: {hover_color};'>Değer:</span> <b>%{{value:,.0f}}</b><br>" + \
+                            f"<span style='color: {hover_color};'>Pay:</span> <b>%{{percent:.1%}}</b><extra></extra>"
             customdata_list = None
         
         # Pie chart için data hazırla
@@ -146,7 +200,7 @@ def render_pie_bar_charts(
                     font=dict(
                         family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                         size=13,
-                        color="#6b7fd7",
+                        color=hover_color,
                     ),
                 ),
                 font=dict(
@@ -209,9 +263,9 @@ def render_pie_bar_charts(
                     size=11,
                     color="#ffffff",
                 ),
-                hovertemplate="<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{y}</b><br>" +
-                              "<span style='color: #6b7fd7;'>Değer:</span> <b>%{x:,.0f}</b><br>" +
-                              "<span style='color: #6b7fd7;'>Pay:</span> <b>%{customdata:.2f}%</b><extra></extra>",
+                hovertemplate=f"<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{{y}}</b><br>" +
+                              f"<span style='color: {hover_color};'>Değer:</span> <b>%{{x:,.0f}}</b><br>" +
+                              f"<span style='color: {hover_color};'>Pay:</span> <b>%{{customdata:.2f}}%</b><extra></extra>",
                 customdata=grouped["Pay (%)"],
             )
         )
@@ -306,14 +360,17 @@ def render_pie_bar_charts(
 
 def render_modern_list_header(title: str, icon: str, subtitle: str = ""):
     """Modern başlık oluşturur - animasyonlu ikon ve gradyan arka plan ile"""
+    profile_colors = get_profile_colors()
+    primary_color = profile_colors["primary"]
+    
     st.markdown(
         f"""
         <div class="modern-list-header" style="
-            background: linear-gradient(135deg, rgba(107, 127, 215, 0.15) 0%, rgba(139, 154, 255, 0.05) 100%);
+            background: linear-gradient(135deg, rgba({int(primary_color[1:3], 16)}, {int(primary_color[3:5], 16)}, {int(primary_color[5:7], 16)}, 0.15) 0%, rgba(139, 154, 255, 0.05) 100%);
             border-radius: 16px;
             padding: 20px 24px;
             margin-bottom: 20px;
-            border-left: 4px solid #6b7fd7;
+            border-left: 4px solid {primary_color};
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             position: relative;
             overflow: hidden;
@@ -321,7 +378,7 @@ def render_modern_list_header(title: str, icon: str, subtitle: str = ""):
             <div style="display: flex; align-items: center; gap: 14px;">
                 <span class="header-icon" style="
                     font-size: 36px;
-                    filter: drop-shadow(0 2px 6px rgba(107, 127, 215, 0.4));
+                    filter: drop-shadow(0 2px 6px rgba({int(primary_color[1:3], 16)}, {int(primary_color[3:5], 16)}, {int(primary_color[5:7], 16)}, 0.4));
                     animation: pulse-glow 2s ease-in-out infinite;
                 ">{icon}</span>
                 <div>
@@ -795,21 +852,25 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, start_d
     # Para birimi sembolü
     currency_symbol = "₺" if pb == "TRY" else "$"
     
+    # Profil renklerini al (hover için)
+    profile_colors = get_profile_colors()
+    hover_color = profile_colors["primary"]
+    
     # Grafikte gösterilecek değer: Maliyet bazlı yüzde varsa onu kullan, yoksa mutlak değer
     if total_cost > 0:
         y_values = hist_df["GrafikDeğeri"]
         y_label = "Performans (%)"
-        hover_value_template = "<span style='color: #6b7fd7;'>Performans:</span> <b>%{y:+.2f}%</b><br>" + \
-                              f"<span style='color: #6b7fd7;'>Değer:</span> <b>{currency_symbol}%{{customdata[2]:,.0f}}</b><br>" + \
-                              "<span style='color: #6b7fd7;'>Günlük Değişim:</span> <b>%{customdata[0]:+,.0f}</b><br>" + \
-                              "<span style='color: #6b7fd7;'>Günlük Değişim %:</span> <b>%{customdata[1]:+.2f}%</b>"
+        hover_value_template = f"<span style='color: {hover_color};'>Performans:</span> <b>%{{y:+.2f}}%</b><br>" + \
+                              f"<span style='color: {hover_color};'>Değer:</span> <b>{currency_symbol}%{{customdata[2]:,.0f}}</b><br>" + \
+                              f"<span style='color: {hover_color};'>Günlük Değişim:</span> <b>%{{customdata[0]:+,.0f}}</b><br>" + \
+                              f"<span style='color: {hover_color};'>Günlük Değişim %:</span> <b>%{{customdata[1]:+.2f}}%</b>"
         customdata_array = hist_df[["GünlükDeğişim", "GünlükDeğişim%", "ToplamDeğer"]].values
     else:
         y_values = hist_df["ToplamDeğer"]
         y_label = f"Portföy Değeri ({currency_symbol})"
-        hover_value_template = f"<span style='color: #6b7fd7;'>Değer:</span> <b>{currency_symbol}%{{y:,.0f}}</b><br>" + \
-                              "<span style='color: #6b7fd7;'>Günlük Değişim:</span> <b>%{customdata[0]:+,.0f}</b><br>" + \
-                              "<span style='color: #6b7fd7;'>Günlük Değişim %:</span> <b>%{customdata[1]:+.2f}%</b>"
+        hover_value_template = f"<span style='color: {hover_color};'>Değer:</span> <b>{currency_symbol}%{{y:,.0f}}</b><br>" + \
+                              f"<span style='color: {hover_color};'>Günlük Değişim:</span> <b>%{{customdata[0]:+,.0f}}</b><br>" + \
+                              f"<span style='color: {hover_color};'>Günlük Değişim %:</span> <b>%{{customdata[1]:+.2f}}%</b>"
         customdata_array = hist_df[["GünlükDeğişim", "GünlükDeğişim%"]].values
     
     # Min ve Max değerler
@@ -817,6 +878,14 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, start_d
     max_değer = hist_df["ToplamDeğer"].max()
     min_tarih = hist_df.loc[hist_df["ToplamDeğer"].idxmin(), "Tarih"]
     max_tarih = hist_df.loc[hist_df["ToplamDeğer"].idxmax(), "Tarih"]
+    
+    # Profil renklerini al
+    profile_colors = get_profile_colors()
+    primary_color = profile_colors["primary"]
+    # Hex to RGB conversion for fillcolor
+    r = int(primary_color[1:3], 16)
+    g = int(primary_color[3:5], 16)
+    b = int(primary_color[5:7], 16)
     
     # Modern grafik oluştur - Area chart ile gradient fill
     fig = go.Figure()
@@ -829,9 +898,9 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, start_d
             mode="lines",
             name="Portföy Performansı" if total_cost > 0 else "Portföy Değeri",
             fill="tonexty",
-            fillcolor="rgba(107, 127, 215, 0.2)",  # Gradient fill için başlangıç
+            fillcolor=f"rgba({r}, {g}, {b}, 0.2)",  # Gradient fill için profil rengi
             line=dict(
-                color="#6b7fd7",
+                color=primary_color,
                 width=3,
                 shape="spline",  # Yumuşak çizgiler
             ),
@@ -1280,6 +1349,10 @@ def get_comparison_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, compari
     portfolio_normalized = (portfolio_filtered / portfolio_start) * 100
     comp_normalized = (comp_filtered / comp_start) * 100
     
+    # Profil renklerini al
+    profile_colors = get_profile_colors()
+    primary_color = profile_colors["primary"]
+    
     # Grafik oluştur
     fig = go.Figure()
     
@@ -1291,12 +1364,12 @@ def get_comparison_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, compari
             mode="lines",
             name="Portföy",
             line=dict(
-                color="#6b7fd7",
+                color=primary_color,
                 width=3,
                 shape="spline",
             ),
-            hovertemplate="<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{x|%d %b %Y}</b><br>" +
-                         "<span style='color: #6b7fd7;'>Portföy:</span> <b>%{y:.2f}%</b><extra></extra>",
+            hovertemplate=f"<b style='font-family: Inter, sans-serif; font-size: 14px;'>%{{x|%d %b %Y}}</b><br>" +
+                         f"<span style='color: {primary_color};'>Portföy:</span> <b>%{{y:.2f}}%</b><extra></extra>",
         )
     )
     
