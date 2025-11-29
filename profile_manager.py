@@ -30,7 +30,7 @@ PROFILES = {
         "name": "BERGUZAR",
         "display_name": "👑 Bergüzar",
         "icon": "👑",
-        "color": "#10b981",
+        "color": "#ec4899",
         "is_aggregate": False,
         "description": "Bergüzar portföyü"
     },

@@ -3789,8 +3789,29 @@ elif selected == "Ekle/Çıkar":
         # Pazar seçimi
         pazar = st.selectbox("Pazar", list(MARKET_DATA.keys()), key="ekle_pazar")
 
-        # Kod manuel girilecek
-        kod = st.text_input("Kod (Örn: BTC, THYAO)", key="ekle_kod_manu").upper()
+        # Kod seçimi - EMTIA için özel dropdown (Gram Altın, Gram Gümüş)
+        if pazar == "EMTIA":
+            kod_options = MARKET_DATA.get("EMTIA", [])
+            if kod_options:
+                kod = st.selectbox("Kod", kod_options, key="ekle_kod_emtia")
+            else:
+                kod = st.text_input("Kod (Örn: Gram Altın, Gram Gümüş)", key="ekle_kod_emtia_manu").upper()
+        else:
+            # Diğer pazarlar için manuel giriş veya öneri
+            kod_options = MARKET_DATA.get(pazar, [])
+            if kod_options:
+                kod_choice = st.radio(
+                    "Kod Seçimi",
+                    ["Listeden Seç", "Manuel Gir"],
+                    horizontal=True,
+                    key="ekle_kod_choice"
+                )
+                if kod_choice == "Listeden Seç":
+                    kod = st.selectbox("Kod", kod_options, key="ekle_kod_select")
+                else:
+                    kod = st.text_input("Kod (Örn: BTC, THYAO)", key="ekle_kod_manu").upper()
+            else:
+                kod = st.text_input("Kod (Örn: BTC, THYAO)", key="ekle_kod_manu").upper()
 
         # Takip mi, portföy mü?
         is_takip = st.checkbox(

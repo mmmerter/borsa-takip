@@ -80,11 +80,11 @@ def _get_profile_sheet(sheet_type="main", profile_name=None):
                         worksheet = spreadsheet.add_worksheet(title="annem", rows=1000, cols=20)
                         headers = ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
                         worksheet.append_row(headers)
-                        _warn_once(f"sheet_created_annem", 
-                                 f"✅ 'annem' worksheet'i otomatik oluşturuldu. Artık ANNEM profiline varlık ekleyebilirsiniz!")
+                        st.success("✅ 'annem' worksheet'i otomatik oluşturuldu. Artık ANNEM profiline varlık ekleyebilirsiniz!")
                     except Exception as e:
-                        _warn_once(f"sheet_missing_annem", 
-                                 f"❌ ANNEM profili worksheet'i bulunamadı ve oluşturulamadı. Google Sheets'te 'annem' adlı bir worksheet oluşturun.")
+                        error_msg = f"❌ ANNEM profili worksheet'i bulunamadı ve oluşturulamadı. Hata: {str(e)}. Google Sheets'te 'annem' adlı bir worksheet oluşturun veya servis hesabına gerekli izinleri verin."
+                        st.error(error_msg)
+                        _warn_once(f"sheet_missing_annem", error_msg)
                         return None
             elif profile_name == "BERGUZAR":
                 # Farklı olası isimleri dene (ü/u varyasyonları)
@@ -96,11 +96,11 @@ def _get_profile_sheet(sheet_type="main", profile_name=None):
                         worksheet = spreadsheet.add_worksheet(title="berguzar", rows=1000, cols=20)
                         headers = ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
                         worksheet.append_row(headers)
-                        _warn_once(f"sheet_created_berguzar", 
-                                 f"✅ 'berguzar' worksheet'i otomatik oluşturuldu. Artık BERGUZAR profiline varlık ekleyebilirsiniz!")
+                        st.success("✅ 'berguzar' worksheet'i otomatik oluşturuldu. Artık BERGUZAR profiline varlık ekleyebilirsiniz!")
                     except Exception as e:
-                        _warn_once(f"sheet_missing_berguzar", 
-                                 f"❌ BERGUZAR profili worksheet'i bulunamadı ve oluşturulamadı. Google Sheets'te 'berguzar' adlı bir worksheet oluşturun.")
+                        error_msg = f"❌ BERGUZAR profili worksheet'i bulunamadı ve oluşturulamadı. Hata: {str(e)}. Google Sheets'te 'berguzar' adlı bir worksheet oluşturun veya servis hesabına gerekli izinleri verin."
+                        st.error(error_msg)
+                        _warn_once(f"sheet_missing_berguzar", error_msg)
                         return None
             elif profile_name == "TOTAL":
                 # TOTAL için de sekme var ama otomatik hesaplanacak
@@ -172,9 +172,11 @@ def get_data_from_sheet_profile(profile_name=None):
     try:
         worksheet = _get_profile_sheet("main", profile_name)
         if worksheet is None:
+            error_msg = f"⚠️ Google Sheets verisine ulaşılamadı ({profile_name} profili). Worksheet bulunamadı veya oluşturulamadı. Lütfen Google Sheets'te '{profile_name.lower()}' adlı bir worksheet oluşturun veya servis hesabına gerekli izinleri verin."
+            st.warning(error_msg)
             _warn_once(
                 f"sheet_client_{profile_name}",
-                f"Google Sheets verisine ulaşılamadı ({profile_name} profili).",
+                error_msg,
             )
             return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
         
@@ -195,10 +197,12 @@ def get_data_from_sheet_profile(profile_name=None):
             df["Tip"] = df["Tip"].apply(_normalize_tip_value)
         
         return df
-    except Exception:
+    except Exception as e:
+        error_msg = f"❌ Google Sheets verisi okunurken hata oluştu ({profile_name} profili). Hata: {str(e)}"
+        st.error(error_msg)
         _warn_once(
             f"sheet_client_error_{profile_name}",
-            f"Google Sheets verisi okunurken hata oluştu ({profile_name} profili).",
+            error_msg,
         )
         return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
 
@@ -249,6 +253,8 @@ def save_data_to_sheet_profile(df, profile_name=None):
     try:
         worksheet = _get_profile_sheet("main", profile_name)
         if worksheet is None:
+            error_msg = f"⚠️ {profile_name} profili için worksheet bulunamadı. Veri kaydedilemedi. Lütfen Google Sheets'te '{profile_name.lower()}' adlı bir worksheet oluşturun."
+            st.error(error_msg)
             return
         
         # Remove profile column if it exists
@@ -261,8 +267,9 @@ def save_data_to_sheet_profile(df, profile_name=None):
         
         # Clear cache
         get_data_from_sheet_profile.clear()
-    except Exception:
-        pass
+    except Exception as e:
+        error_msg = f"❌ Veri kaydedilirken hata oluştu ({profile_name} profili). Hata: {str(e)}"
+        st.error(error_msg)
 
 
 @st.cache_data(ttl=60)
