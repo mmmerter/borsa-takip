@@ -1053,168 +1053,304 @@ st.markdown(
         text-align: right !important;
     }
     
-    /* BERGUZAR profili için tam pembe tema */
+    /* ✨ BERGÜZAR PROFİLİ İÇİN PRENSESE LAYIK PEMBE TEMA ✨ */
     .profile-berguzar-active {
         --berguzar-pink: #ec4899;
+        --berguzar-pink-bright: #ff69b4;
         --berguzar-pink-soft: #f9a8d4;
-        --berguzar-pink-glow: rgba(236, 72, 153, 0.45);
+        --berguzar-pink-light: #fce7f3;
+        --berguzar-pink-glow: rgba(236, 72, 153, 0.5);
         --berguzar-pink-dark: #200114;
+        --berguzar-purple: #d946ef;
+        --berguzar-rose: #fb7185;
     }
+    
+    /* Ana Arka Plan - Pembe Gradyan Gökyüzü */
     .profile-berguzar-active,
     .profile-berguzar-active [data-testid="stAppViewContainer"],
     .profile-berguzar-active [data-testid="stAppBody"] {
-        background: radial-gradient(circle at 15% 15%, rgba(249, 168, 212, 0.1), transparent 45%),
-                    radial-gradient(circle at 80% 0%, rgba(236, 72, 153, 0.18), transparent 55%),
-                    #12010f !important;
+        background: radial-gradient(circle at 20% 20%, rgba(249, 168, 212, 0.15), transparent 50%),
+                    radial-gradient(circle at 80% 10%, rgba(236, 72, 153, 0.25), transparent 60%),
+                    radial-gradient(circle at 50% 100%, rgba(217, 70, 239, 0.12), transparent 70%),
+                    linear-gradient(180deg, #1a0312 0%, #0d0009 100%) !important;
     }
+    
+    /* Ticker Container - Pembe Şerit */
     .profile-berguzar-active .ticker-container {
-        background: linear-gradient(120deg, rgba(236, 72, 153, 0.35) 0%, rgba(32, 1, 28, 0.95) 100%) !important;
-        border-bottom: 2px solid rgba(236, 72, 153, 0.55) !important;
-        box-shadow: 0 15px 40px rgba(236, 72, 153, 0.2) !important;
+        background: linear-gradient(120deg, rgba(236, 72, 153, 0.4) 0%, rgba(217, 70, 239, 0.35) 50%, rgba(251, 113, 133, 0.38) 100%) !important;
+        border-bottom: 3px solid rgba(236, 72, 153, 0.6) !important;
+        box-shadow: 0 15px 50px rgba(236, 72, 153, 0.3), 0 0 80px rgba(236, 72, 153, 0.15) !important;
     }
     .profile-berguzar-active .portfolio-ticker {
-        border-bottom: 2px solid rgba(236, 72, 153, 0.85) !important;
+        border-bottom: 3px solid rgba(255, 105, 180, 0.9) !important;
     }
     .profile-berguzar-active .ticker-label {
-        color: #ffe3f5 !important;
-        background: linear-gradient(135deg, rgba(236, 72, 153, 0.4), rgba(88, 28, 70, 0.9)) !important;
-        border-right: 1px solid rgba(236, 72, 153, 0.45) !important;
+        color: #ffe9f7 !important;
+        background: linear-gradient(135deg, rgba(236, 72, 153, 0.5), rgba(139, 29, 98, 0.95)) !important;
+        border-right: 2px solid rgba(255, 105, 180, 0.5) !important;
+        text-shadow: 0 2px 10px rgba(236, 72, 153, 0.4);
     }
     .profile-berguzar-active .ticker-text {
-        color: #ffd7ed !important;
-        text-shadow: 0 0 12px rgba(236, 72, 153, 0.25);
+        color: #ffe0f3 !important;
+        text-shadow: 0 0 20px rgba(236, 72, 153, 0.4), 0 0 40px rgba(236, 72, 153, 0.2);
     }
+    
+    /* Navigation Links - Pembe Butonlar */
     .profile-berguzar-active .nav-link {
-        color: rgba(249, 168, 212, 0.85) !important;
-        background: rgba(236, 72, 153, 0.08) !important;
-        border-radius: 12px !important;
-        border: 1px solid transparent !important;
-        transition: all 0.25s ease !important;
+        color: rgba(249, 168, 212, 0.9) !important;
+        background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(217, 70, 239, 0.12)) !important;
+        border-radius: 14px !important;
+        border: 2px solid rgba(236, 72, 153, 0.25) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 4px 15px rgba(236, 72, 153, 0.15) !important;
     }
     .profile-berguzar-active .nav-link:hover {
-        background: rgba(236, 72, 153, 0.18) !important;
-        color: #ffeefa !important;
-        box-shadow: 0 10px 24px rgba(236, 72, 153, 0.2) !important;
+        background: linear-gradient(135deg, rgba(236, 72, 153, 0.28), rgba(217, 70, 239, 0.24)) !important;
+        color: #fffafd !important;
+        border-color: rgba(236, 72, 153, 0.45) !important;
+        box-shadow: 0 12px 30px rgba(236, 72, 153, 0.3), 0 0 50px rgba(236, 72, 153, 0.15) !important;
+        transform: translateY(-2px) !important;
     }
     .profile-berguzar-active .nav-link.active {
-        background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%) !important;
+        background: linear-gradient(135deg, #ec4899 0%, #f472b6 50%, #ff69b4 100%) !important;
         color: #ffffff !important;
-        box-shadow: 0 12px 28px rgba(236, 72, 153, 0.35) !important;
         border-color: transparent !important;
+        box-shadow: 0 15px 40px rgba(236, 72, 153, 0.45), 0 0 60px rgba(236, 72, 153, 0.25) !important;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
+    
+    /* Headers - Pembe Başlıklar */
     .profile-berguzar-active .kral-header {
-        background: linear-gradient(140deg, rgba(236, 72, 153, 0.35), rgba(19, 1, 16, 0.94)) !important;
-        border: 1px solid rgba(236, 72, 153, 0.4) !important;
-        box-shadow: 0 25px 60px rgba(236, 72, 153, 0.25) !important;
+        background: linear-gradient(140deg, rgba(236, 72, 153, 0.4), rgba(217, 70, 239, 0.35), rgba(26, 3, 18, 0.95)) !important;
+        border: 2px solid rgba(236, 72, 153, 0.5) !important;
+        box-shadow: 0 30px 70px rgba(236, 72, 153, 0.35), 0 0 80px rgba(236, 72, 153, 0.15) !important;
     }
     .profile-berguzar-active .kral-header-title {
-        color: #ffe7f6 !important;
-        text-shadow: 0 0 18px rgba(236, 72, 153, 0.25);
+        color: #ffeff8 !important;
+        text-shadow: 0 0 25px rgba(236, 72, 153, 0.35), 0 4px 15px rgba(0, 0, 0, 0.3);
     }
     .profile-berguzar-active .kral-header-sub {
-        color: rgba(249, 168, 212, 0.85) !important;
+        color: rgba(249, 168, 212, 0.9) !important;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
+    
+    /* Info Boxes - Pembe Kutular */
     .profile-berguzar-active .kral-infobox {
-        background: linear-gradient(145deg, rgba(236, 72, 153, 0.2), rgba(10, 1, 10, 0.9)) !important;
-        border: 1px solid rgba(236, 72, 153, 0.35) !important;
-        box-shadow: 0 15px 35px rgba(236, 72, 153, 0.22) !important;
+        background: linear-gradient(145deg, rgba(236, 72, 153, 0.25), rgba(217, 70, 239, 0.2), rgba(13, 0, 9, 0.92)) !important;
+        border: 2px solid rgba(236, 72, 153, 0.4) !important;
+        box-shadow: 0 20px 45px rgba(236, 72, 153, 0.3), 0 0 60px rgba(236, 72, 153, 0.12) !important;
     }
     .profile-berguzar-active .kral-infobox-label,
     .profile-berguzar-active .kral-infobox-sub {
-        color: rgba(249, 168, 212, 0.9) !important;
+        color: rgba(249, 168, 212, 0.95) !important;
     }
     .profile-berguzar-active .kral-infobox-value {
-        color: #ffeefa !important;
-        text-shadow: 0 0 20px rgba(236, 72, 153, 0.35);
+        color: #fff5fb !important;
+        text-shadow: 0 0 25px rgba(236, 72, 153, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
     }
+    
+    /* Metrics - Pembe İstatistikler */
     .profile-berguzar-active div[data-testid="stMetric"] {
-        background: linear-gradient(135deg, rgba(236, 72, 153, 0.22), rgba(12, 0, 12, 0.9)) !important;
-        border: 1px solid rgba(236, 72, 153, 0.35) !important;
-        box-shadow: 0 18px 40px rgba(236, 72, 153, 0.25) !important;
+        background: linear-gradient(135deg, rgba(236, 72, 153, 0.28), rgba(217, 70, 239, 0.22), rgba(15, 0, 13, 0.92)) !important;
+        border: 2px solid rgba(236, 72, 153, 0.4) !important;
+        box-shadow: 0 20px 50px rgba(236, 72, 153, 0.3), 0 0 70px rgba(236, 72, 153, 0.12) !important;
+        border-radius: 16px !important;
     }
     .profile-berguzar-active div[data-testid="stMetricValue"] {
-        color: #ffeefa !important;
+        color: #fff5fb !important;
+        text-shadow: 0 2px 15px rgba(236, 72, 153, 0.3);
     }
     .profile-berguzar-active div[data-testid="stMetricLabel"] {
-        color: rgba(249, 168, 212, 0.85) !important;
+        color: rgba(249, 168, 212, 0.9) !important;
+    }
+    
+    /* DataFrames - Pembe Tablolar */
+    .profile-berguzar-active [data-testid="stDataFrame"] {
+        border: 2px solid rgba(236, 72, 153, 0.3) !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
     }
     .profile-berguzar-active [data-testid="stDataFrame"] thead th {
-        border-bottom: 2px solid var(--berguzar-pink) !important;
-        background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(20, 2, 19, 0.95)) !important;
-        color: #ffeefa !important;
+        border-bottom: 3px solid var(--berguzar-pink) !important;
+        background: linear-gradient(135deg, rgba(236, 72, 153, 0.28), rgba(217, 70, 239, 0.22), rgba(24, 3, 21, 0.96)) !important;
+        color: #fff5fb !important;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
     .profile-berguzar-active [data-testid="stDataFrame"] tbody tr:hover {
-        background: rgba(236, 72, 153, 0.12) !important;
-        box-shadow: 0 4px 12px rgba(236, 72, 153, 0.18) !important;
+        background: rgba(236, 72, 153, 0.15) !important;
+        box-shadow: 0 6px 18px rgba(236, 72, 153, 0.25) !important;
     }
+    .profile-berguzar-active [data-testid="stDataFrame"] tbody td {
+        color: #ffeef7 !important;
+    }
+    
+    /* News Cards - Pembe Haber Kartları */
     .profile-berguzar-active .news-card {
-        background: linear-gradient(145deg, rgba(236, 72, 153, 0.22), rgba(17, 0, 14, 0.94)) !important;
-        border-left-color: var(--berguzar-pink) !important;
-        box-shadow: 0 18px 40px rgba(236, 72, 153, 0.22) !important;
+        background: linear-gradient(145deg, rgba(236, 72, 153, 0.28), rgba(217, 70, 239, 0.22), rgba(20, 0, 16, 0.95)) !important;
+        border-left: 4px solid var(--berguzar-pink) !important;
+        box-shadow: 0 22px 50px rgba(236, 72, 153, 0.28), 0 0 60px rgba(236, 72, 153, 0.12) !important;
+        border-radius: 14px !important;
     }
     .profile-berguzar-active .news-card::before {
-        background: linear-gradient(180deg, #ec4899 0%, #f472b6 100%) !important;
+        background: linear-gradient(180deg, #ec4899 0%, #f472b6 50%, #ff69b4 100%) !important;
     }
     .profile-berguzar-active .news-title {
-        color: #ffeefa !important;
+        color: #fff5fb !important;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
     .profile-berguzar-active .news-meta {
-        color: rgba(249, 168, 212, 0.85) !important;
+        color: rgba(249, 168, 212, 0.9) !important;
     }
     .profile-berguzar-active .news-source-badge {
-        background: rgba(236, 72, 153, 0.25) !important;
-        color: #ffe4f5 !important;
-        border-color: rgba(236, 72, 153, 0.35) !important;
+        background: rgba(236, 72, 153, 0.3) !important;
+        color: #ffebf5 !important;
+        border: 2px solid rgba(236, 72, 153, 0.4) !important;
     }
     .profile-berguzar-active .news-asset-badge {
-        background: rgba(236, 72, 153, 0.2) !important;
-        color: #fef6fb !important;
+        background: rgba(236, 72, 153, 0.25) !important;
+        color: #fff8fc !important;
+        border: 1px solid rgba(236, 72, 153, 0.3) !important;
     }
+    
+    /* Filter Chips - Pembe Filtreler */
     .profile-berguzar-active .news-filter-chip {
-        background: rgba(236, 72, 153, 0.18) !important;
-        border-color: rgba(236, 72, 153, 0.35) !important;
-        color: #ffe4f5 !important;
+        background: rgba(236, 72, 153, 0.2) !important;
+        border: 2px solid rgba(236, 72, 153, 0.4) !important;
+        color: #ffeaf5 !important;
     }
     .profile-berguzar-active .news-filter-chip.active {
-        background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%) !important;
+        background: linear-gradient(135deg, #ec4899 0%, #f472b6 50%, #ff69b4 100%) !important;
         color: #ffffff !important;
         border-color: transparent !important;
-        box-shadow: 0 10px 25px rgba(236, 72, 153, 0.35) !important;
+        box-shadow: 0 12px 30px rgba(236, 72, 153, 0.4), 0 0 50px rgba(236, 72, 153, 0.2) !important;
     }
     .profile-berguzar-active .news-filter-chip:hover {
-        background: rgba(236, 72, 153, 0.3) !important;
-        transform: translateY(-2px);
+        background: rgba(236, 72, 153, 0.35) !important;
+        border-color: rgba(236, 72, 153, 0.6) !important;
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(236, 72, 153, 0.25) !important;
     }
+    
+    /* Daily Movers - Pembe Hareketler */
     .profile-berguzar-active .daily-movers-card {
-        background: linear-gradient(150deg, rgba(236, 72, 153, 0.25), rgba(14, 0, 14, 0.92)) !important;
-        border: 1px solid rgba(236, 72, 153, 0.35) !important;
-        box-shadow: 0 25px 50px rgba(236, 72, 153, 0.25) !important;
+        background: linear-gradient(150deg, rgba(236, 72, 153, 0.3), rgba(217, 70, 239, 0.25), rgba(17, 0, 17, 0.94)) !important;
+        border: 2px solid rgba(236, 72, 153, 0.4) !important;
+        box-shadow: 0 30px 60px rgba(236, 72, 153, 0.3), 0 0 80px rgba(236, 72, 153, 0.12) !important;
+        border-radius: 16px !important;
     }
     .profile-berguzar-active .daily-movers-card::before {
-        background: linear-gradient(90deg, transparent, rgba(236, 72, 153, 0.8), transparent) !important;
+        background: linear-gradient(90deg, transparent, rgba(236, 72, 153, 0.9), rgba(217, 70, 239, 0.85), transparent) !important;
     }
     .profile-berguzar-active .daily-movers-card.positive-card,
     .profile-berguzar-active .daily-movers-card.negative-card {
-        border-top: 4px solid rgba(236, 72, 153, 0.8) !important;
-        color: #ffeefa !important;
+        border-top: 5px solid rgba(236, 72, 153, 0.85) !important;
+        color: #fff5fb !important;
     }
     .profile-berguzar-active .daily-movers-chip {
-        background: rgba(236, 72, 153, 0.18) !important;
-        border-color: rgba(236, 72, 153, 0.35) !important;
-        color: #ffeefa !important;
+        background: rgba(236, 72, 153, 0.25) !important;
+        border: 2px solid rgba(236, 72, 153, 0.4) !important;
+        color: #fff5fb !important;
     }
     .profile-berguzar-active .daily-mover-row {
-        background: linear-gradient(130deg, rgba(236, 72, 153, 0.18), rgba(10, 0, 10, 0.7)) !important;
-        border: 1px solid rgba(236, 72, 153, 0.35) !important;
+        background: linear-gradient(130deg, rgba(236, 72, 153, 0.22), rgba(217, 70, 239, 0.18), rgba(12, 0, 12, 0.75)) !important;
+        border: 2px solid rgba(236, 72, 153, 0.4) !important;
+        border-radius: 12px !important;
     }
     .profile-berguzar-active .daily-mover-change {
-        color: #ffeefa !important;
-        text-shadow: 0 0 15px rgba(236, 72, 153, 0.35) !important;
+        color: #fff5fb !important;
+        text-shadow: 0 0 20px rgba(236, 72, 153, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
     }
     .profile-berguzar-active .daily-mover-symbol-badge {
-        background: rgba(236, 72, 153, 0.35) !important;
-        color: #ffeefa !important;
-        box-shadow: 0 10px 20px rgba(236, 72, 153, 0.25) !important;
+        background: linear-gradient(135deg, rgba(236, 72, 153, 0.45), rgba(217, 70, 239, 0.4)) !important;
+        color: #fff5fb !important;
+        border: 2px solid rgba(236, 72, 153, 0.5) !important;
+        box-shadow: 0 12px 25px rgba(236, 72, 153, 0.3), 0 0 40px rgba(236, 72, 153, 0.15) !important;
+    }
+    
+    /* Buttons - Pembe Butonlar */
+    .profile-berguzar-active button,
+    .profile-berguzar-active [data-testid="stButton"] button {
+        background: linear-gradient(135deg, rgba(236, 72, 153, 0.3), rgba(217, 70, 239, 0.25)) !important;
+        border: 2px solid rgba(236, 72, 153, 0.4) !important;
+        color: #ffeef7 !important;
+        transition: all 0.3s ease !important;
+    }
+    .profile-berguzar-active button:hover,
+    .profile-berguzar-active [data-testid="stButton"] button:hover {
+        background: linear-gradient(135deg, #ec4899, #f472b6) !important;
+        border-color: #ff69b4 !important;
+        color: #ffffff !important;
+        box-shadow: 0 15px 35px rgba(236, 72, 153, 0.4), 0 0 60px rgba(236, 72, 153, 0.2) !important;
+        transform: translateY(-2px) !important;
+    }
+    
+    /* Dividers - Pembe Çizgiler */
+    .profile-berguzar-active hr {
+        border-color: rgba(236, 72, 153, 0.4) !important;
+        box-shadow: 0 2px 10px rgba(236, 72, 153, 0.2) !important;
+    }
+    
+    /* Expanders - Pembe Açılır Kutular */
+    .profile-berguzar-active [data-testid="stExpander"] {
+        background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(217, 70, 239, 0.12)) !important;
+        border: 2px solid rgba(236, 72, 153, 0.35) !important;
+        border-radius: 12px !important;
+    }
+    
+    /* Plotly Charts - Pembe Grafik Renkleri */
+    .profile-berguzar-active .js-plotly-plot .plotly .modebar {
+        background: rgba(236, 72, 153, 0.2) !important;
+    }
+    
+    /* Modern List Headers - Pembe Başlıklar */
+    .profile-berguzar-active .modern-list-header {
+        background: linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(217, 70, 239, 0.2)) !important;
+        border-left: 5px solid var(--berguzar-pink) !important;
+        box-shadow: 0 15px 40px rgba(236, 72, 153, 0.25), 0 0 60px rgba(236, 72, 153, 0.1) !important;
+    }
+    
+    /* Input Fields - Pembe Giriş Alanları */
+    .profile-berguzar-active input,
+    .profile-berguzar-active textarea,
+    .profile-berguzar-active select {
+        background: rgba(236, 72, 153, 0.1) !important;
+        border: 2px solid rgba(236, 72, 153, 0.3) !important;
+        color: #ffeef7 !important;
+    }
+    .profile-berguzar-active input:focus,
+    .profile-berguzar-active textarea:focus,
+    .profile-berguzar-active select:focus {
+        border-color: rgba(236, 72, 153, 0.6) !important;
+        box-shadow: 0 0 20px rgba(236, 72, 153, 0.3) !important;
+    }
+    
+    /* Profile Selector - Pembe Profil Seçici */
+    .profile-berguzar-active .profile-selector-container {
+        background: linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(217, 70, 239, 0.2)) !important;
+        border: 2px solid rgba(236, 72, 153, 0.4) !important;
+        box-shadow: 0 20px 45px rgba(236, 72, 153, 0.25) !important;
+    }
+    
+    /* Text Colors - Pembe Yazı Renkleri */
+    .profile-berguzar-active h1,
+    .profile-berguzar-active h2,
+    .profile-berguzar-active h3,
+    .profile-berguzar-active h4,
+    .profile-berguzar-active h5,
+    .profile-berguzar-active h6 {
+        color: #ffeff8 !important;
+        text-shadow: 0 2px 12px rgba(236, 72, 153, 0.25);
+    }
+    .profile-berguzar-active p,
+    .profile-berguzar-active span,
+    .profile-berguzar-active div {
+        color: #ffeef7 !important;
+    }
+    
+    /* Sidebar - Pembe Kenar Çubuğu */
+    .profile-berguzar-active [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, rgba(26, 3, 18, 0.95), rgba(13, 0, 9, 0.98)) !important;
+        border-right: 3px solid rgba(236, 72, 153, 0.4) !important;
     }
 </style>
 """,

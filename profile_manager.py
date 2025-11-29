@@ -28,11 +28,11 @@ PROFILES = {
     },
     "BERGUZAR": {
         "name": "BERGUZAR",
-        "display_name": "👸 Bergüzar",
+        "display_name": "👸 Bergüzar (Prenses Profili)",
         "icon": "👸",
         "color": "#ec4899",
         "is_aggregate": False,
-        "description": "Bergüzar portföyü"
+        "description": "Bergüzar portföyü - Pembe prenses teması"
     },
     "TOTAL": {
         "name": "TOTAL",
