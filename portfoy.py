@@ -4119,7 +4119,7 @@ elif selected == "Ekle/Çıkar":
     
     # TOTAL profili için düzenleme engeli
     if is_total:
-        st.error("⛔ **TOPLAM Profili** salt okunurdur. Varlık eklemek/düzenlemek için bireysel bir profil seçin (MERT, ANNEM veya BERGUZAR).")
+        st.error("⛔ **TOPLAM Profili** salt okunurdur. Varlık eklemek/düzenlemek için bireysel bir profil seçin (MERT, ANNEM, BERGUZAR veya İKRAMİYE).")
         st.stop()
     
     tab1, tab2, tab3 = st.tabs(["Ekle", "Düzenle", "Sil/Sat"])

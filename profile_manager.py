@@ -1,6 +1,6 @@
 """
 Profile Management System
-Manages multiple portfolio profiles (MERT, ANNEM, BERGUZAR, TOTAL)
+Manages multiple portfolio profiles (MERT, ANNEM, BERGUZAR, İKRAMİYE, TOTAL)
 Each profile has separate data storage and calculations.
 """
 
@@ -28,11 +28,19 @@ PROFILES = {
     },
     "BERGUZAR": {
         "name": "BERGUZAR",
-        "display_name": "👸 Bergüzar (Prenses Profili)",
+        "display_name": "👸 Bergüzar",
         "icon": "👸",
         "color": "#ec4899",
         "is_aggregate": False,
         "description": "Bergüzar portföyü - Pembe prenses teması"
+    },
+    "İKRAMİYE": {
+        "name": "İKRAMİYE",
+        "display_name": "🎁 İkramiye",
+        "icon": "🎁",
+        "color": "#10b981",
+        "is_aggregate": False,
+        "description": "İkramiye portföyü"
     },
     "TOTAL": {
         "name": "TOTAL",
@@ -48,7 +56,7 @@ PROFILES = {
 DEFAULT_PROFILE = "MERT"
 
 # Profile order for display
-PROFILE_ORDER = ["MERT", "ANNEM", "BERGUZAR", "TOTAL"]
+PROFILE_ORDER = ["MERT", "ANNEM", "BERGUZAR", "İKRAMİYE", "TOTAL"]
 
 
 def get_profile_config(profile_name: str) -> Dict:
@@ -61,9 +69,22 @@ def get_all_profiles() -> List[str]:
     return PROFILE_ORDER
 
 
-def get_individual_profiles() -> List[str]:
-    """Get list of individual profiles (excluding TOTAL)."""
-    return [p for p in PROFILE_ORDER if not PROFILES[p]["is_aggregate"]]
+def get_individual_profiles(include_berguzar: bool = None) -> List[str]:
+    """
+    Get list of individual profiles (excluding TOTAL).
+    
+    Args:
+        include_berguzar: If None, uses session state setting. If False, excludes BERGUZAR.
+    """
+    if include_berguzar is None:
+        include_berguzar = st.session_state.get("total_include_berguzar", True)
+    
+    profiles = [p for p in PROFILE_ORDER if not PROFILES[p]["is_aggregate"]]
+    
+    if not include_berguzar and "BERGUZAR" in profiles:
+        profiles.remove("BERGUZAR")
+    
+    return profiles
 
 
 def is_aggregate_profile(profile_name: str) -> bool:
@@ -79,6 +100,10 @@ def init_session_state():
     
     if "profile_initialized" not in st.session_state:
         st.session_state["profile_initialized"] = True
+    
+    # TOTAL profili için Bergüzar dahil/çıkar seçeneği
+    if "total_include_berguzar" not in st.session_state:
+        st.session_state["total_include_berguzar"] = True
 
 
 def get_current_profile() -> str:
@@ -177,7 +202,22 @@ def render_profile_selector():
     config = get_profile_config(current_profile)
     profile_icon = config.get("icon", "👤")
     if config["is_aggregate"]:
+        # TOTAL profili için Bergüzar dahil/çıkar seçeneği göster
+        include_berguzar = st.session_state.get("total_include_berguzar", True)
         st.info(f"🔄 **{config['display_name']}**: Tüm profillerin birleşik görünümü")
+        
+        def on_berguzar_change():
+            # Cache'i temizle ve sayfayı yenile
+            st.cache_data.clear()
+            st.rerun()
+        
+        new_value = st.checkbox(
+            "Bergüzar profilini dahil et",
+            value=include_berguzar,
+            key="total_include_berguzar",
+            help="Bergüzar profilini TOTAL hesaplamalarına dahil edip etmeyeceğinizi seçin",
+            on_change=on_berguzar_change
+        )
     else:
         st.caption(f"📌 Aktif profil: **{profile_icon} {config['display_name'].replace(profile_icon, '').strip()}**")
     

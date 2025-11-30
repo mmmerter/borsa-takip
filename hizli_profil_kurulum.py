@@ -118,6 +118,10 @@ def main():
                 "display_name": "BERGUZAR Profili",
                 "headers": ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
             },
+            "ikramiye": {
+                "display_name": "İKRAMİYE Profili",
+                "headers": ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
+            },
             "total": {
                 "display_name": "TOTAL Profili (Opsiyonel)",
                 "headers": ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
@@ -204,7 +208,7 @@ def main():
         response = input("Tarihçe worksheet'lerini şimdi oluşturmak ister misiniz? (y/n): ")
         
         if response.lower() == 'y':
-            profiles = ["ANNEM", "BERGUZAR"]
+            profiles = ["ANNEM", "BERGUZAR", "İKRAMİYE"]
             history_types = {
                 "Satislar": ["Tarih", "Kod", "Pazar", "Satılan Adet", "Satış Fiyatı", "Maliyet", "Kâr/Zarar"],
                 "portfolio_history": ["Tarih", "Değer_TRY", "Değer_USD"],
@@ -254,7 +258,7 @@ def main():
         print()
         print("2. 👤 Profil seçin:")
         print("      • Üstteki profil seçiciyi kullanın")
-        print("      • ANNEM veya BERGUZAR'ı seçin")
+        print("      • ANNEM, BERGUZAR veya İKRAMİYE'yi seçin")
         print()
         print("3. ➕ Varlık ekleyin:")
         print("      • 'Ekle/Çıkar' sekmesine gidin")

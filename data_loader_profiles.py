@@ -102,6 +102,22 @@ def _get_profile_sheet(sheet_type="main", profile_name=None):
                         st.error(error_msg)
                         _warn_once(f"sheet_missing_berguzar", error_msg)
                         return None
+            elif profile_name == "İKRAMİYE":
+                # Farklı olası isimleri dene
+                possible_names = ["ikramiye", "İkramiye", "İKRAMİYE", "ikramiye", "IKRAMIYE"]
+                worksheet, found_name = _find_worksheet_flexible(spreadsheet, possible_names)
+                if worksheet is None:
+                    # Worksheet bulunamadı, oluştur
+                    try:
+                        worksheet = spreadsheet.add_worksheet(title="ikramiye", rows=1000, cols=20)
+                        headers = ["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"]
+                        worksheet.append_row(headers)
+                        st.success("✅ 'ikramiye' worksheet'i otomatik oluşturuldu. Artık İKRAMİYE profiline varlık ekleyebilirsiniz!")
+                    except Exception as e:
+                        error_msg = f"❌ İKRAMİYE profili worksheet'i bulunamadı ve oluşturulamadı. Hata: {str(e)}. Google Sheets'te 'ikramiye' adlı bir worksheet oluşturun veya servis hesabına gerekli izinleri verin."
+                        st.error(error_msg)
+                        _warn_once(f"sheet_missing_ikramiye", error_msg)
+                        return None
             elif profile_name == "TOTAL":
                 # TOTAL için de sekme var ama otomatik hesaplanacak
                 # Sadece okuma için kullanılabilir
@@ -211,8 +227,11 @@ def _get_aggregated_data():
     """
     Aggregate data from all individual profiles for TOTAL profile.
     Combines all assets with their quantities and costs.
+    Uses session state to determine if BERGUZAR should be included.
     """
-    all_profiles = get_individual_profiles()
+    # Get profiles based on berguzar inclusion setting
+    include_berguzar = st.session_state.get("total_include_berguzar", True)
+    all_profiles = get_individual_profiles(include_berguzar=include_berguzar)
     aggregated_rows = []
     
     for profile_name in all_profiles:
@@ -283,7 +302,8 @@ def get_sales_history_profile(profile_name=None):
     
     # Handle TOTAL profile
     if is_aggregate_profile(profile_name):
-        all_profiles = get_individual_profiles()
+        include_berguzar = st.session_state.get("total_include_berguzar", True)
+        all_profiles = get_individual_profiles(include_berguzar=include_berguzar)
         all_sales = []
         
         for prof in all_profiles:
@@ -373,8 +393,10 @@ def read_portfolio_history_profile(profile_name=None):
 def _get_aggregated_history():
     """
     Aggregate portfolio history from all individual profiles.
+    Uses session state to determine if BERGUZAR should be included.
     """
-    all_profiles = get_individual_profiles()
+    include_berguzar = st.session_state.get("total_include_berguzar", True)
+    all_profiles = get_individual_profiles(include_berguzar=include_berguzar)
     all_dates = set()
     profile_data = {}
     
@@ -456,7 +478,8 @@ def read_history_market_profile(market_type, profile_name=None):
     
     # Handle TOTAL profile - aggregate from all profiles
     if is_aggregate_profile(profile_name):
-        all_profiles = get_individual_profiles()
+        include_berguzar = st.session_state.get("total_include_berguzar", True)
+        all_profiles = get_individual_profiles(include_berguzar=include_berguzar)
         all_dates = set()
         profile_data = {}
         
