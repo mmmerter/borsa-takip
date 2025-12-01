@@ -417,18 +417,46 @@ def read_portfolio_history_profile(profile_name=None):
                 
                 # Check for duplicate headers and fix them if needed
                 first_row_cleaned = [h.strip() if h else "" for h in first_row]
-                if len(first_row_cleaned) != len(set(first_row_cleaned)) or any(h == "" for h in first_row_cleaned[:3]):
-                    # Duplicate headers detected or missing headers - fix them
-                    logger.warning(f"Duplicate or invalid headers detected, fixing headers")
+                headers_need_fixing = (
+                    len(first_row_cleaned) != len(set(first_row_cleaned)) or 
+                    any(h == "" for h in first_row_cleaned[:3])
+                )
+                
+                # Normalize headers for comparison (case-insensitive, strip whitespace)
+                first_row_normalized = [h.strip().lower() if h else "" for h in first_row[:3]]
+                expected_normalized = [h.strip().lower() for h in expected_headers]
+                headers_match = (
+                    len(first_row_normalized) >= 3 and
+                    first_row_normalized[0] == expected_normalized[0] and
+                    first_row_normalized[1] == expected_normalized[1] and
+                    first_row_normalized[2] == expected_normalized[2]
+                )
+                
+                if headers_need_fixing or not headers_match:
+                    # Headers need fixing or don't match - fix them
+                    if headers_need_fixing:
+                        logger.warning(f"Duplicate or invalid headers detected, fixing headers")
                     headers = ["Tarih", "Değer_TRY", "Değer_USD"]
                     worksheet.update([headers], range_name="A1:C1")
+                    # After fixing, read row by row to avoid timing issues
+                    all_rows = worksheet.get_all_values()
+                    if len(all_rows) <= 1:
+                        return []
+                    records = []
+                    for row in all_rows[1:]:
+                        if len(row) >= 3 and any(cell.strip() for cell in row[:3]):
+                            records.append({
+                                "Tarih": row[0] if len(row) > 0 else "",
+                                "Değer_TRY": row[1] if len(row) > 1 else "",
+                                "Değer_USD": row[2] if len(row) > 2 else ""
+                            })
+                    return records
                 
-                # Now read with expected_headers (headers are fixed, so this should work)
+                # Headers are valid and match - use expected_headers for efficient reading
                 return worksheet.get_all_records(expected_headers=expected_headers)
             except Exception as e:
                 # If there's still an error, try reading rows directly
                 try:
-                    logger.warning(f"Header hatası, satır satır okunuyor: {str(e)}")
                     # Read all rows and manually parse (skip header row)
                     all_rows = worksheet.get_all_values()
                     if len(all_rows) <= 1:
@@ -531,9 +559,29 @@ def write_portfolio_history_profile(value_try, value_usd, profile_name=None):
     
     today_str = datetime.now().strftime("%Y-%m-%d")
     try:
-        # Check if today's record already exists
-        # Use expected_headers to avoid duplicate header errors
+        # Ensure headers are correct before reading
+        first_row = worksheet.row_values(1)
         expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+        
+        if not first_row:
+            # Empty worksheet, add headers
+            worksheet.update([expected_headers], range_name="A1:C1")
+        else:
+            # Check if headers match (normalized comparison)
+            first_row_normalized = [h.strip().lower() if h else "" for h in first_row[:3]]
+            expected_normalized = [h.strip().lower() for h in expected_headers]
+            headers_match = (
+                len(first_row_normalized) >= 3 and
+                first_row_normalized[0] == expected_normalized[0] and
+                first_row_normalized[1] == expected_normalized[1] and
+                first_row_normalized[2] == expected_normalized[2]
+            )
+            
+            if not headers_match:
+                # Headers don't match - fix them
+                worksheet.update([expected_headers], range_name="A1:C1")
+        
+        # Check if today's record already exists
         data = worksheet.get_all_records(expected_headers=expected_headers)
         for row in data:
             if str(row.get("Tarih", ""))[:10] == today_str:
@@ -615,18 +663,46 @@ def read_history_market_profile(market_type, profile_name=None):
                 
                 # Check for duplicate headers and fix them if needed
                 first_row_cleaned = [h.strip() if h else "" for h in first_row]
-                if len(first_row_cleaned) != len(set(first_row_cleaned)) or any(h == "" for h in first_row_cleaned[:3]):
-                    # Duplicate headers detected or missing headers - fix them
-                    logger.warning(f"Duplicate or invalid headers detected, fixing headers")
+                headers_need_fixing = (
+                    len(first_row_cleaned) != len(set(first_row_cleaned)) or 
+                    any(h == "" for h in first_row_cleaned[:3])
+                )
+                
+                # Normalize headers for comparison (case-insensitive, strip whitespace)
+                first_row_normalized = [h.strip().lower() if h else "" for h in first_row[:3]]
+                expected_normalized = [h.strip().lower() for h in expected_headers]
+                headers_match = (
+                    len(first_row_normalized) >= 3 and
+                    first_row_normalized[0] == expected_normalized[0] and
+                    first_row_normalized[1] == expected_normalized[1] and
+                    first_row_normalized[2] == expected_normalized[2]
+                )
+                
+                if headers_need_fixing or not headers_match:
+                    # Headers need fixing or don't match - fix them
+                    if headers_need_fixing:
+                        logger.warning(f"Duplicate or invalid headers detected, fixing headers")
                     headers = ["Tarih", "Değer_TRY", "Değer_USD"]
                     worksheet.update([headers], range_name="A1:C1")
+                    # After fixing, read row by row to avoid timing issues
+                    all_rows = worksheet.get_all_values()
+                    if len(all_rows) <= 1:
+                        return []
+                    records = []
+                    for row in all_rows[1:]:
+                        if len(row) >= 3 and any(cell.strip() for cell in row[:3]):
+                            records.append({
+                                "Tarih": row[0] if len(row) > 0 else "",
+                                "Değer_TRY": row[1] if len(row) > 1 else "",
+                                "Değer_USD": row[2] if len(row) > 2 else ""
+                            })
+                    return records
                 
-                # Now read with expected_headers (headers are fixed, so this should work)
+                # Headers are valid and match - use expected_headers for efficient reading
                 return worksheet.get_all_records(expected_headers=expected_headers)
             except Exception as e:
                 # If there's still an error, try reading rows directly
                 try:
-                    logger.warning(f"Header hatası, satır satır okunuyor: {str(e)}")
                     # Read all rows and manually parse (skip header row)
                     all_rows = worksheet.get_all_values()
                     if len(all_rows) <= 1:
@@ -684,8 +760,29 @@ def write_history_market_profile(market_type, value_try, value_usd, profile_name
     
     today_str = datetime.now().strftime("%Y-%m-%d")
     try:
-        # Use expected_headers to avoid duplicate header errors
+        # Ensure headers are correct before reading
+        first_row = worksheet.row_values(1)
         expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+        
+        if not first_row:
+            # Empty worksheet, add headers
+            worksheet.update([expected_headers], range_name="A1:C1")
+        else:
+            # Check if headers match (normalized comparison)
+            first_row_normalized = [h.strip().lower() if h else "" for h in first_row[:3]]
+            expected_normalized = [h.strip().lower() for h in expected_headers]
+            headers_match = (
+                len(first_row_normalized) >= 3 and
+                first_row_normalized[0] == expected_normalized[0] and
+                first_row_normalized[1] == expected_normalized[1] and
+                first_row_normalized[2] == expected_normalized[2]
+            )
+            
+            if not headers_match:
+                # Headers don't match - fix them
+                worksheet.update([expected_headers], range_name="A1:C1")
+        
+        # Check if today's record already exists
         data = worksheet.get_all_records(expected_headers=expected_headers)
         for row in data:
             if str(row.get("Tarih", ""))[:10] == today_str:
