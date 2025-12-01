@@ -404,7 +404,8 @@ def read_portfolio_history_profile(profile_name=None):
             return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
         
         def _fetch_history():
-            # First, check if headers exist
+            expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+            
             try:
                 # Get first row to check headers
                 first_row = worksheet.row_values(1)
@@ -414,20 +415,38 @@ def read_portfolio_history_profile(profile_name=None):
                     worksheet.update([headers], range_name="A1:C1")
                     return []
                 
-                # Check if expected headers exist
-                expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
-                existing_headers = [h.strip() for h in first_row if h]
+                # Check for duplicate headers and fix them if needed
+                first_row_cleaned = [h.strip() if h else "" for h in first_row]
+                if len(first_row_cleaned) != len(set(first_row_cleaned)) or any(h == "" for h in first_row_cleaned[:3]):
+                    # Duplicate headers detected or missing headers - fix them
+                    logger.warning(f"Duplicate or invalid headers detected, fixing headers")
+                    headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+                    worksheet.update([headers], range_name="A1:C1")
                 
-                # If all expected headers exist, use expected_headers parameter
-                if all(h in existing_headers for h in expected_headers):
-                    return worksheet.get_all_records(expected_headers=expected_headers)
-                else:
-                    # Headers don't match, read without expected_headers and handle missing columns
-                    return worksheet.get_all_records()
+                # Now read with expected_headers (headers are fixed, so this should work)
+                return worksheet.get_all_records(expected_headers=expected_headers)
             except Exception as e:
-                # If there's an error reading headers, try without expected_headers
-                logger.warning(f"Header kontrolü başarısız, beklenen header'lar olmadan okunuyor: {str(e)}")
-                return worksheet.get_all_records()
+                # If there's still an error, try reading rows directly
+                try:
+                    logger.warning(f"Header hatası, satır satır okunuyor: {str(e)}")
+                    # Read all rows and manually parse (skip header row)
+                    all_rows = worksheet.get_all_values()
+                    if len(all_rows) <= 1:
+                        return []
+                    
+                    # Skip header row and parse data rows
+                    records = []
+                    for row in all_rows[1:]:
+                        if len(row) >= 3 and any(cell.strip() for cell in row[:3]):
+                            records.append({
+                                "Tarih": row[0] if len(row) > 0 else "",
+                                "Değer_TRY": row[1] if len(row) > 1 else "",
+                                "Değer_USD": row[2] if len(row) > 2 else ""
+                            })
+                    return records
+                except Exception as e2:
+                    logger.error(f"Veri okuma başarısız: {str(e2)}")
+                    return []
         
         data = _retry_with_backoff(_fetch_history, max_retries=3, initial_delay=2.0, max_delay=60.0)
         if not data:
@@ -513,7 +532,9 @@ def write_portfolio_history_profile(value_try, value_usd, profile_name=None):
     today_str = datetime.now().strftime("%Y-%m-%d")
     try:
         # Check if today's record already exists
-        data = worksheet.get_all_records()
+        # Use expected_headers to avoid duplicate header errors
+        expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+        data = worksheet.get_all_records(expected_headers=expected_headers)
         for row in data:
             if str(row.get("Tarih", ""))[:10] == today_str:
                 return  # Already recorded today
@@ -581,7 +602,8 @@ def read_history_market_profile(market_type, profile_name=None):
             return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
         
         def _fetch_market_history():
-            # First, check if headers exist
+            expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+            
             try:
                 # Get first row to check headers
                 first_row = worksheet.row_values(1)
@@ -591,20 +613,38 @@ def read_history_market_profile(market_type, profile_name=None):
                     worksheet.update([headers], range_name="A1:C1")
                     return []
                 
-                # Check if expected headers exist
-                expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
-                existing_headers = [h.strip() for h in first_row if h]
+                # Check for duplicate headers and fix them if needed
+                first_row_cleaned = [h.strip() if h else "" for h in first_row]
+                if len(first_row_cleaned) != len(set(first_row_cleaned)) or any(h == "" for h in first_row_cleaned[:3]):
+                    # Duplicate headers detected or missing headers - fix them
+                    logger.warning(f"Duplicate or invalid headers detected, fixing headers")
+                    headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+                    worksheet.update([headers], range_name="A1:C1")
                 
-                # If all expected headers exist, use expected_headers parameter
-                if all(h in existing_headers for h in expected_headers):
-                    return worksheet.get_all_records(expected_headers=expected_headers)
-                else:
-                    # Headers don't match, read without expected_headers and handle missing columns
-                    return worksheet.get_all_records()
+                # Now read with expected_headers (headers are fixed, so this should work)
+                return worksheet.get_all_records(expected_headers=expected_headers)
             except Exception as e:
-                # If there's an error reading headers, try without expected_headers
-                logger.warning(f"Header kontrolü başarısız, beklenen header'lar olmadan okunuyor: {str(e)}")
-                return worksheet.get_all_records()
+                # If there's still an error, try reading rows directly
+                try:
+                    logger.warning(f"Header hatası, satır satır okunuyor: {str(e)}")
+                    # Read all rows and manually parse (skip header row)
+                    all_rows = worksheet.get_all_values()
+                    if len(all_rows) <= 1:
+                        return []
+                    
+                    # Skip header row and parse data rows
+                    records = []
+                    for row in all_rows[1:]:
+                        if len(row) >= 3 and any(cell.strip() for cell in row[:3]):
+                            records.append({
+                                "Tarih": row[0] if len(row) > 0 else "",
+                                "Değer_TRY": row[1] if len(row) > 1 else "",
+                                "Değer_USD": row[2] if len(row) > 2 else ""
+                            })
+                    return records
+                except Exception as e2:
+                    logger.error(f"Veri okuma başarısız: {str(e2)}")
+                    return []
         
         data = _retry_with_backoff(_fetch_market_history, max_retries=3, initial_delay=2.0, max_delay=60.0)
         if not data:
@@ -644,7 +684,9 @@ def write_history_market_profile(market_type, value_try, value_usd, profile_name
     
     today_str = datetime.now().strftime("%Y-%m-%d")
     try:
-        data = worksheet.get_all_records()
+        # Use expected_headers to avoid duplicate header errors
+        expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+        data = worksheet.get_all_records(expected_headers=expected_headers)
         for row in data:
             if str(row.get("Tarih", ""))[:10] == today_str:
                 return
