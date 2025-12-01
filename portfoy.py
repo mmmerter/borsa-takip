@@ -269,10 +269,13 @@ def render_portfolio_news_section(portfolio_df, watchlist_df=None):
 
 
 # --- ANA DATA ---
-portfoy_df = get_data_from_sheet()
+# Lazy loading ile performans optimizasyonu
+with st.spinner("📊 Portföy verileri yükleniyor..."):
+    portfoy_df = get_data_from_sheet()
 
 # --- HEADER ---
-USD_TRY = get_usd_try()
+with st.spinner("💱 Döviz kuru alınıyor..."):
+    USD_TRY = get_usd_try()
 
 # Para birimi seçimi için session state
 if "gorunum_pb" not in st.session_state:
@@ -345,7 +348,9 @@ if is_total:
 
 st.markdown("---")
 
-mh, ph = get_tickers_data(portfoy_df, USD_TRY)
+# Ticker verilerini lazy loading ile yükle
+with st.spinner("📈 Piyasa verileri güncelleniyor..."):
+    mh, ph = get_tickers_data(portfoy_df, USD_TRY)
 st.markdown(
     f"""
 <div class="ticker-container market-ticker">
@@ -389,19 +394,20 @@ selected = option_menu(
 
 
 # --- ANALİZ ---
-@st.cache_data(ttl=300)  # 5 dakika cache - BIST ve ABD için
+@st.cache_data(ttl=600)  # 10 dakika cache - BIST ve ABD için optimize edildi
 def _fetch_batch_prices_bist_abd(symbols_list, period="5d"):
     """Batch olarak BIST ve ABD fiyat verilerini çeker - borsa kapalıyken de son kapanış fiyatını döndürür"""
     if not symbols_list:
         return {}
     prices = {}
     
-    # Önce batch deneme
+    # Önce batch deneme - timeout ile optimize edilmiş
     try:
         tickers = yf.Tickers(" ".join(symbols_list))
         for sym in symbols_list:
             try:
-                h = tickers.tickers[sym].history(period=period)
+                # Timeout ekle - daha hızlı hata yakalama
+                h = tickers.tickers[sym].history(period=period, timeout=15)
                 if not h.empty:
                     # Son geçerli fiyatı al (borsa kapalıysa son kapanış)
                     curr = h["Close"].iloc[-1]
@@ -450,9 +456,9 @@ def _fetch_batch_prices_bist_abd(symbols_list, period="5d"):
     
     return prices
 
-@st.cache_data(ttl=120)  # 2 dakika cache - Kripto için
+@st.cache_data(ttl=300)  # 5 dakika cache - Kripto için optimize edildi
 def _fetch_batch_prices_crypto(symbols_list, period="5d"):
-    """Batch olarak Kripto fiyat verilerini çeker"""
+    """Batch olarak Kripto fiyat verilerini çeker - optimize edilmiş"""
     if not symbols_list:
         return {}
     prices = {}
@@ -461,7 +467,8 @@ def _fetch_batch_prices_crypto(symbols_list, period="5d"):
         tickers = yf.Tickers(" ".join(symbols_list))
         for sym in symbols_list:
             try:
-                h = tickers.tickers[sym].history(period=period)
+                # Timeout ekle - daha hızlı hata yakalama
+                h = tickers.tickers[sym].history(period=period, timeout=15)
                 if not h.empty:
                     curr = h["Close"].iloc[-1]
                     prev = h["Close"].iloc[-2] if len(h) > 1 else curr
@@ -496,7 +503,7 @@ def _fetch_batch_prices_crypto(symbols_list, period="5d"):
     
     return prices
 
-@st.cache_data(ttl=300)  # 5 dakika cache - EMTIA için
+@st.cache_data(ttl=600)  # 10 dakika cache - EMTIA için optimize edildi
 def _fetch_batch_prices_emtia(symbols_list, period="5d"):
     """Batch olarak EMTIA fiyat verilerini çeker"""
     if not symbols_list:
@@ -507,7 +514,8 @@ def _fetch_batch_prices_emtia(symbols_list, period="5d"):
         tickers = yf.Tickers(" ".join(symbols_list))
         for sym in symbols_list:
             try:
-                h = tickers.tickers[sym].history(period=period)
+                # Timeout ekle - daha hızlı hata yakalama
+                h = tickers.tickers[sym].history(period=period, timeout=15)
                 if not h.empty:
                     curr = h["Close"].iloc[-1]
                     prev = h["Close"].iloc[-2] if len(h) > 1 else curr
@@ -517,7 +525,7 @@ def _fetch_batch_prices_emtia(symbols_list, period="5d"):
             except Exception:
                 try:
                     ticker = yf.Ticker(sym)
-                    h = ticker.history(period=period)
+                    h = ticker.history(period=period, timeout=15)
                     if not h.empty:
                         curr = h["Close"].iloc[-1]
                         prev = h["Close"].iloc[-2] if len(h) > 1 else curr
@@ -569,7 +577,7 @@ def _translate_sector(sector_en):
     }
     return sector_map.get(sector_en, sector_en)  # Eğer çeviri yoksa orijinal ismi döndür
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)  # 30 dakika cache - sektör bilgileri çok az değişir
 def _fetch_sector_info(symbols_list):
     """Batch olarak sektör bilgilerini çeker"""
     if not symbols_list:

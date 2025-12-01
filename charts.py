@@ -548,23 +548,27 @@ def render_detail_view(symbol: str, pazar: str) -> None:
     st.write(f"Detay görünüm: {symbol} ({pazar})")
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)  # 10 dakika cache - tarihsel veriler daha az sık değişir
 def _fetch_historical_prices_batch(symbols_list, period="60d", interval="1d"):
-    """Batch olarak tarihsel fiyat verilerini çeker"""
+    """Batch olarak tarihsel fiyat verilerini çeker - optimize edilmiş"""
     if not symbols_list:
         return {}
     try:
+        # Batch işlemi - timeout ile optimize edilmiş
         tickers = yf.Tickers(" ".join(symbols_list))
         prices_dict = {}
         for sym in symbols_list:
             try:
-                h = tickers.tickers[sym].history(period=period, interval=interval)
+                # Timeout ekle - daha hızlı hata yakalama
+                h = tickers.tickers[sym].history(period=period, interval=interval, timeout=15)
                 if not h.empty:
                     prices_dict[sym] = h["Close"]
             except Exception:
+                # Hata durumunda None ekle - sessiz geç
                 prices_dict[sym] = None
         return prices_dict
     except Exception:
+        # Genel hata durumunda boş dict döndür
         return {}
 
 def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, start_date: pd.Timestamp = None):
@@ -1051,7 +1055,7 @@ def get_historical_chart(df: pd.DataFrame, usd_try_rate: float, pb: str, start_d
     return fig
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)  # 10 dakika cache - karşılaştırma verileri daha az sık değişir
 def _fetch_comparison_data(symbols_dict, usd_try_rate, pb, period="60d"):
     """
     Karşılaştırma için veri çeker.
@@ -1103,7 +1107,7 @@ def _fetch_comparison_data(symbols_dict, usd_try_rate, pb, period="60d"):
     return results
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=7200)  # 2 saat cache - enflasyon verisi çok az değişir
 def _fetch_inflation_data():
     """
     TCMB'den enflasyon verisi çeker (TÜFE).
