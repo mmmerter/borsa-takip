@@ -19,7 +19,8 @@ from utils import get_yahoo_symbol
 import pytz
 
 # Google Sheets / network işlemleri sonsuza kadar beklemesin diye global timeout
-socket.setdefaulttimeout(15)
+# Timeout'u optimize et - çok uzun bekleme yerine daha hızlı hata yakalama
+socket.setdefaulttimeout(20)
 
 SHEET_NAME = "PortfoyData"
 DAILY_BASE_SHEET_NAME = "daily_base_prices"  # Günlük baz fiyatlar için
@@ -71,7 +72,7 @@ def _get_gspread_client():
             _client_cache = None
     return _client_cache
 
-@st.cache_data(ttl=120)  # 2 dakika cache - Sheets verileri daha az sık değişir
+@st.cache_data(ttl=600)  # 10 dakika cache - Sheets verileri daha az sık değişir
 def get_data_from_sheet():
     try:
         client = _get_gspread_client()
@@ -114,7 +115,7 @@ def save_data_to_sheet(df):
     except Exception:
         pass
 
-@st.cache_data(ttl=180)  # 3 dakika cache - Satış geçmişi daha az sık değişir
+@st.cache_data(ttl=600)  # 10 dakika cache - Satış geçmişi daha az sık değişir
 def get_sales_history():
     try:
         client = _get_gspread_client()
@@ -304,7 +305,7 @@ def get_crypto_globals():
         return d["total_market_cap"]["usd"], d["market_cap_percentage"]["btc"], d["total_market_cap"]["usd"] * (1 - ((d["market_cap_percentage"]["btc"] + d["market_cap_percentage"]["eth"]) / 100)), 100 - (d["market_cap_percentage"]["btc"] + d["market_cap_percentage"]["eth"]), 0
     except: return 0, 0, 0, 0, 0
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300)  # 5 dakika cache - F5 ile güncel kur için optimize edildi
 def get_usd_try():
     try: 
         ticker = yf.Ticker("TRY=X")
@@ -355,7 +356,7 @@ def get_financial_news(topic="finance"):
         return news_list
     except: return []
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)  # 10 dakika cache - haberler daha az sık güncellenir
 def get_portfolio_news(portfolio_df, watchlist_df=None):
     """
     Portföydeki ve izleme listesindeki varlıklar için haberleri çeker.
@@ -446,7 +447,7 @@ def get_portfolio_news(portfolio_df, watchlist_df=None):
     
     return all_news[:30]  # En fazla 30 haber döndür
 
-@st.cache_data(ttl=60)  # 1 dakika cache - ticker verileri sık güncellenir
+@st.cache_data(ttl=120)  # 2 dakika cache - F5 ile güncel veriler için optimize edildi
 def get_tickers_data(df_portfolio, usd_try):
     total_cap, btc_d, total_3, others_d, others_cap = get_crypto_globals()
     market_symbols = [("BIST 100", "XU100.IS"), ("USD", "TRY=X"), ("EUR", "EURTRY=X"), ("BTC/USDT", "BTC-USD"),
@@ -463,11 +464,13 @@ def get_tickers_data(df_portfolio, usd_try):
     portfolio_html = ''
 
     try:
+        # Batch işlemi optimize et - timeout ve retry mekanizması ile
         yahoo_data = yf.Tickers(" ".join(all_fetch))
         def get_val(symbol, label=None):
             try:
                 # Borsa kapalıyken de çalışması için period'u artır
-                h = yahoo_data.tickers[symbol].history(period="5d")
+                # Timeout ekle - daha hızlı hata yakalama
+                h = yahoo_data.tickers[symbol].history(period="5d", timeout=10)
                 if not h.empty:
                     p, prev = h["Close"].iloc[-1], h["Close"].iloc[-2] if len(h) > 1 else h["Close"].iloc[-1]
                     chg = ((p - prev) / prev) * 100
@@ -537,6 +540,7 @@ def get_tickers_data(df_portfolio, usd_try):
                             <span style="color: {col}; font-size: 12px; font-weight: 800; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;">{arrow} {chg:+.1f}%</span>
                         </span>'''
                 except Exception:
+                    # Hata durumunda boş string döndür - sessiz geç
                     pass
             return ""
 

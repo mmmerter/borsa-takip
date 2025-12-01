@@ -171,7 +171,7 @@ def _get_profile_sheet(sheet_type="main", profile_name=None):
         return None
 
 
-@st.cache_data(ttl=120)  # 2 dakika cache - Sheets verileri daha az sık değişir
+@st.cache_data(ttl=600)  # 10 dakika cache - Sheets verileri daha az sık değişir
 def get_data_from_sheet_profile(profile_name=None):
     """
     Get portfolio data for a specific profile.
@@ -291,7 +291,7 @@ def save_data_to_sheet_profile(df, profile_name=None):
         st.error(error_msg)
 
 
-@st.cache_data(ttl=180)  # 3 dakika cache - Satış geçmişi daha az sık değişir
+@st.cache_data(ttl=600)  # 10 dakika cache - Satış geçmişi daha az sık değişir
 def get_sales_history_profile(profile_name=None):
     """
     Get sales history for a specific profile.
