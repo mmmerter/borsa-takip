@@ -403,11 +403,31 @@ def read_portfolio_history_profile(profile_name=None):
         if worksheet is None:
             return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
         
-        # Expected headers to avoid duplicate header errors
-        expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
-        
         def _fetch_history():
-            return worksheet.get_all_records(expected_headers=expected_headers)
+            # First, check if headers exist
+            try:
+                # Get first row to check headers
+                first_row = worksheet.row_values(1)
+                if not first_row:
+                    # Empty worksheet, add headers
+                    headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+                    worksheet.update([headers], range_name="A1:C1")
+                    return []
+                
+                # Check if expected headers exist
+                expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+                existing_headers = [h.strip() for h in first_row if h]
+                
+                # If all expected headers exist, use expected_headers parameter
+                if all(h in existing_headers for h in expected_headers):
+                    return worksheet.get_all_records(expected_headers=expected_headers)
+                else:
+                    # Headers don't match, read without expected_headers and handle missing columns
+                    return worksheet.get_all_records()
+            except Exception as e:
+                # If there's an error reading headers, try without expected_headers
+                logger.warning(f"Header kontrolü başarısız, beklenen header'lar olmadan okunuyor: {str(e)}")
+                return worksheet.get_all_records()
         
         data = _retry_with_backoff(_fetch_history, max_retries=3, initial_delay=2.0, max_delay=60.0)
         if not data:
@@ -560,11 +580,31 @@ def read_history_market_profile(market_type, profile_name=None):
         if worksheet is None:
             return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
         
-        # Expected headers to avoid duplicate header errors
-        expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
-        
         def _fetch_market_history():
-            return worksheet.get_all_records(expected_headers=expected_headers)
+            # First, check if headers exist
+            try:
+                # Get first row to check headers
+                first_row = worksheet.row_values(1)
+                if not first_row:
+                    # Empty worksheet, add headers
+                    headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+                    worksheet.update([headers], range_name="A1:C1")
+                    return []
+                
+                # Check if expected headers exist
+                expected_headers = ["Tarih", "Değer_TRY", "Değer_USD"]
+                existing_headers = [h.strip() for h in first_row if h]
+                
+                # If all expected headers exist, use expected_headers parameter
+                if all(h in existing_headers for h in expected_headers):
+                    return worksheet.get_all_records(expected_headers=expected_headers)
+                else:
+                    # Headers don't match, read without expected_headers and handle missing columns
+                    return worksheet.get_all_records()
+            except Exception as e:
+                # If there's an error reading headers, try without expected_headers
+                logger.warning(f"Header kontrolü başarısız, beklenen header'lar olmadan okunuyor: {str(e)}")
+                return worksheet.get_all_records()
         
         data = _retry_with_backoff(_fetch_market_history, max_retries=3, initial_delay=2.0, max_delay=60.0)
         if not data:
