@@ -452,8 +452,24 @@ def read_portfolio_history_profile(profile_name=None):
                             })
                     return records
                 
-                # Headers are valid and match - use expected_headers for efficient reading
-                return worksheet.get_all_records(expected_headers=expected_headers)
+                # Headers are valid and match - try using expected_headers for efficient reading
+                # But catch any errors and fall back to row-by-row reading
+                try:
+                    return worksheet.get_all_records(expected_headers=expected_headers)
+                except Exception:
+                    # If expected_headers fails (e.g., extra columns, order issues), read row by row
+                    all_rows = worksheet.get_all_values()
+                    if len(all_rows) <= 1:
+                        return []
+                    records = []
+                    for row in all_rows[1:]:
+                        if len(row) >= 3 and any(cell.strip() for cell in row[:3]):
+                            records.append({
+                                "Tarih": row[0] if len(row) > 0 else "",
+                                "Değer_TRY": row[1] if len(row) > 1 else "",
+                                "Değer_USD": row[2] if len(row) > 2 else ""
+                            })
+                    return records
             except Exception as e:
                 # If there's still an error, try reading rows directly
                 try:
@@ -698,8 +714,24 @@ def read_history_market_profile(market_type, profile_name=None):
                             })
                     return records
                 
-                # Headers are valid and match - use expected_headers for efficient reading
-                return worksheet.get_all_records(expected_headers=expected_headers)
+                # Headers are valid and match - try using expected_headers for efficient reading
+                # But catch any errors and fall back to row-by-row reading
+                try:
+                    return worksheet.get_all_records(expected_headers=expected_headers)
+                except Exception:
+                    # If expected_headers fails (e.g., extra columns, order issues), read row by row
+                    all_rows = worksheet.get_all_values()
+                    if len(all_rows) <= 1:
+                        return []
+                    records = []
+                    for row in all_rows[1:]:
+                        if len(row) >= 3 and any(cell.strip() for cell in row[:3]):
+                            records.append({
+                                "Tarih": row[0] if len(row) > 0 else "",
+                                "Değer_TRY": row[1] if len(row) > 1 else "",
+                                "Değer_USD": row[2] if len(row) > 2 else ""
+                            })
+                    return records
             except Exception as e:
                 # If there's still an error, try reading rows directly
                 try:
