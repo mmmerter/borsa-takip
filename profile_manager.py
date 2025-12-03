@@ -10,6 +10,7 @@ from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
+import time
 
 # Profile definitions
 PROFILES = {
@@ -69,10 +70,8 @@ def get_profile_config(profile_name: str) -> Dict:
 
 def get_all_profiles() -> List[str]:
     """Get list of all profiles in display order."""
-    try:
-        load_profiles_from_sheets()
-    except:
-        pass
+    # Profiles are loaded on module init and cached
+    # No need to reload every time
     return PROFILE_ORDER
 
 
@@ -83,10 +82,8 @@ def get_individual_profiles(include_berguzar: bool = None) -> List[str]:
     Args:
         include_berguzar: If None, uses session state setting. If False, excludes BERGUZAR.
     """
-    try:
-        load_profiles_from_sheets()
-    except:
-        pass
+    # Profiles are loaded on module init and cached
+    # No need to reload every time
     
     if include_berguzar is None:
         include_berguzar = st.session_state.get("total_include_berguzar", True)
@@ -126,11 +123,8 @@ def get_current_profile() -> str:
 
 def set_current_profile(profile_name: str):
     """Set currently active profile."""
-    # Reload profiles to ensure we have latest
-    try:
-        load_profiles_from_sheets()
-    except:
-        pass
+    # Profiles are cached, no need to reload every time
+    # This reduces API calls significantly
     
     if profile_name in PROFILES:
         st.session_state["current_profile"] = profile_name
@@ -158,11 +152,7 @@ def render_profile_selector():
     Returns True if profile changed, False otherwise.
     """
     init_session_state()
-    # Reload profiles from sheets to get latest updates
-    try:
-        load_profiles_from_sheets()
-    except:
-        pass
+    # Profiles are cached, only reload periodically (not every render)
     
     current_profile = get_current_profile()
     
@@ -201,12 +191,7 @@ def render_profile_selector():
         st.markdown(f"### {profile_icon}")
     
     with cols[1]:
-        # Get profile display names - reload to get latest
-        try:
-            load_profiles_from_sheets()
-        except:
-            pass
-        
+        # Get profile display names from cache
         profile_options = [PROFILES[p]["display_name"] for p in PROFILE_ORDER if p in PROFILES]
         
         # Handle case where current profile might not be in list
@@ -336,6 +321,15 @@ def log_profile_action(action: str, profile_name: str, details: str = ""):
 
 # ==================== DYNAMIC PROFILE MANAGEMENT ====================
 
+# Cache for profile data to prevent excessive API calls
+_profiles_cache = None
+_profiles_cache_time = 0
+_profiles_cache_ttl = 900  # 15 minutes cache
+
+# Rate limiting for profile loading
+_last_profile_load_time = 0
+_min_profile_load_interval = 5.0  # Minimum 5 seconds between profile loads
+
 def _get_gspread_client():
     """Get Google Sheets client."""
     try:
@@ -349,6 +343,53 @@ def _get_gspread_client():
     except Exception as e:
         st.error(f"Google Sheets bağlantı hatası: {str(e)}")
         return None
+
+
+def _retry_with_backoff(func, max_retries=3, initial_delay=1.0, max_delay=60.0, backoff_factor=2.0):
+    """
+    Retry mechanism with exponential backoff for API calls.
+    Handles 429 (quota exceeded) errors specifically.
+    """
+    last_exception = None
+    
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except gspread.exceptions.APIError as e:
+            last_exception = e
+            error_code = getattr(e, 'response', {}).get('status', None) if hasattr(e, 'response') else None
+            
+            # 429 error (quota exceeded) - use longer backoff
+            if error_code == 429 or '429' in str(e) or 'Quota exceeded' in str(e) or 'quota' in str(e).lower():
+                if attempt < max_retries - 1:
+                    delay = min(initial_delay * (backoff_factor ** attempt), max_delay)
+                    st.warning(
+                        f"⏳ Google Sheets API quota aşıldı. {delay:.0f} saniye bekleniyor... (Deneme {attempt + 1}/{max_retries})"
+                    )
+                    time.sleep(delay)
+                    continue
+                else:
+                    raise
+            else:
+                # Other API errors - shorter backoff
+                if attempt < max_retries - 1:
+                    delay = min(initial_delay * (backoff_factor ** attempt), max_delay / 2)
+                    time.sleep(delay)
+                    continue
+                else:
+                    raise
+        except Exception as e:
+            # Unexpected errors
+            if attempt < max_retries - 1:
+                delay = min(initial_delay * (backoff_factor ** attempt), max_delay / 4)
+                time.sleep(delay)
+                last_exception = e
+                continue
+            else:
+                raise
+    
+    if last_exception:
+        raise last_exception
 
 
 def _get_profiles_sheet():
@@ -388,15 +429,53 @@ def _get_profiles_sheet():
         return None
 
 
-def load_profiles_from_sheets() -> Dict[str, Dict]:
-    """Load profiles from Google Sheets."""
-    ws = _get_profiles_sheet()
-    if ws is None:
-        # Return default profiles if sheet can't be accessed
-        return PROFILES
+def load_profiles_from_sheets(force_reload=False) -> Dict[str, Dict]:
+    """
+    Load profiles from Google Sheets with caching and rate limiting.
+    
+    Args:
+        force_reload: Force reload even if cache is valid
+    
+    Returns:
+        Dictionary of profile configurations
+    """
+    global _profiles_cache, _profiles_cache_time, _last_profile_load_time
+    
+    # Check cache first (unless force reload)
+    if not force_reload:
+        current_time = time.time()
+        
+        # Return cached data if still valid
+        if _profiles_cache is not None and (current_time - _profiles_cache_time) < _profiles_cache_ttl:
+            return _profiles_cache
+        
+        # Rate limiting - prevent too frequent API calls
+        time_since_last_load = current_time - _last_profile_load_time
+        if time_since_last_load < _min_profile_load_interval:
+            # Too soon, return cached data or defaults
+            if _profiles_cache is not None:
+                return _profiles_cache
+            else:
+                return PROFILES
+    
+    # Update last load time
+    _last_profile_load_time = time.time()
     
     try:
-        data = ws.get_all_records()
+        # Get profiles sheet with retry mechanism
+        ws = _retry_with_backoff(_get_profiles_sheet, max_retries=2, initial_delay=2.0, max_delay=30.0)
+        if ws is None:
+            # Return cached or default profiles
+            if _profiles_cache is not None:
+                return _profiles_cache
+            return PROFILES
+        
+        # Read data with retry mechanism
+        def _fetch_profile_data():
+            return ws.get_all_records()
+        
+        data = _retry_with_backoff(_fetch_profile_data, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        
         profiles = {}
         profile_order = []
         
@@ -423,10 +502,38 @@ def load_profiles_from_sheets() -> Dict[str, Dict]:
         global PROFILE_ORDER
         PROFILE_ORDER = profile_order if profile_order else ["MERT", "ANNEM", "BERGUZAR", "İKRAMİYE", "TOTAL"]
         
+        # Update cache
+        _profiles_cache = profiles
+        _profiles_cache_time = time.time()
+        
         return profiles
+    except gspread.exceptions.APIError as e:
+        error_msg = str(e)
+        if '429' in error_msg or 'quota' in error_msg.lower() or 'Quota exceeded' in error_msg:
+            st.warning(
+                f"⚠️ Google Sheets API quota limiti aşıldı. Önbellekteki veriler kullanılıyor. "
+                f"Profil değişiklikleri birkaç dakika sonra yansıyacak."
+            )
+        else:
+            st.warning(f"Profil yükleme hatası, varsayılan profiller kullanılıyor: {error_msg}")
+        
+        # Return cached data if available, otherwise defaults
+        if _profiles_cache is not None:
+            return _profiles_cache
+        return PROFILES
     except Exception as e:
         st.warning(f"Profil yükleme hatası, varsayılan profiller kullanılıyor: {str(e)}")
+        # Return cached data if available, otherwise defaults
+        if _profiles_cache is not None:
+            return _profiles_cache
         return PROFILES
+
+
+def clear_profiles_cache():
+    """Manually clear the profiles cache to force reload on next access."""
+    global _profiles_cache, _profiles_cache_time
+    _profiles_cache = None
+    _profiles_cache_time = 0
 
 
 def save_profile_to_sheets(profile_data: Dict) -> bool:
@@ -436,36 +543,43 @@ def save_profile_to_sheets(profile_data: Dict) -> bool:
         return False
     
     try:
-        data = ws.get_all_records()
+        def _fetch_and_save():
+            data = ws.get_all_records()
+            
+            # Check if profile exists
+            existing_row = None
+            for idx, row in enumerate(data, start=2):  # Start from row 2 (skip header)
+                if row.get("name", "").strip().upper() == profile_data["name"].upper():
+                    existing_row = idx
+                    break
+            
+            # Prepare row data
+            row_data = [
+                profile_data["name"],
+                profile_data["display_name"],
+                profile_data["icon"],
+                profile_data["color"],
+                str(profile_data.get("is_aggregate", False)),
+                profile_data.get("description", ""),
+                str(profile_data.get("order", len(data) + 1))
+            ]
+            
+            if existing_row:
+                # Update existing profile
+                ws.update(f"A{existing_row}:G{existing_row}", [row_data])
+            else:
+                # Add new profile
+                ws.append_row(row_data)
+            
+            return True
         
-        # Check if profile exists
-        existing_row = None
-        for idx, row in enumerate(data, start=2):  # Start from row 2 (skip header)
-            if row.get("name", "").strip().upper() == profile_data["name"].upper():
-                existing_row = idx
-                break
+        # Use retry mechanism for saving
+        result = _retry_with_backoff(_fetch_and_save, max_retries=3, initial_delay=2.0, max_delay=60.0)
         
-        # Prepare row data
-        row_data = [
-            profile_data["name"],
-            profile_data["display_name"],
-            profile_data["icon"],
-            profile_data["color"],
-            str(profile_data.get("is_aggregate", False)),
-            profile_data.get("description", ""),
-            str(profile_data.get("order", len(data) + 1))
-        ]
-        
-        if existing_row:
-            # Update existing profile
-            ws.update(f"A{existing_row}:G{existing_row}", [row_data])
-        else:
-            # Add new profile
-            ws.append_row(row_data)
-        
-        # Reload profiles
-        load_profiles_from_sheets()
-        return True
+        # Clear cache and force reload
+        clear_profiles_cache()
+        load_profiles_from_sheets(force_reload=True)
+        return result
     except Exception as e:
         st.error(f"Profil kaydetme hatası: {str(e)}")
         return False
@@ -478,17 +592,25 @@ def delete_profile_from_sheets(profile_name: str) -> bool:
         return False
     
     try:
-        data = ws.get_all_records()
+        def _fetch_and_delete():
+            data = ws.get_all_records()
+            
+            # Find and delete row
+            for idx, row in enumerate(data, start=2):  # Start from row 2 (skip header)
+                if row.get("name", "").strip().upper() == profile_name.upper():
+                    ws.delete_rows(idx)
+                    return True
+            return False
         
-        # Find and delete row
-        for idx, row in enumerate(data, start=2):  # Start from row 2 (skip header)
-            if row.get("name", "").strip().upper() == profile_name.upper():
-                ws.delete_rows(idx)
-                # Reload profiles
-                load_profiles_from_sheets()
-                return True
+        # Use retry mechanism for deletion
+        result = _retry_with_backoff(_fetch_and_delete, max_retries=3, initial_delay=2.0, max_delay=60.0)
         
-        return False
+        if result:
+            # Clear cache and force reload
+            clear_profiles_cache()
+            load_profiles_from_sheets(force_reload=True)
+        
+        return result
     except Exception as e:
         st.error(f"Profil silme hatası: {str(e)}")
         return False
@@ -510,8 +632,11 @@ def get_next_profile_order() -> int:
         return len(PROFILE_ORDER) + 1
 
 
-# Initialize profiles from sheets on module load
+# Initialize profiles from sheets on module load (with caching)
+# This will only happen once per session or when cache expires
 try:
     load_profiles_from_sheets()
-except:
-    pass  # Use default profiles if loading fails
+except Exception as e:
+    # Silently use default profiles if loading fails
+    # Errors are already handled in load_profiles_from_sheets()
+    pass
