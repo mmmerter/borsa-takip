@@ -108,7 +108,16 @@ def _retry_with_backoff(func, max_retries=3, initial_delay=1.0, max_delay=60.0, 
             return func()
         except gspread.exceptions.APIError as e:
             last_exception = e
-            error_code = getattr(e, 'response', {}).get('status', None) if hasattr(e, 'response') else None
+            # Handle response object properly - it might be a Response object or dict
+            error_code = None
+            if hasattr(e, 'response'):
+                response = e.response
+                if isinstance(response, dict):
+                    error_code = response.get('status', None)
+                elif hasattr(response, 'status_code'):
+                    error_code = response.status_code
+                elif hasattr(response, 'status'):
+                    error_code = response.status
             
             # 429 hatası (quota exceeded) için özel işlem
             if error_code == 429 or '429' in str(e) or 'Quota exceeded' in str(e) or 'quota' in str(e).lower():

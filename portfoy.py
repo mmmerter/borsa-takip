@@ -291,8 +291,10 @@ with col_refresh:
         st.rerun()
 
 # Lazy loading ile performans optimizasyonu
+# Get current profile explicitly to ensure correct data loading
+current_profile = get_current_profile()
 with st.spinner("📊 Portföy verileri yükleniyor..."):
-    portfoy_df = get_data_from_sheet()
+    portfoy_df = get_data_from_sheet(profile_name=current_profile)
 
 # --- HEADER ---
 with st.spinner("💱 Döviz kuru alınıyor..."):
@@ -2578,7 +2580,9 @@ elif selected == "İzleme":
                     # portfoy_df'den bu kodu ve Tip="Takip" olan satırı sil
                     kod = row['Kod']
                     portfoy_df = portfoy_df[~((portfoy_df["Kod"] == kod) & (portfoy_df["Tip"] == "Takip"))]
-                    save_data_to_sheet(portfoy_df)
+                    # Get current profile explicitly before saving
+                    current_profile = get_current_profile()
+                    save_data_to_sheet(portfoy_df, profile_name=current_profile)
                     st.success(f"{kod} izleme listesinden silindi!")
                     time.sleep(1)
                     st.rerun()
@@ -2592,7 +2596,9 @@ elif selected == "Satışlar":
         subtitle="Gerçekleştirdiğiniz tüm satış işlemlerinin detaylı kayıtları"
     )
     
-    sales_df = get_sales_history()
+    # Get current profile explicitly for sales history
+    current_profile = get_current_profile()
+    sales_df = get_sales_history(profile_name=current_profile)
     if not sales_df.empty:
         # Kolon isimlerini modernize et
         sales_display = sales_df.copy()
@@ -2802,7 +2808,9 @@ elif selected == "Ekle/Çıkar":
                     }
                 )
                 portfoy_df = pd.concat([portfoy_df, new_row], ignore_index=True)
-                save_data_to_sheet(portfoy_df)
+                # Get current profile explicitly before saving
+                current_profile = get_current_profile()
+                save_data_to_sheet(portfoy_df, profile_name=current_profile)
 
                 st.success(
                     "İzleme listesine eklendi!"
@@ -2836,7 +2844,9 @@ elif selected == "Ekle/Çıkar":
                     portfoy_df = pd.concat(
                         [portfoy_df, new_row], ignore_index=True
                     )
-                    save_data_to_sheet(portfoy_df)
+                    # Get current profile explicitly before saving
+                    current_profile = get_current_profile()
+                    save_data_to_sheet(portfoy_df, profile_name=current_profile)
                     st.success("Güncellendi!")
                     time.sleep(1)
                     st.rerun()
@@ -2856,7 +2866,9 @@ elif selected == "Ekle/Çıkar":
                 s = st.selectbox("Silinecek Kod", portfoy_df["Kod"].unique(), key="del")
                 if st.button("🗑️ Sil"):
                     portfoy_df = portfoy_df[portfoy_df["Kod"] != s]
-                    save_data_to_sheet(portfoy_df)
+                    # Get current profile explicitly before saving
+                    current_profile = get_current_profile()
+                    save_data_to_sheet(portfoy_df, profile_name=current_profile)
                     st.success("Silindi!")
                     time.sleep(1)
                     st.rerun()
@@ -2892,6 +2904,8 @@ elif selected == "Ekle/Çıkar":
                         kar_zarar = toplam_satis - maliyet_tutar
 
                         # Satış kaydını Sheets'e yaz
+                        # Get current profile explicitly before saving
+                        current_profile = get_current_profile()
                         add_sale_record(
                             datetime.now().date(),
                             kod_sec,
@@ -2900,6 +2914,7 @@ elif selected == "Ekle/Çıkar":
                             satis_fiyat,
                             maliyet_tutar,
                             kar_zarar,
+                            profile_name=current_profile,
                         )
 
                         # Portföyde adeti güncelle / sıfırsa satır sil
@@ -2911,7 +2926,9 @@ elif selected == "Ekle/Çıkar":
                                 portfoy_df["Kod"] == kod_sec, "Adet"
                             ] = kalan_adet
 
-                        save_data_to_sheet(portfoy_df)
+                        # Get current profile explicitly before saving
+                        current_profile = get_current_profile()
+                        save_data_to_sheet(portfoy_df, profile_name=current_profile)
 
                         st.success(
                             f"Satış kaydedildi. Toplam satış: {toplam_satis:,.2f}, "
