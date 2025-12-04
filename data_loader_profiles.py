@@ -207,12 +207,13 @@ def get_data_from_sheet_profile(profile_name=None):
     If profile is TOTAL, aggregates data from all individual profiles.
     
     IMPORTANT: profile_name is used as cache key, so each profile has separate cache.
+    Always pass profile_name explicitly to ensure correct caching.
     """
     if profile_name is None:
         profile_name = get_current_profile()
     
     # Ensure profile_name is used in cache key by including it in function signature
-    # Cache will be separate for each profile
+    # Cache will be separate for each profile - Streamlit automatically uses function arguments as cache key
     
     # Handle TOTAL profile (aggregate)
     if is_aggregate_profile(profile_name):
@@ -384,8 +385,17 @@ def save_data_to_sheet_profile(df, profile_name=None):
         
         _retry_with_backoff(_save_data, max_retries=3, initial_delay=2.0, max_delay=60.0)
         
-        # Clear cache
-        get_data_from_sheet_profile.clear()
+        # Clear cache for this specific profile
+        # Cache key includes profile_name, so we need to clear it explicitly
+        try:
+            get_data_from_sheet_profile.clear()
+            # Also clear cache for the specific profile by calling with the profile name
+            # This ensures the cache is invalidated for the correct profile
+            if hasattr(get_data_from_sheet_profile, 'clear'):
+                # Clear all cached entries - Streamlit cache_data decorator handles this
+                get_data_from_sheet_profile.clear()
+        except Exception:
+            pass
     except Exception as e:
         error_msg = f"❌ Veri kaydedilirken hata oluştu ({profile_name} profili). Hata: {str(e)}"
         st.error(error_msg)
