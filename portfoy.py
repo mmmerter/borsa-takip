@@ -274,14 +274,7 @@ col_refresh, col_space = st.columns([0.15, 0.85])
 with col_refresh:
     if st.button("🔄 Yenile", help="Tüm verileri yeniden yükle (cache'i temizle)", key="refresh_button"):
         # Tüm kritik cache'leri temizle
-        cache_functions = [
-            get_data_from_sheet,
-            get_usd_try,
-            get_tickers_data,
-            _fetch_batch_prices_bist_abd,
-            _fetch_batch_prices_crypto,
-            _fetch_batch_prices_emtia,
-        ]
+        cache_functions = _get_cache_functions()
         for func in cache_functions:
             if hasattr(func, 'clear'):
                 try:
@@ -572,6 +565,17 @@ def _fetch_batch_prices_emtia(symbols_list, period="5d"):
                 prices[sym] = {"curr": 0, "prev": 0}
     
     return prices
+
+def _get_cache_functions():
+    """Returns a list of cache functions to clear on refresh"""
+    return [
+        get_data_from_sheet,
+        get_usd_try,
+        get_tickers_data,
+        _fetch_batch_prices_bist_abd,
+        _fetch_batch_prices_crypto,
+        _fetch_batch_prices_emtia,
+    ]
 
 def _translate_sector(sector_en):
     """İngilizce sektör isimlerini Türkçe'ye çevirir"""
