@@ -1061,11 +1061,11 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
             # Tek veri noktası varsa anlamsız, None döndür
             return None, None, []
         
-        # Hedef tarihten önce veri var mı kontrol et
-        # Eğer en eski veri hedef tarihten çok sonraysa, yetersiz veri demektir
+        # En eski veriyi al (hedef tarihten sonraki ilk veri)
         oldest_date = sub["Tarih"].min()
-        if (oldest_date - target_date).days > days * 0.3:  # %30'dan fazla fark varsa yetersiz veri
-            return None, None, []
+        # Eğer en eski veri hedef tarihten çok sonraysa (günlerin %50'sinden fazla), 
+        # yine de hesaplama yap ama kullanılabilir veri olduğu sürece
+        # Not: Bu kontrolü kaldırdık çünkü elimizdeki verilerle hesaplama yapabiliriz
         
         start_val = float(sub["Değer_TRY"].iloc[0])
         diff = today_val - start_val
@@ -1080,24 +1080,26 @@ def get_timeframe_changes(history_df, subtract_df=None, subtract_before=None):
     m_val, m_pct, m_spark = _calc_period(30)
 
     # YTD: yılın ilk kaydından bugüne
-    year_mask = df["Tarih"].dt.year == datetime.now().year
+    current_year = datetime.now().year
+    year_start = datetime(current_year, 1, 1)
+    
+    # Yılın başından bugüne kadar olan verileri filtrele
+    year_mask = (df["Tarih"].dt.year == current_year) & (df["Tarih"] >= year_start)
     if year_mask.any():
-        ydf = df[year_mask]
-        start_val = float(ydf["Değer_TRY"].iloc[0])
-        diff = today_val - start_val
-        pct = (diff / start_val * 100) if start_val > 0 else 0.0
-        y_spark = list(ydf["Değer_TRY"])
-        y_val, y_pct = diff, pct
-    else:
-        # Yıl içinde veri yoksa, tüm veriyi kullan
-        if not df.empty:
-            start_val = float(df["Değer_TRY"].iloc[0])
+        ydf = df[year_mask].sort_values("Tarih")
+        # En az 2 gün veri olmalı
+        if len(ydf) < 2:
+            y_val, y_pct, y_spark = None, None, []
+        else:
+            # Yılın ilk kaydını al (yıl başından sonraki ilk kayıt)
+            start_val = float(ydf["Değer_TRY"].iloc[0])
             diff = today_val - start_val
             pct = (diff / start_val * 100) if start_val > 0 else 0.0
-            y_spark = list(df["Değer_TRY"])
+            y_spark = list(ydf["Değer_TRY"])
             y_val, y_pct = diff, pct
-        else:
-            y_val, y_pct, y_spark = 0.0, 0.0, []
+    else:
+        # Yıl içinde veri yoksa, YTD hesaplanamaz
+        y_val, y_pct, y_spark = None, None, []
 
     # Veri günü sayısı ve tarih aralığı
     oldest_date = df["Tarih"].min()
