@@ -305,22 +305,88 @@ def get_tefas_data(fund_code):
                             continue
                 
                 if price_field:
+                    # Tarih alanını bul (farklı field isimlerini dene)
+                    date_field = None
+                    for field in ["tarih", "Tarih", "TARIH", "date", "Date", "DATE", "tarihstr", "TarihStr"]:
+                        if field in last_record:
+                            date_field = field
+                            break
+                    
                     # Son kapanış fiyatı (bugünün fiyatı yoksa en son geçerli fiyat)
                     curr_price = float(last_record[price_field])
-                    # Önceki günün kapanış fiyatı (günlük kar/zarar hesaplaması için)
-                    prev_price = curr_price  # Varsayılan: aynı fiyat (eğer önceki gün yoksa)
-                    if len(data) > 1:
-                        # Önceki günün fiyatını bul
-                        for i in range(len(data) - 2, -1, -1):
-                            prev_record = data[i]
-                            if price_field in prev_record:
+                    
+                    # Son işlem gününü bul (hafta sonu kontrolü için)
+                    last_trade_date = None
+                    if date_field:
+                        try:
+                            # Tarih formatlarını dene
+                            date_str = str(last_record[date_field])
+                            for fmt in ["%Y-%m-%d", "%d.%m.%Y", "%Y/%m/%d", "%d/%m/%Y"]:
                                 try:
-                                    candidate_price = float(prev_record[price_field])
-                                    if candidate_price > 0 and candidate_price < 100:
-                                        prev_price = candidate_price
-                                        break
+                                    last_trade_date = datetime.strptime(date_str.split()[0] if ' ' in date_str else date_str, fmt).date()
+                                    break
                                 except (ValueError, TypeError):
                                     continue
+                        except Exception:
+                            pass
+                    
+                    # Önceki işlem gününün fiyatını bul (günlük kar/zarar hesaplaması için)
+                    prev_price = curr_price  # Varsayılan: aynı fiyat
+                    if len(data) > 1:
+                        # Son işlem gününden bir önceki işlem gününü bul
+                        # Hafta sonu durumunda, eğer son veri Cuma ise, prev de Cuma olmalı (çünkü günlük K/Z için bir önceki işlem günü gerekli)
+                        if last_trade_date:
+                            # Son işlem gününden bir önceki işlem gününü bul
+                            target_date = last_trade_date - timedelta(days=1)
+                            # Hafta sonu kontrolü: Eğer target_date hafta sonu ise, bir önceki Cuma'yı bul
+                            while target_date.weekday() >= 5:  # Cumartesi=5, Pazar=6
+                                target_date -= timedelta(days=1)
+                            
+                            # Bu tarihe en yakın kaydı bul
+                            for i in range(len(data) - 2, -1, -1):
+                                prev_record = data[i]
+                                if price_field in prev_record:
+                                    try:
+                                        candidate_price = float(prev_record[price_field])
+                                        if candidate_price > 0 and candidate_price < 100:
+                                            # Tarih kontrolü yap (eğer tarih bilgisi varsa)
+                                            if date_field and date_field in prev_record:
+                                                try:
+                                                    prev_date_str = str(prev_record[date_field])
+                                                    for fmt in ["%Y-%m-%d", "%d.%m.%Y", "%Y/%m/%d", "%d/%m/%Y"]:
+                                                        try:
+                                                            prev_date = datetime.strptime(prev_date_str.split()[0] if ' ' in prev_date_str else prev_date_str, fmt).date()
+                                                            # Eğer bu tarih target_date'e yakınsa veya daha yakınsa kullan
+                                                            if prev_date <= target_date:
+                                                                prev_price = candidate_price
+                                                                break
+                                                        except (ValueError, TypeError):
+                                                            continue
+                                                    if prev_price != curr_price:
+                                                        break
+                                                except Exception:
+                                                    # Tarih parse edilemezse, sadece fiyatı kullan
+                                                    prev_price = candidate_price
+                                                    break
+                                            else:
+                                                # Tarih bilgisi yoksa, sadece bir önceki geçerli fiyatı kullan
+                                                prev_price = candidate_price
+                                                break
+                                    except (ValueError, TypeError):
+                                        continue
+                        else:
+                            # Tarih bilgisi yoksa, sadece bir önceki geçerli fiyatı bul
+                            for i in range(len(data) - 2, -1, -1):
+                                prev_record = data[i]
+                                if price_field in prev_record:
+                                    try:
+                                        candidate_price = float(prev_record[price_field])
+                                        if candidate_price > 0 and candidate_price < 100:
+                                            prev_price = candidate_price
+                                            break
+                                    except (ValueError, TypeError):
+                                        continue
+                    
                     return curr_price, prev_price
     except Exception:
         pass
@@ -338,8 +404,42 @@ def get_tefas_data(fund_code):
                 if len(valid_prices) > 0:
                     # Son kapanış fiyatı (bugünün fiyatı yoksa en son geçerli fiyat)
                     curr_price = float(valid_prices.iloc[-1])
-                    # Önceki günün kapanış fiyatı (günlük kar/zarar hesaplaması için)
-                    prev_price = float(valid_prices.iloc[-2]) if len(valid_prices) > 1 else curr_price
+                    
+                    # Son işlem gününü bul (tarih index'ten)
+                    last_trade_date = None
+                    if hasattr(res.index, 'date'):
+                        try:
+                            last_trade_date = res.index[-1].date() if hasattr(res.index[-1], 'date') else None
+                        except Exception:
+                            pass
+                    
+                    # Önceki işlem gününün fiyatını bul (hafta sonu kontrolü ile)
+                    prev_price = curr_price  # Varsayılan: aynı fiyat
+                    if len(valid_prices) > 1:
+                        if last_trade_date:
+                            # Son işlem gününden bir önceki işlem gününü bul
+                            target_date = last_trade_date - timedelta(days=1)
+                            # Hafta sonu kontrolü: Eğer target_date hafta sonu ise, bir önceki Cuma'yı bul
+                            while target_date.weekday() >= 5:  # Cumartesi=5, Pazar=6
+                                target_date -= timedelta(days=1)
+                            
+                            # Bu tarihe en yakın kaydı bul
+                            for i in range(len(valid_prices) - 2, -1, -1):
+                                try:
+                                    candidate_date = res.index[i].date() if hasattr(res.index[i], 'date') else None
+                                    if candidate_date and candidate_date <= target_date:
+                                        prev_price = float(valid_prices.iloc[i])
+                                        break
+                                    elif not candidate_date:
+                                        # Tarih bilgisi yoksa, sadece bir önceki geçerli fiyatı kullan
+                                        prev_price = float(valid_prices.iloc[i])
+                                        break
+                                except Exception:
+                                    continue
+                        else:
+                            # Tarih bilgisi yoksa, sadece bir önceki geçerli fiyatı kullan
+                            prev_price = float(valid_prices.iloc[-2])
+                    
                     if curr_price > 0 and curr_price < 100:
                         return curr_price, prev_price
     except Exception:
