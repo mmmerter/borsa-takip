@@ -274,7 +274,14 @@ col_refresh, col_space = st.columns([0.15, 0.85])
 with col_refresh:
     if st.button("🔄 Yenile", help="Tüm verileri yeniden yükle (cache'i temizle)", key="refresh_button"):
         # Tüm kritik cache'leri temizle
-        cache_functions = _get_cache_functions()
+        cache_functions = [
+            get_data_from_sheet,
+            get_usd_try,
+            get_tickers_data,
+            _fetch_batch_prices_bist_abd,
+            _fetch_batch_prices_crypto,
+            _fetch_batch_prices_emtia,
+        ]
         for func in cache_functions:
             if hasattr(func, 'clear'):
                 try:
@@ -565,17 +572,6 @@ def _fetch_batch_prices_emtia(symbols_list, period="5d"):
                 prices[sym] = {"curr": 0, "prev": 0}
     
     return prices
-
-def _get_cache_functions():
-    """Returns a list of cache functions to clear on refresh"""
-    return [
-        get_data_from_sheet,
-        get_usd_try,
-        get_tickers_data,
-        _fetch_batch_prices_bist_abd,
-        _fetch_batch_prices_crypto,
-        _fetch_batch_prices_emtia,
-    ]
 
 def _translate_sector(sector_en):
     """İngilizce sektör isimlerini Türkçe'ye çevirir"""
@@ -1620,11 +1616,6 @@ if selected == "Dashboard":
         
         # ⚠️ ANORMAL GÜNLÜK K/Z UYARISI (Güvenlik Önlemi)
         # Eğer günlük K/Z portföyün %15'inden fazla düşüş gösteriyorsa uyar
-        # Hafta sonu kontrolü: Hafta sonunda daha esnek ol (fon verileri Cuma gününden olabilir)
-        today = datetime.now().date()
-        is_weekend = today.weekday() >= 5  # Cumartesi=5, Pazar=6
-        weekend_threshold = -25 if is_weekend else -15  # Hafta sonunda %25, hafta içi %15
-        
         if daily_base_prices is not None and not daily_base_prices.empty:
             daily_pnl_check = 0.0
             for _, row in spot_only.iterrows():
@@ -1642,11 +1633,11 @@ if selected == "Dashboard":
                         base_value = base_price * adet * (1 if base_pb == "USD" else 1/USD_TRY)
                     daily_pnl_check += (current_value - base_value)
             
-            # Portföy değerinin threshold'dan fazla düşüş varsa uyar
+            # Portföy değerinin %15'inden fazla düşüş varsa uyar
             portfolio_value = spot_only["Değer"].sum()
             if portfolio_value > 0:
                 daily_pct_check = (daily_pnl_check / portfolio_value) * 100
-                if daily_pct_check < weekend_threshold:
+                if daily_pct_check < -15:
                     st.warning(f"""
                     ⚠️ **ANORMAL GÜNLÜK DEĞİŞİM TESPİT EDİLDİ**
                     
@@ -1656,14 +1647,11 @@ if selected == "Dashboard":
                     - 🔄 Baz fiyatlar (00:30'da kaydedilen) hatalı olabilir
                     - 📉 Piyasada gerçekten büyük düşüş yaşanmış olabilir
                     - 💱 Para birimi dönüşümlerinde sorun olabilir
-                    - 📅 **Hafta sonu durumu**: Eğer hafta sonundaysanız, fon verileri Cuma gününden olabilir ve bu normaldir
-                    - 📊 **Fon verileri**: TEFAS'tan fon fiyatları alınamamış olabilir (cache'i temizlemeyi deneyin)
                     
                     **Önerilen İşlemler:**
-                    1. Portföy sayfasını yenileyin (F5) - Bu TEFAS cache'ini temizler
+                    1. Portföy sayfasını yenileyin (F5)
                     2. Birkaç dakika sonra tekrar kontrol edin
                     3. Sorun devam ederse, Google Sheets'teki `daily_base_prices` sayfasını kontrol edin
-                    4. Hafta sonundaysanız, bu uyarı normal olabilir (fon verileri Cuma gününden)
                     """, icon="⚠️")
 
         # INFO BAR (Toplam Varlık + Günlük K/Z + Haftalık/Aylık/YTD + Sparkline)
