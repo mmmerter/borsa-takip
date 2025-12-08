@@ -371,9 +371,12 @@ def _retry_with_backoff(func, max_retries=3, initial_delay=1.0, max_delay=60.0, 
             # 429 error (quota exceeded) - use longer backoff
             if error_code == 429 or '429' in str(e) or 'Quota exceeded' in str(e) or 'quota' in str(e).lower():
                 if attempt < max_retries - 1:
-                    delay = min(initial_delay * (backoff_factor ** attempt), max_delay)
+                    # 429 hatası için minimum 60 saniye bekle (quota per minute)
+                    # Exponential backoff ile artır ama minimum 60 saniye
+                    base_delay = max(60.0, initial_delay * (backoff_factor ** attempt))
+                    delay = min(base_delay, max_delay)
                     st.warning(
-                        f"⏳ Google Sheets API quota aşıldı. {delay:.0f} saniye bekleniyor... (Deneme {attempt + 1}/{max_retries})"
+                        f"⏳ Google Sheets API quota aşıldı. {delay:.0f} saniye bekleniyor... (Deneme {attempt + 1}/{max_retries}, quota per minute limiti nedeniyle)"
                     )
                     time.sleep(delay)
                     continue
@@ -472,7 +475,7 @@ def load_profiles_from_sheets(force_reload=False) -> Dict[str, Dict]:
     
     try:
         # Get profiles sheet with retry mechanism
-        ws = _retry_with_backoff(_get_profiles_sheet, max_retries=2, initial_delay=2.0, max_delay=30.0)
+        ws = _retry_with_backoff(_get_profiles_sheet, max_retries=2, initial_delay=60.0, max_delay=120.0)
         if ws is None:
             # Return cached or default profiles
             if _profiles_cache is not None:
@@ -483,7 +486,8 @@ def load_profiles_from_sheets(force_reload=False) -> Dict[str, Dict]:
         def _fetch_profile_data():
             return ws.get_all_records()
         
-        data = _retry_with_backoff(_fetch_profile_data, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        data = _retry_with_backoff(_fetch_profile_data, max_retries=3, initial_delay=60.0, max_delay=120.0)
         
         profiles = {}
         profile_order = []
@@ -583,7 +587,8 @@ def save_profile_to_sheets(profile_data: Dict) -> bool:
             return True
         
         # Use retry mechanism for saving
-        result = _retry_with_backoff(_fetch_and_save, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        result = _retry_with_backoff(_fetch_and_save, max_retries=3, initial_delay=60.0, max_delay=120.0)
         
         # Clear cache and force reload
         clear_profiles_cache()
@@ -612,7 +617,8 @@ def delete_profile_from_sheets(profile_name: str) -> bool:
             return False
         
         # Use retry mechanism for deletion
-        result = _retry_with_backoff(_fetch_and_delete, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        result = _retry_with_backoff(_fetch_and_delete, max_retries=3, initial_delay=60.0, max_delay=120.0)
         
         if result:
             # Clear cache and force reload
