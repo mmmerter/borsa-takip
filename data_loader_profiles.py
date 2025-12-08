@@ -42,7 +42,7 @@ def _find_worksheet_flexible(spreadsheet, possible_names):
         try:
             def _get_worksheet():
                 return spreadsheet.worksheet(name)
-            ws = _retry_with_backoff(_get_worksheet, max_retries=2, initial_delay=0.5, max_delay=10.0)
+            ws = _retry_with_backoff(_get_worksheet, max_retries=2, initial_delay=60.0, max_delay=120.0)
             if ws:
                 return ws, name
         except:
@@ -76,7 +76,7 @@ def _get_profile_sheet(sheet_type="main", profile_name=None):
         def _open_spreadsheet():
             return client.open(SHEET_NAME)
         
-        spreadsheet = _retry_with_backoff(_open_spreadsheet, max_retries=2, initial_delay=1.0, max_delay=30.0)
+        spreadsheet = _retry_with_backoff(_open_spreadsheet, max_retries=2, initial_delay=60.0, max_delay=120.0)
         if spreadsheet is None:
             return None
         
@@ -100,7 +100,7 @@ def _get_profile_sheet(sheet_type="main", profile_name=None):
                             ws.append_row(headers)
                             return ws
                         
-                        worksheet = _retry_with_backoff(_create_annem_worksheet, max_retries=2, initial_delay=1.0, max_delay=30.0)
+                        worksheet = _retry_with_backoff(_create_annem_worksheet, max_retries=2, initial_delay=60.0, max_delay=120.0)
                         if worksheet:
                             st.success("✅ 'annem' worksheet'i otomatik oluşturuldu. Artık ANNEM profiline varlık ekleyebilirsiniz!")
                     except Exception as e:
@@ -190,7 +190,7 @@ def _get_profile_sheet(sheet_type="main", profile_name=None):
                         worksheet.append_row(headers)
                     return worksheet
             
-            worksheet = _retry_with_backoff(_get_or_create_worksheet, max_retries=2, initial_delay=1.0, max_delay=30.0)
+            worksheet = _retry_with_backoff(_get_or_create_worksheet, max_retries=2, initial_delay=60.0, max_delay=120.0)
         
         return worksheet
     except Exception as e:
@@ -230,7 +230,8 @@ def get_data_from_sheet_profile(profile_name=None):
         def _fetch_profile_data():
             return worksheet.get_all_records()
         
-        data = _retry_with_backoff(_fetch_profile_data, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        data = _retry_with_backoff(_fetch_profile_data, max_retries=3, initial_delay=60.0, max_delay=120.0)
         if not data:
             return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
         
@@ -326,8 +327,8 @@ def save_data_to_sheet_profile(df, profile_name=None):
                 spreadsheet = _retry_with_backoff(
                     lambda: client.open(SHEET_NAME),
                     max_retries=2,
-                    initial_delay=1.0,
-                    max_delay=30.0
+                    initial_delay=60.0,
+                    max_delay=120.0
                 )
                 if spreadsheet is None:
                     return None
@@ -356,7 +357,7 @@ def save_data_to_sheet_profile(df, profile_name=None):
                         return worksheet
             return worksheet
         
-        worksheet = _retry_with_backoff(_get_or_create_worksheet, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        worksheet = _retry_with_backoff(_get_or_create_worksheet, max_retries=3, initial_delay=60.0, max_delay=120.0)
         
         if worksheet is None:
             error_msg = f"⚠️ {profile_name} profili için worksheet bulunamadı ve oluşturulamadı. Lütfen Google Sheets'te '{profile_name.lower()}' adlı bir worksheet oluşturun."
@@ -383,7 +384,7 @@ def save_data_to_sheet_profile(df, profile_name=None):
                 # Empty dataframe - just set headers
                 worksheet.update([required_cols], range_name="A1:F1")
         
-        _retry_with_backoff(_save_data, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        _retry_with_backoff(_save_data, max_retries=3, initial_delay=60.0, max_delay=120.0)
         
         # Clear cache for this specific profile
         # Cache key includes profile_name, so we need to clear it explicitly
@@ -437,7 +438,8 @@ def get_sales_history_profile(profile_name=None):
         def _fetch_sales():
             return worksheet.get_all_records()
         
-        data = _retry_with_backoff(_fetch_sales, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        data = _retry_with_backoff(_fetch_sales, max_retries=3, initial_delay=60.0, max_delay=120.0)
         return pd.DataFrame(data) if data else pd.DataFrame(columns=["Tarih", "Kod", "Pazar", "Satılan Adet", "Satış Fiyatı", "Maliyet", "Kâr/Zarar"])
     except Exception as e:
         logger.error(f"Satış geçmişi okuma hatası ({profile_name}): {str(e)}", exc_info=True)
@@ -575,7 +577,8 @@ def read_portfolio_history_profile(profile_name=None):
                     logger.error(f"Veri okuma başarısız: {str(e2)}")
                     return []
         
-        data = _retry_with_backoff(_fetch_history, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        data = _retry_with_backoff(_fetch_history, max_retries=3, initial_delay=60.0, max_delay=120.0)
         if not data:
             return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
         
@@ -837,7 +840,8 @@ def read_history_market_profile(market_type, profile_name=None):
                     logger.error(f"Veri okuma başarısız: {str(e2)}")
                     return []
         
-        data = _retry_with_backoff(_fetch_market_history, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        data = _retry_with_backoff(_fetch_market_history, max_retries=3, initial_delay=60.0, max_delay=120.0)
         if not data:
             return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
         

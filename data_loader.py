@@ -33,7 +33,11 @@ _client_cache = None
 
 # Rate limiting için son istek zamanı
 _last_request_time = 0
-_min_request_interval = 0.1  # İstekler arası minimum bekleme (100ms)
+_min_request_interval = 1.0  # İstekler arası minimum bekleme (1 saniye - Google Sheets API limiti: 60 req/min)
+
+# Per-minute request tracking for quota management
+_request_times = []  # Son 60 saniyedeki istek zamanları
+_max_requests_per_minute = 50  # Güvenli limit (60'ın altında tutuyoruz)
 
 logger = get_logger()
 
@@ -71,14 +75,38 @@ def _normalize_tip_value(value: str) -> str:
 
 
 def _rate_limit():
-    """Rate limiting: İstekler arasında minimum bekleme süresi."""
-    global _last_request_time
+    """
+    Rate limiting: İstekler arasında minimum bekleme süresi ve per-minute quota yönetimi.
+    Google Sheets API limiti: 60 requests per minute per user.
+    """
+    global _last_request_time, _request_times
     current_time = time.time()
+    
+    # Son 60 saniyedeki istekleri temizle
+    _request_times = [t for t in _request_times if current_time - t < 60]
+    
+    # Per-minute quota kontrolü
+    if len(_request_times) >= _max_requests_per_minute:
+        # Quota limitine yaklaştık, en eski istekten bu yana geçen süreyi bekle
+        oldest_request = min(_request_times)
+        wait_time = 60 - (current_time - oldest_request) + 1  # +1 güvenlik marjı
+        if wait_time > 0:
+            logger.debug(f"Rate limit: {len(_request_times)}/{_max_requests_per_minute} istek kullanıldı. {wait_time:.1f} saniye bekleniyor...")
+            time.sleep(wait_time)
+            current_time = time.time()
+            # Bekleme sonrası tekrar temizle
+            _request_times = [t for t in _request_times if current_time - t < 60]
+    
+    # Minimum interval kontrolü
     elapsed = current_time - _last_request_time
     if elapsed < _min_request_interval:
         sleep_time = _min_request_interval - elapsed
         time.sleep(sleep_time)
-    _last_request_time = time.time()
+        current_time = time.time()
+    
+    # İsteği kaydet
+    _last_request_time = current_time
+    _request_times.append(current_time)
 
 
 def _retry_with_backoff(func, max_retries=3, initial_delay=1.0, max_delay=60.0, backoff_factor=2.0):
@@ -122,11 +150,18 @@ def _retry_with_backoff(func, max_retries=3, initial_delay=1.0, max_delay=60.0, 
             # 429 hatası (quota exceeded) için özel işlem
             if error_code == 429 or '429' in str(e) or 'Quota exceeded' in str(e) or 'quota' in str(e).lower():
                 if attempt < max_retries - 1:
-                    # Exponential backoff hesapla
-                    delay = min(initial_delay * (backoff_factor ** attempt), max_delay)
+                    # 429 hatası için minimum 60 saniye bekle (quota per minute)
+                    # Exponential backoff ile artır ama minimum 60 saniye
+                    base_delay = max(60.0, initial_delay * (backoff_factor ** attempt))
+                    delay = min(base_delay, max_delay)
+                    
+                    # Request times'i temizle (quota reset olacak)
+                    global _request_times
+                    _request_times = []
+                    
                     logger.warning(
                         f"Google Sheets API quota aşıldı (deneme {attempt + 1}/{max_retries}). "
-                        f"{delay:.1f} saniye bekleniyor..."
+                        f"{delay:.1f} saniye bekleniyor (quota per minute limiti nedeniyle)..."
                     )
                     time.sleep(delay)
                     continue
@@ -192,7 +227,8 @@ def get_data_from_sheet():
             sheet = client.open(SHEET_NAME).sheet1
             return sheet.get_all_records()
         
-        data = _retry_with_backoff(_fetch_data, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        data = _retry_with_backoff(_fetch_data, max_retries=3, initial_delay=60.0, max_delay=120.0)
         
         if not data: 
             return pd.DataFrame(columns=["Kod", "Pazar", "Adet", "Maliyet", "Tip", "Notlar"])
@@ -244,7 +280,8 @@ def get_sales_history():
             sheet = client.open(SHEET_NAME).worksheet("Satislar")
             return sheet.get_all_records()
         
-        data = _retry_with_backoff(_fetch_sales, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        data = _retry_with_backoff(_fetch_sales, max_retries=3, initial_delay=60.0, max_delay=120.0)
         return pd.DataFrame(data) if data else pd.DataFrame(columns=["Tarih", "Kod", "Pazar", "Satılan Adet", "Satış Fiyatı", "Maliyet", "Kâr/Zarar"])
     except Exception as e:
         logger.error(f"Satış geçmişi okuma hatası: {str(e)}", exc_info=True)
@@ -838,7 +875,7 @@ def _get_history_sheet():
         # Ana sheet ile aynı dosyada "portfolio_history" isimli sayfa:
         def _open_sheet():
             return client.open(SHEET_NAME).worksheet("portfolio_history")
-        sheet = _retry_with_backoff(_open_sheet, max_retries=2, initial_delay=1.0, max_delay=30.0)
+        sheet = _retry_with_backoff(_open_sheet, max_retries=2, initial_delay=60.0, max_delay=120.0)
         return sheet
     except Exception:
         return None
@@ -857,7 +894,8 @@ def read_portfolio_history():
         def _fetch_history():
             return sheet.get_all_records()
         
-        data = _retry_with_backoff(_fetch_history, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        data = _retry_with_backoff(_fetch_history, max_retries=3, initial_delay=60.0, max_delay=120.0)
         if not data:
             return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
         df = pd.DataFrame(data)
@@ -1091,7 +1129,7 @@ def _get_market_history_sheet(ws_name: str):
             return None
         def _open_market_sheet():
             return client.open(SHEET_NAME).worksheet(ws_name)
-        sheet = _retry_with_backoff(_open_market_sheet, max_retries=2, initial_delay=1.0, max_delay=30.0)
+        sheet = _retry_with_backoff(_open_market_sheet, max_retries=2, initial_delay=60.0, max_delay=120.0)
         return sheet
     except Exception:
         return None
@@ -1106,7 +1144,8 @@ def _read_market_history(ws_name: str):
         def _fetch_market_history():
             return sheet.get_all_records()
         
-        data = _retry_with_backoff(_fetch_market_history, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        data = _retry_with_backoff(_fetch_market_history, max_retries=3, initial_delay=60.0, max_delay=120.0)
         if not data:
             return pd.DataFrame(columns=["Tarih", "Değer_TRY", "Değer_USD"])
         df = pd.DataFrame(data)
@@ -1207,7 +1246,7 @@ def _get_daily_base_sheet():
                 sheet.append_row(["Tarih", "Saat", "Kod", "Fiyat", "PB"])
                 return sheet
         
-        sheet = _retry_with_backoff(_open_daily_base, max_retries=2, initial_delay=1.0, max_delay=30.0)
+        sheet = _retry_with_backoff(_open_daily_base, max_retries=2, initial_delay=60.0, max_delay=120.0)
         return sheet
     except Exception:
         return None
@@ -1245,7 +1284,8 @@ def get_daily_base_prices():
         def _fetch_daily_base():
             return sheet.get_all_records()
         
-        data = _retry_with_backoff(_fetch_daily_base, max_retries=3, initial_delay=2.0, max_delay=60.0)
+        # 429 hataları için daha uzun bekleme (quota per minute)
+        data = _retry_with_backoff(_fetch_daily_base, max_retries=3, initial_delay=60.0, max_delay=120.0)
         if not data:
             return pd.DataFrame(columns=["Kod", "Fiyat", "PB"])
         
