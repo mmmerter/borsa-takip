@@ -237,13 +237,20 @@ def render_profile_selector():
             st.cache_data.clear()
             st.rerun()
         
-        new_value = st.checkbox(
-            "Bergüzar profilini dahil et",
-            value=include_berguzar,
-            key="total_include_berguzar",
-            help="Bergüzar profilini TOTAL hesaplamalarına dahil edip etmeyeceğinizi seçin",
-            on_change=on_berguzar_change
-        )
+        # Daha belirgin bir checkbox için container kullan
+        with st.container():
+            st.markdown("---")
+            st.markdown("### 👸 Bergüzar Profili Ayarları")
+            new_value = st.checkbox(
+                "✅ Bergüzar profilini TOPLAM hesaplamalarına dahil et",
+                value=include_berguzar,
+                key="total_include_berguzar",
+                help="Bu seçeneği kapatırsanız, Bergüzar profili TOPLAM hesaplamalarına dahil edilmez. Tüm grafikler, tablolar ve metrikler bu ayara göre güncellenir.",
+                on_change=on_berguzar_change
+            )
+            if not new_value:
+                st.warning("⚠️ Bergüzar profili şu anda TOPLAM hesaplamalarına dahil edilmiyor.")
+            st.markdown("---")
     else:
         st.caption(f"📌 Aktif profil: **{profile_icon} {config['display_name'].replace(profile_icon, '').strip()}**")
     
